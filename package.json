@@ -1,0 +1,33 @@
+{
+  "name": "daily-racing",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "test": "vitest run --config vitest.config.ts",
+    "gen:tokens": "node guardrails/scripts/gen-tokens.ts",
+    "check:tokens": "node guardrails/scripts/gen-tokens.ts --check"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "@types/pngjs": "6.0.5",
+    "@types/three": "0.186.0",
+    "happy-dom": "21.0.4",
+    "pixelmatch": "8.0.0",
+    "pngjs": "7.0.0",
+    "three": "0.186.1",
+    "typescript": "6.0.3",
+    "vite": "8.3.5",
+    "vite-plugin-pwa": "2.0.0",
+    "vitest": "5.0.5"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "$comment": "GENERATED from guardrails/design/tokens.json by guardrails/scripts/gen-tokens.ts. Do not edit.",
+  "order": [
+    "cream",
+    "dirt",
+    "dark-dirt",
+    "grass",
+    "deep-green",
+    "teal",
+    "rally-red",
+    "mustard",
+    "navy",
+    "ink"
+  ],
+  "hex": {
+    "cream": "#F2E6C9",
+    "dirt": "#C08A4F",
+    "dark-dirt": "#8A5A32",
+    "grass": "#6E8B3D",
+    "deep-green": "#3F5A2A",
+    "teal": "#3E8A8C",
+    "rally-red": "#D64933",
+    "mustard": "#E3A72F",
+    "navy": "#24324A",
+    "ink": "#1B1A1F"
+  },
+  "ladder": {
+    "cream": "dirt",
+    "dirt": "dark-dirt",
+    "dark-dirt": "ink",
+    "grass": "deep-green",
+    "deep-green": "ink",
+    "teal": "deep-green",
+    "rally-red": "dark-dirt",
+    "mustard": "dirt",
+    "navy": "ink",
+    "ink": "ink"
+  }
+}

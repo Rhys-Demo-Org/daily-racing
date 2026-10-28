@@ -1,0 +1,27 @@
+/* Base page styles. Tokens only: every value comes from guardrails/generated/tokens.css. */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--color-navy);
+  color: var(--color-cream);
+  font-family: var(--font-text);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+.placeholder-title {
+  margin: 0;
+  padding: var(--space-s5) var(--safe-left);
+  font-family: var(--type-display-font);
+  font-size: var(--type-display-size);
+  font-weight: var(--type-display-weight);
+  font-style: var(--type-display-style);
+  text-transform: uppercase;
+}

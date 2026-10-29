@@ -7,15 +7,19 @@ Everything lives under `~/.daily-racer` (`DAILY_HOME` in `harness/config.env`):
 
 | Path | What |
 |---|---|
-| `harness/` | checkout of `main` that the timer runs (you update it; the harness never does) |
+| `harness/` | checkout of `main` that the timer runs; every harness script comes from here (you update it; the harness never does) |
 | `repo/` | the harness's own work clone; nightly branches `daily/<date>` live here, never pushed |
-| `runs/<date>/` | that night's logs: `run.log`, `meta.json`, `spec.md`, `phases/`, `gates-<n>.json`, `result.json` |
+| `runs/<date>/` | that night's logs: `run.log`, `meta.json`, `spec.md`, `phases/`, `gates-<n>.json`, `result.json`, `builder/` (the builder's own journal files) |
+| `work/` | per-night prompts and gate scratch space |
+| `cache/` | `install-<hash>/`: the one `node_modules` per lockfile + image, mounted read-only by agents and gates; `g1main-*.json`: main's test count. Pruned after 14 days unused |
 | `oauth-token` | Claude token (mode 600) |
 | `dry-runs.json` | ledger of backlog items already tried, so each night tries a different one |
+| `daily.lock` | held by the running night, so two never overlap |
 | `STOP` | kill switch |
 
 ## 1. Prerequisites
-Your user must be in the `docker` group (`sudo usermod -aG docker $USER`, then log in again).
+Your user must be in the `docker` group (`sudo usermod -aG docker $USER`, then log in again), and
+the host needs `git`, `jq` and `flock`. Node and pnpm only ever run in the container.
 
 ```sh
 git clone https://github.com/Rhys-Demo-Org/daily-racing.git ~/.daily-racer/harness
@@ -27,7 +31,7 @@ After merging a harness change: `git -C ~/.daily-racer/harness pull --ff-only` (
 
 ## 2. Claude token
 ```sh
-docker run --rm -it daily-racer-toolchain:$(sha256sum harness/container/Dockerfile | cut -c1-12) claude setup-token
+harness/scripts/in-container.sh --net -- claude setup-token
 install -m 600 /dev/null ~/.daily-racer/oauth-token
 nano ~/.daily-racer/oauth-token     # paste the token, save
 ```
@@ -67,3 +71,15 @@ Logs: `journalctl -u daily-racer` plus `~/.daily-racer/runs/<date>/run.log`.
 - A `harness/STOP` file on `main` stops every run.
 - Stop the current run: `sudo systemctl stop daily-racer`. Disable nightly runs:
   `sudo systemctl disable --now daily-racer.timer`.
+
+## Known residuals
+What the thin harness does not stop yet (Later in the plan):
+- **Gate measurements run branch code.** G2 and G3 use the branch's own sim, so a branch can fake
+  its own lap and replay numbers; the per-run nonce only blocks naive forgery of the measure
+  output (say, a line printed from `process.on('exit')`). Likewise in G1 a test process that
+  escapes its process group could race Vitest's report, and branch code imported by tests can
+  neuter them. The judge and your review are the backstop.
+- **The proxy checks the CONNECT host, not the TLS SNI**, then tunnels raw TCP to the address it
+  resolved for that host.
+- **Token redaction covers the exact token** (raw or JSON-escaped) in the tree and the run folder
+  before each commit; an encoded or split copy would survive. Dry runs push nothing.

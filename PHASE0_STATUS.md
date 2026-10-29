@@ -129,7 +129,9 @@ content 3), build, end-to-end in Chromium at 844×390 (touch) and 1440×900 with
 
 **Checkpoint: owner re-approves the reference frames.** M2 review fixes and M3 changed the look
 (props show base outlines now that the grass mesh is gone; the bot car is in shot). New candidates
-from the same ticks are attached to the M3 PR conversation; the approved files are unchanged until then.
+(turn tick 1100; ramp tick 450, because the car now reaches full pitch just before the lip there,
+while tick 442 is the foot of the slope) were sent to the owner with the M3 PR; the approved files
+are unchanged until then.
 
 ## Next step
 After M3 is merged: **M4-thin · Thin harness + nightly dry runs** (G1, G2, G3, G8).

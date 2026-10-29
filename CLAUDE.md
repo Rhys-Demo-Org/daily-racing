@@ -33,6 +33,8 @@ on Sundays (maintenance). Everything else is protected and only the owner change
   between the last two ticks, and the UI receives view models (`src/ui/types.ts`), never the sim.
 - `src/sim/types.ts` is the contract between layers; import the sim only via `src/sim/index.ts`.
 - The sim computes all track geometry (`trackLayout`); render only draws it.
+- Opponents are bots (`src/sim/bot.ts`): each returns the same `CarInput` as the player every tick,
+  so a race is reproducible from the seed and the player's inputs alone.
 - Opponents are `createBot(world, i)` (`src/sim/bot.ts`): they emit the same `CarInput` as the player,
   so the bot also drives the gates' bot laps. `validateTrack` rejects tracks the bot can't race
   (ramps steeper than `MAX_RAMP_SLOPE`, no straight run-out after a lip).
@@ -70,7 +72,9 @@ spikes           Phase 0 throwaway experiments (deleted at handover)
   replays never change.
 - **Registration by file convention:** tracks, cars and screens register by being in their folder
   (`import.meta.glob`), never via a hand-edited index. Every file in a content folder must be
-  registered. Tracks are JSON data.
+  registered. Tracks are JSON data and must pass `validateTrack` (`src/sim/track.ts`: e.g. ramp
+  slope ≤ `MAX_RAMP_SLOPE`, 25 units of straight track after a lip); bots must finish every
+  registered track (`tests/sim/bot.test.ts`).
 - **Fonts:** self-hosted woff2 in `public/fonts/` (`fonts.css`), Barlow Condensed 800/900/900i and
   Atkinson Hyperlegible 400/700, Latin + Latin Extended only.
 

@@ -2,6 +2,8 @@
 
 A browser arcade racer that an AI builds one feature a day.
 
+**Play it now: [daily-racing.pages.dev](https://daily-racing.pages.dev)** (best on a phone, in landscape).
+
 Short dirt-track races with chunky toy cars, drifts, jumps, hay bales and tyre stacks, seen from a
 fixed tabletop camera. Mobile-first, installable as a PWA. The look is a 70s rally toy diorama:
 ten colours, low-poly meshes built in code, toon shading, ink outlines, no textures.
@@ -36,7 +38,10 @@ a pinned container with no network except the Anthropic API.
 Full spec: [`HANDOVER.md`](HANDOVER.md). Plan and deviations: [`plans/phase0-plan.md`](plans/phase0-plan.md).
 Progress: [`PHASE0_STATUS.md`](PHASE0_STATUS.md).
 
-## Play it
+Every merge to `main` deploys to Cloudflare Pages ([`deploy.yml`](.github/workflows/deploy.yml)); pull
+requests from this repo get a preview link.
+
+## Run it locally
 
 Needs Node 24 and pnpm (via Corepack).
 

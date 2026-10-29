@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
-import { HIT_SLOP, createInput, createTouchInput, hitTest, type TouchControlId, type TouchZone } from '../../src/input/index.ts';
+import { describe, expect, it, vi } from 'vitest';
+import { createInput } from '../../src/input/index.ts';
+import { createTouchInput, hitTest, type TouchControlId, type TouchZone } from '../../src/input/touch.ts';
 
 // The S1–S2 layout at 844×390: pads 84×80 at bottom-left, gas ⌀100 and brake ⌀72 bottom-right.
 const ZONES: TouchZone[] = [
@@ -26,10 +27,6 @@ function setup() {
 }
 
 describe('hit slop (12px beyond each drawn shape)', () => {
-  it('is 12px', () => {
-    expect(HIT_SLOP).toBe(12);
-  });
-
   it('a touch 11px outside a pad hits, 13px misses', () => {
     // Left of the left pad, vertically centred.
     expect(hitTest(ZONES, 48 - 11, 329)).toBe('left');
@@ -122,5 +119,29 @@ describe('multi-touch', () => {
     expect(input.read()).toEqual({ steer: 0, throttle: true, brake: false });
     expect(presses).toEqual(['left', 'gas']);
     input.destroy();
+  });
+});
+
+describe('destroy()', () => {
+  it('touch input stops listening and releases what it held', () => {
+    const { target, touch, log } = setup();
+    ptr(target, 'pointerdown', 1, 746, 319);
+    touch.destroy();
+    ptr(target, 'pointerdown', 2, 90, 329);
+    expect(touch.state()).toEqual({ left: false, right: false, gas: false, brake: false });
+    expect(log).toEqual(['+gas', '-gas']);
+  });
+
+  it('createInput stops listening to keys, pointers and window blur', () => {
+    const keys = new EventTarget();
+    const pointers = new EventTarget();
+    const input = createInput({ keyTarget: keys, pointerTarget: pointers, touchZones: () => ZONES });
+    const removed = vi.spyOn(window, 'removeEventListener');
+    input.destroy();
+    keys.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowUp' }));
+    ptr(pointers, 'pointerdown', 1, 90, 329);
+    expect(input.read()).toEqual({ steer: 0, throttle: false, brake: false });
+    expect(removed).toHaveBeenCalledWith('blur', expect.any(Function));
+    removed.mockRestore();
   });
 });

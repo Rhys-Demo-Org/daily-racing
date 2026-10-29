@@ -20,9 +20,8 @@ export interface TouchStateMachine extends TouchListener {
   /** Race start or resume: every control becomes active. */
   wake(): void;
   state(id: TouchControlId): TouchVisual;
-  states(): Record<TouchControlId, TouchVisual>;
-  /** Clock time of the next active → resting change, or null if nothing will change on its own. */
-  nextChangeAt(): number | null;
+  /** Ms until the next active → resting change, or null if nothing will change on its own. */
+  nextChangeIn(): number | null;
   /** Called after press, release and wake. Returns an unsubscribe function. */
   subscribe(fn: () => void): () => void;
 }
@@ -59,13 +58,12 @@ export function createTouchStateMachine(opts: TouchStateOptions = {}): TouchStat
       notify();
     },
     state,
-    states: () => ({ left: state('left'), right: state('right'), gas: state('gas'), brake: state('brake') }),
-    nextChangeAt() {
+    nextChangeIn() {
       let next: number | null = null;
       for (const id of TOUCH_CONTROL_IDS) {
         if (state(id) !== 'active') continue;
-        const at = lastActive[id] + restAfter;
-        if (next === null || at < next) next = at;
+        const ms = lastActive[id] + restAfter - now();
+        if (next === null || ms < next) next = ms;
       }
       return next;
     },

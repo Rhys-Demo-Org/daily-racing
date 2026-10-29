@@ -43,6 +43,11 @@
   border: var(--outline-default) solid var(--color-ink);
   border-radius: var(--radius-rect);
   box-shadow: var(--shadow-button);
+  /* Button type (BRAKE: mockup 18px is off-scale); buttons don't inherit fonts. */
+  font-family: var(--type-button-font);
+  font-size: var(--type-button-size);
+  font-weight: var(--type-button-weight);
+  font-style: var(--type-button-style);
   line-height: 1;
   text-transform: uppercase;
   pointer-events: none;
@@ -66,21 +71,15 @@
   border-radius: var(--radius-round);
   color: var(--color-cream);
 }
-/* GAS: mockup 30px italic 900 is off-scale: title (32px italic 900). */
+/* GAS: mockup 30px italic 900 is off-scale: title (32px italic 900, same display family). */
 .ui-tc--gas {
   background: var(--color-rally-red);
-  font-family: var(--type-title-font);
   font-size: var(--type-title-size);
   font-weight: var(--type-title-weight);
   font-style: var(--type-title-style);
 }
-/* BRAKE: mockup 18px is off-scale: button size (22px, 800). */
 .ui-tc--brake {
   background: var(--color-navy);
-  font-family: var(--type-button-font);
-  font-size: var(--type-button-size);
-  font-weight: var(--type-button-weight);
-  font-style: var(--type-button-style);
 }
 
 /* Pressed: mustard, sink 3px onto a 1px shadow (60ms). */
@@ -121,9 +120,15 @@
   }
 }
 
-/* Reduced motion: keep the press sink, cut the wake pop and the rest retract. */
+/* Reduced motion: keep the press sink, cut the wake pop, and rest at once (retracting = resting). */
 @media (prefers-reduced-motion: reduce) {
   .ui-tc.is-waking {
     animation: none;
+  }
+  .ui-tc.is-retracting {
+    background: none;
+    color: var(--color-ink);
+    box-shadow: none;
+    transition: none;
   }
 }

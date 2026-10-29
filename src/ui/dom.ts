@@ -2,14 +2,16 @@
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-/** Creates an HTML element with an optional class list and children. */
+/** Creates an HTML element with an optional class list, children and attributes. */
 export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className = '',
   children: (Node | string)[] = [],
+  attrs: Record<string, string> = {},
 ): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
   if (className) el.className = className;
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
   el.append(...children);
   return el;
 }
@@ -26,12 +28,31 @@ export function s<K extends keyof SVGElementTagNameMap>(
   return el;
 }
 
-/** Sets text only when it changed, so per-frame updates don't touch the DOM. */
-export function setText(el: Element, text: string): void {
-  if (el.textContent !== text) el.textContent = text;
+/** A UI button (never a form submit) that calls onClick. */
+export function button(className: string, children: (Node | string)[], onClick: () => void): HTMLButtonElement {
+  const b = h('button', `ui-button ${className}`, children, { type: 'button' });
+  b.addEventListener('click', onClick);
+  return b;
 }
 
-/** True when the user asked for reduced motion (a user preference, not environment sniffing). */
-export function prefersReducedMotion(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+export interface Overlay {
+  readonly element: HTMLElement;
+  show(): void;
+  hide(): void;
+}
+
+/** A full-screen menu layer, hidden until show(), which focuses its main button. */
+export function overlay(root: HTMLElement, className: string, children: Node[], focus: HTMLElement): Overlay {
+  const element = h('div', `ui-layer ui-screen ${className}`, children, { hidden: '' });
+  root.append(element);
+  return {
+    element,
+    show() {
+      element.hidden = false;
+      focus.focus({ preventScroll: true });
+    },
+    hide() {
+      element.hidden = true;
+    },
+  };
 }

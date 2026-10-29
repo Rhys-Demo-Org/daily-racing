@@ -19,8 +19,3 @@ export function formatTime(ms: number): string {
 export function formatOptionalTime(ms: number | null): string {
   return ms === null ? NO_TIME : formatTime(ms);
 }
-
-/** Race position as "x/n", e.g. "2/6". */
-export function formatPosition(position: number, carCount: number): string {
-  return `${position}/${carCount}`;
-}

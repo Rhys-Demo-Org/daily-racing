@@ -4,7 +4,7 @@
 import { tokens } from '@tokens';
 import './components.css';
 import './screens.css';
-import { h, s, setText } from './dom.ts';
+import { button, h, overlay, s, type Overlay } from './dom.ts';
 import { formatOptionalTime, formatTime } from './format.ts';
 import { icon } from './icons.ts';
 
@@ -19,11 +19,8 @@ export interface FinishResult {
   bestLapMs: number | null;
 }
 
-export interface FinishPanel {
-  readonly element: HTMLElement;
+export interface FinishPanel extends Omit<Overlay, 'show'> {
   show(result: FinishResult): void;
-  hide(): void;
-  destroy(): void;
 }
 
 let hatchIds = 0;
@@ -43,39 +40,30 @@ function hatch(): SVGSVGElement {
 }
 
 export function createFinishPanel(root: HTMLElement, opts: FinishPanelOptions): FinishPanel {
-  const time = h('span', 'ui-finish__value');
-  const best = h('span', 'ui-finish__value');
-  const again = h('button', 'ui-button ui-button--primary ui-finish__again', [icon('restart'), 'Race again']);
-  again.type = 'button';
-  again.addEventListener('click', () => opts.onRaceAgain());
-
-  const card = h('div', 'ui-finish__card', [
-    h('h2', 'ui-finish__title', ['Finished']),
-    h('div', 'ui-finish__stats', [
-      h('div', 'ui-finish__stat', [h('span', 'ui-label', ['Time']), time]),
-      h('div', 'ui-panel ui-panel--mustard ui-finish__best', [h('span', 'ui-label', ['Best lap']), best]),
-    ]),
-    again,
-  ]);
-  card.setAttribute('role', 'dialog');
-  card.setAttribute('aria-label', 'Finished');
-  const element = h('div', 'ui-layer ui-screen ui-finish', [hatch(), card]);
-  element.hidden = true;
-  root.append(element);
+  const time = h('span', 'ui-value');
+  const best = h('span', 'ui-value');
+  const again = button('ui-button--primary', [icon('restart'), 'Race again'], opts.onRaceAgain);
+  const card = h(
+    'div',
+    'ui-panel ui-panel--navy ui-panel--overlay ui-finish__card',
+    [
+      h('h2', 'ui-display', ['Finished']),
+      h('div', 'ui-finish__stats', [
+        h('div', 'ui-finish__stat', [h('span', 'ui-label', ['Time']), time]),
+        h('div', 'ui-panel ui-panel--mustard ui-finish__stat', [h('span', 'ui-label', ['Best lap']), best]),
+      ]),
+      again,
+    ],
+    { role: 'dialog', 'aria-label': 'Finished' },
+  );
+  const screen = overlay(root, 'ui-finish', [hatch(), card], again);
 
   return {
-    element,
+    ...screen,
     show(result) {
-      setText(time, formatTime(result.timeMs));
-      setText(best, formatOptionalTime(result.bestLapMs));
-      element.hidden = false;
-      again.focus({ preventScroll: true });
-    },
-    hide() {
-      element.hidden = true;
-    },
-    destroy() {
-      element.remove();
+      time.textContent = formatTime(result.timeMs);
+      best.textContent = formatOptionalTime(result.bestLapMs);
+      screen.show();
     },
   };
 }

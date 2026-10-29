@@ -39,8 +39,9 @@ src/input        touch, keyboard, gamepad
 src/driver       window.__racer test driver used by gates (protected)
 tests            Vitest suites (unit, replay, bot-lap); tests/baselines/ is harness-owned
 guardrails       design pack, tokens, palette, budgets, backlog, gates, cheats, manifest (protected)
-harness          daily.sh, config.env, prompts, scripts (protected)
+harness          daily.sh, config.env, prompts, scripts, container/ (protected)
 journal/runs     one folder per nightly run
+spikes           Phase 0 throwaway experiments (deleted at handover)
 ```
 
 ## Conventions
@@ -62,8 +63,10 @@ journal/runs     one folder per nightly run
   Atkinson Hyperlegible 400/700, Latin + Latin Extended only.
 
 ## Commands
-All pnpm/node work runs in the pinned container *(planned, M1.5: `harness/scripts/in-container.sh`)*,
-not on the host's Node.
+All pnpm/node work runs in the pinned container, not on the host's Node. Build the image once with
+`harness/container/build.sh`, install with
+`harness/scripts/in-container.sh --net -- pnpm install --frozen-lockfile --ignore-scripts --store-dir /pnpm-store`,
+then run anything offline with `harness/scripts/in-container.sh -- <command>` (e.g. `-- pnpm test`).
 
 | Command | Does |
 |---|---|

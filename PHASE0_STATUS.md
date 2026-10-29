@@ -159,9 +159,19 @@ every finding fixed. Read `SETUP.md` for how to run it and its "Known residuals"
   (stubbed agent: happy path, retries, usage limit, deadline, STOP, Sunday, spec tamper, planted
   symlinks, token in output, oversized file).
 
-**Checkpoint: owner runs `claude setup-token`** (`SETUP.md`). Then: verify `claude -p` in the sandbox,
-`--max-turns`, whether `--max-budget-usd` is enforced on subscription auth; one manual
-`daily.sh --dry-run --manual` end to end; install the timer; start the dry-run week.
+**Token checkpoint passed (2026-10-29).** Real `claude -p` calls in the sandbox: auth via the proxy
+(only api.anthropic.com seen), `--json-schema` returns `structured_output`, `--max-turns` stops with
+`error_max_turns` (exit 11), and **`--max-budget-usd` is enforced on subscription auth**
+(`error_max_budget_usd`, exit 10, stops the night). Token found in no output file.
+
+**Manual dry run passed (2026-10-29)**, against a scratch origin whose main was this branch:
+- 1st attempt aborted cleanly in 4 s: Claude Code rejects a `$schema` 2020-12 declaration in the spec
+  schema. Fixed, with a test; the abort path journalled and committed correctly.
+- 2nd attempt: B01 pause screen, spec 1m10s, build 5m02s (41 turns), gates passed first time (7 s),
+  $2.38 notional, 8 ACs each with a named test, 10 files / ~550 lines. Looks right by eye at both sizes.
+
+Remaining: merge this PR, put a checkout of `main` at `~/.daily-racer/harness`, install the systemd
+timer (`SETUP.md`), start the dry-run week.
 
 ## Next step
 After M4-thin: host `main` (Cloudflare Pages via a GitHub Action, owner preference pending), then the

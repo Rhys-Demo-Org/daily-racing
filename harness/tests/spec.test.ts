@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -17,6 +17,11 @@ let dir = '';
 afterEach(() => { if (dir) rmSync(dir, { recursive: true, force: true }); dir = ''; });
 
 describe('spec', () => {
+  it('the schema declares no $schema draft (Claude Code 2.1.304 rejects 2020-12 and the call fails)', () => {
+    const schema = JSON.parse(readFileSync(new URL('../schemas/spec.json', import.meta.url), 'utf8')) as object;
+    expect(schema).not.toHaveProperty('$schema');
+  });
+
   it('extracts structured output, or JSON in result', () => {
     expect(extractSpec({ structured_output: good })).toEqual(good);
     expect(extractSpec({ result: JSON.stringify(good) })).toEqual(good);

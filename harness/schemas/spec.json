@@ -1,5 +1,4 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Daily spec",
   "description": "Ideate output. The harness renders it to journal/runs/<date>/spec.md, then locks and hashes it.",
   "type": "object",

@@ -28,6 +28,10 @@ describe('classify', () => {
     expect(classify(errorResult(text), 1)).toBe('usage-limit');
   });
 
+  it('hitting --max-budget-usd stops the night (captured on subscription auth, Claude Code 2.1.304)', () => {
+    expect(classify(result({ subtype: 'error_max_budget_usd', is_error: true, num_turns: 1, result: null }), 1)).toBe('error');
+  });
+
   it('a 429 reported only in api_error_status is a usage limit', () => {
     expect(classify(result({ subtype: 'success', is_error: true, api_error_status: 429, result: 'API Error' }), 1))
       .toBe('usage-limit');

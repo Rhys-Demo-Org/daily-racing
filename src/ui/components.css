@@ -1,0 +1,188 @@
+/* Shared UI components (board 02): panel, button, label, icon, hatch.
+   Tokens only: every value is a token variable from guardrails/generated/tokens.css or derived from
+   one with calc(). No literal colours, sizes, durations or easings. */
+
+:root {
+  /* 1px, the pressed-shadow offset (UI_RULES §3). */
+  --ui-hairline: calc(var(--outline-small) / 2);
+  /* Shadow offsets of the three tiers (match --shadow-hud / --shadow-button / --shadow-overlay). */
+  --ui-off-hud: var(--outline-default);
+  --ui-off-button: var(--outline-large);
+  --ui-off-overlay: calc(var(--outline-default) * 2);
+  /* Pressed = sink by the offset minus 1px onto a 1px shadow. */
+  --ui-sink-hud: calc(var(--ui-off-hud) - var(--ui-hairline));
+  --ui-sink-button: calc(var(--ui-off-button) - var(--ui-hairline));
+  --ui-shadow-pressed: var(--ui-hairline) var(--ui-hairline) 0 var(--color-ink);
+  --ui-shadow-none: 0 0 0 var(--color-ink);
+  --ui-shadow-lift: calc(var(--ui-off-button) + var(--ui-hairline)) calc(var(--ui-off-button) + var(--ui-hairline)) 0 var(--color-ink);
+  /* Countdown drop height (board 05: starts 28px high). */
+  --ui-drop: calc(var(--space-s5) + var(--space-s1));
+}
+
+/* Every UI layer fills the app root and lays out with border-box. */
+.ui-layer {
+  position: absolute;
+  inset: 0;
+  font-family: var(--font-display);
+  color: var(--color-ink);
+  /* SVG paint defaults to black; inherit the (palette) text colour instead. */
+  fill: currentColor;
+}
+.ui-layer,
+.ui-layer *,
+.ui-layer *::before,
+.ui-layer *::after {
+  box-sizing: border-box;
+}
+.ui-layer[hidden] {
+  display: none;
+}
+
+/* Caps label: 13px, 800, +0.12em tracking. */
+.ui-label {
+  font-family: var(--type-label-font);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  text-transform: var(--type-label-transform);
+}
+
+/* Panel: flat fill, ink outline, solid ink shadow. HUD tier by default. */
+.ui-panel {
+  border: var(--outline-default) solid var(--color-ink);
+  border-radius: var(--radius-rect);
+  box-shadow: var(--shadow-hud);
+}
+.ui-panel--navy {
+  background: var(--color-navy);
+  color: var(--color-cream);
+}
+.ui-panel--cream {
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+.ui-panel--mustard {
+  background: var(--color-mustard);
+  color: var(--color-ink);
+}
+
+/* Icons fill with the text colour. */
+.ui-icon {
+  display: block;
+  fill: currentColor;
+}
+.ui-icon__stroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--outline-large);
+}
+
+/* Button: 4px shadow, press sink, focus ring. Secondary (cream) by default. */
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-s2);
+  min-height: calc(var(--space-s7) + var(--space-s1));
+  margin: 0;
+  padding: 0 var(--space-s4);
+  border: var(--outline-default) solid var(--color-ink);
+  border-radius: var(--radius-rect);
+  box-shadow: var(--shadow-button);
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--type-button-font);
+  font-size: var(--type-button-size);
+  font-weight: var(--type-button-weight);
+  font-style: var(--type-button-style);
+  line-height: 1;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    transform var(--duration-release) var(--ease-snap),
+    box-shadow var(--duration-release) var(--ease-snap);
+}
+.ui-button:active {
+  transform: translate(var(--ui-sink-button), var(--ui-sink-button));
+  box-shadow: var(--ui-shadow-pressed);
+  background: var(--color-cream-down);
+  transition-duration: var(--duration-press);
+}
+.ui-button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+@media (hover: hover) {
+  .ui-button:hover:not(:active) {
+    transform: translate(calc(var(--ui-hairline) * -1), calc(var(--ui-hairline) * -1));
+    box-shadow: var(--ui-shadow-lift);
+  }
+}
+.ui-button .ui-icon {
+  width: var(--space-s5);
+  height: var(--space-s5);
+}
+
+/* Primary: rally-red, italic 900 call. Cream on red is allowed at 24px+ / 800+. */
+.ui-button--primary {
+  background: var(--color-rally-red);
+  color: var(--color-cream);
+  font-family: var(--type-title-font);
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  font-style: var(--type-title-style);
+}
+.ui-button--primary:active {
+  background: var(--color-rally-red-down);
+}
+
+/* Big call-to-action size (start screen). */
+.ui-button--big {
+  min-height: calc(var(--space-s7) + var(--space-s3));
+  padding: 0 var(--space-s5);
+}
+
+/* Scene dimming: ink hatch drawn as an SVG pattern (hard stops, never a translucent layer). */
+.ui-hatch {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  animation: ui-wipe-in var(--duration-wipe) var(--ease-sweep) both;
+}
+.ui-hatch__line {
+  fill: var(--hatch-color);
+}
+
+@keyframes ui-wipe-in {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Overlay card drops onto the table: 24px, stamp, shadow 0 → 6px. */
+@keyframes ui-card-drop {
+  from {
+    transform: translateY(calc(var(--space-s5) * -1));
+    box-shadow: var(--ui-shadow-none);
+  }
+  to {
+    transform: none;
+    box-shadow: var(--shadow-overlay);
+  }
+}
+
+/* Reduced motion: keep the press sink, cut everything else. */
+@media (prefers-reduced-motion: reduce) {
+  .ui-button:hover:not(:active) {
+    transform: none;
+    box-shadow: var(--shadow-button);
+  }
+  .ui-hatch {
+    animation: none;
+  }
+}

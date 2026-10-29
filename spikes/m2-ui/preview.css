@@ -1,0 +1,6 @@
+/* Preview only: a flat grass ground standing in for the 3D scene. */
+.preview-ground {
+  position: absolute;
+  inset: 0;
+  background: var(--color-grass);
+}

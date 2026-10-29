@@ -94,7 +94,7 @@ Framing: about 56 world units across the screen at the target on mobile, 55 on d
 
 What you see: roofs and tops, plus the south face and the east or west face of each object. Never undersides. Cones on trunks show the trunk below the canopy; tyre stacks are cylinders; bales are boxes; ramps are wedges showing slope and side.
 
-Light & shading: one directional light from screen top-left (direction to light ≈ west −0.55, south −0.25, up 0.8). Flat-shaded faces, toon ramp of 3 hard steps on the shade ladder: N·L ≥ 0.7 base colour, 0.1–0.7 one rung down, below 0.1 two rungs down. No smooth normals, no specular, no ambient occlusion.
+Light & shading: one directional light from screen top-left (direction to light ≈ west −0.55, south −0.25, up 0.8). Flat-shaded faces, toon ramp of 3 hard steps on the shade ladder: N·L ≥ 0.7 base colour, −0.6 to 0.7 one rung down, below −0.6 two rungs down (matches the concept frames and section 8: top faces base, side faces one rung down). No smooth normals, no specular, no ambient occlusion.
 
 Shadows & outlines: flat ink blob shadows on the ground, offset east/north-east, hard edged. Inverted-hull ink outlines on every mesh (≈2px at 844 wide) plus crease lines between faces. Concept frames A (mobile) and B (desktop) are the reference.
 

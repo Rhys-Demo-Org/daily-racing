@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import { CAMERA, cameraAngles, cameraDistance, createCameraRig, createRaceScene, playerLivery } from '../../src/render/index.ts';
-import { dustBowlFixture } from './fixture.ts';
-import { carView } from './helpers.ts';
+import { at, carView, layout } from './helpers.ts';
 
 /** World units across the frame at the target, measured by unprojecting the screen edges. */
 function frameWidthAtTarget(width: number, height: number): number {
@@ -37,10 +36,9 @@ describe('camera rig (UI_RULES §9)', () => {
   });
 
   it('live camera keeps pitch 57 and zero yaw/roll while following a car around the track', () => {
-    const fx = dustBowlFixture();
-    const race = createRaceScene(fx.layout, [playerLivery(1)]);
+    const race = createRaceScene(layout, [playerLivery(1)]);
     for (let i = 0; i <= 240; i++) {
-      const s = fx.at(i / 240);
+      const s = at(i / 240);
       race.update([carView({ x: s.x, z: s.z, heading: s.heading, speed: 25 })], 1 / 60);
       const a = cameraAngles(race.camera);
       expect(a.pitchDeg).toBeCloseTo(CAMERA.pitchDeg, 6);

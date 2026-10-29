@@ -1,4 +1,4 @@
-// Car meshes (UI_RULES §8): boxy body 4.2 × 2.2, big ink wheels, navy cabin (teal on a navy body),
+// Car meshes (UI_RULES §8): boxy body the sim's car size, big ink wheels, navy cabin (teal on a navy body),
 // cream roof roundel with the race number in segment-style blocks, one stripe along the body.
 // The player car is rally-red with a cream stripe and a floating red ▼ marker; AI cars are never red.
 //
@@ -8,7 +8,7 @@
 // round, so only its position follows the cabin as the car turns.
 import { Group, Mesh, Vector3 } from 'three';
 import { tokens, type PaletteName } from '@tokens';
-import type { CarView } from '../sim/types.ts';
+import { CAR_LENGTH, CAR_WIDTH, type CarView } from '../sim/index.ts';
 import { CAMERA } from './camera.ts';
 import { MeshBuilder, type Vec3 } from './geometry.ts';
 import type { Materials } from './materials/index.ts';
@@ -24,8 +24,8 @@ export interface CarLivery {
 
 /** Car dimensions in world units (local frame). */
 export const CAR = {
-  length: 4.2,
-  width: 2.2,
+  length: CAR_LENGTH,
+  width: CAR_WIDTH,
   wheelRadius: 0.5, // tops stay 0.05 under the body top so their crease lines never bleed through
   bodyBottom: 0.35,
   bodyTop: 1.05,
@@ -208,13 +208,8 @@ export function buildCar(l: CarLivery, mats: Materials): CarObject {
 export function poseCar(car: CarObject, v: Pick<CarView, 'x' | 'y' | 'z' | 'heading' | 'pitch'>): void {
   car.root.position.set(v.x, v.y, v.z);
   car.body.rotation.set(v.pitch, -v.heading, 0, 'YXZ');
-  // The roundel stays flat (numbers face the camera) but rides the pitched roof: local
-  // (0, roof, ROUNDEL_Z) pitched about x, then turned by the heading (x' = −z sin h, z' = z cos h).
-  const cp = Math.cos(v.pitch);
-  const sp = Math.sin(v.pitch);
-  const y = CAR.roof * cp - ROUNDEL_Z * sp;
-  const z = CAR.roof * sp + ROUNDEL_Z * cp;
-  car.roundel.position.set(-z * Math.sin(v.heading), y, z * Math.cos(v.heading));
+  // The roundel stays flat (numbers face the camera) but rides the pitched, turned roof.
+  car.roundel.position.set(0, CAR.roof, ROUNDEL_Z).applyEuler(car.body.rotation);
   // Tilt it with the roof about the car's lateral axis (yaw untouched, so numbers stay upright).
   car.roundel.quaternion.setFromAxisAngle(LATERAL.set(Math.cos(v.heading), 0, Math.sin(v.heading)), v.pitch);
 }

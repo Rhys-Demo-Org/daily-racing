@@ -34,7 +34,7 @@ export function lapGap(a: number, b: number, lapLength: number): number {
 }
 
 /** Sector index (0..sectorCount − 1) of arc length s on a lap of `lapLength`. */
-export function sectorOf(s: number, lapLength: number): number {
+function sectorOf(s: number, lapLength: number): number {
   const n = sectorCount(lapLength);
   return Math.min(n - 1, Math.max(0, Math.floor((s / lapLength) * n)));
 }

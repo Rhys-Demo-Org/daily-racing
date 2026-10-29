@@ -2,16 +2,16 @@
 //
 // It follows its own racing line, the centreline shifted sideways by a seeded offset, steering at a
 // point a little way ahead on it (nearer in tight corners, so it never cuts across the inside). Its
-// target speed is planned once per track from the curvature of its own line, with braking zones
-// before corners and ramps taken slowly enough to land before the next braking zone, and scaled by
-// a seeded pace factor. If it stops moving (nose in the props, wedged against a car) it reverses
-// with opposite lock for a moment, then carries on.
+// target speed is planned once per track from the curvature of its own line and scaled by a seeded
+// pace factor; brakes at twice the planned cornering grip leave room to slow down in time. If it
+// stops moving (nose in the props, wedged against a car) it reverses with opposite lock for a
+// moment, then carries on.
 // It only emits the same CarInput a player does: it never moves a car itself, and replays record
 // its inputs like any other driver's. Its variation comes from an RNG seeded by the world seed and
 // car index, so bots differ but every run is reproducible.
 import type { CarInput } from './types.ts';
 import type { CarState } from './car.ts';
-import { CAR_LENGTH, CAR_TUNING, SURFACES, forwardSpeed } from './car.ts';
+import { CAR_LENGTH, SURFACES, forwardSpeed } from './car.ts';
 import { COUNTDOWN_TICKS, lapGap } from './race.ts';
 import { createRng, nextRange } from './rng.ts';
 import { clamp, headingOf, wrapAngle } from './vec.ts';
@@ -20,8 +20,6 @@ import type { World } from './world.ts';
 export const BOT_TUNING = {
   /** Sideways acceleration corners are planned with (dirt grip is 24), units/s². */
   planLateral: 20,
-  /** Deceleration braking zones are planned with (brakes manage 40), units/s². */
-  planBrake: 20,
   /** Curvature is measured as the heading change across ± this many centreline samples. */
   curveSpan: 3,
   /** Steering aims this far ahead along the line: a base distance plus a time at current speed,
@@ -70,7 +68,7 @@ export function createBot(world: World, carIndex: number): Bot {
   const maxLine = track.halfWidth - B.passWidth / 2;
 
   // Target speed at each centreline sample: what the corner allows on our line (v² = a / curvature;
-  // offset by o, a curve of curvature k has curvature k / (1 − k·o)), then braking zones.
+  // offset by o, a curve of curvature k has curvature k / (1 − k·o)).
   const target = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     const h0 = track.headings[(i + n - B.curveSpan) % n] as number;
@@ -79,34 +77,13 @@ export function createBot(world: World, carIndex: number): Bot {
     const curvature = Math.abs(k) / Math.max(0.1, 1 - k * offset);
     target[i] = pace * Math.min(SURFACES.dirt.topSpeed, Math.sqrt(B.planLateral / Math.max(curvature, 1e-9)));
   }
-  /** Braking zones: walk backwards twice round the loop so they carry across the start line. */
-  const brakeZones = (): void => {
-    for (let k = 2 * n - 1; k >= 0; k--) {
-      const next = target[(k + 1) % n] as number;
-      target[k % n] = Math.min(target[k % n] as number, Math.sqrt(next * next + 2 * B.planBrake * track.spacing));
-    }
-  };
-  brakeZones();
-  // Ramps: take each lip slowly enough that the whole flight (launch at speed v up the slope, from
-  // the lip's height) lands before anywhere the plan wants to be slower, then brake for that. No
-  // passing on the approach, so the car leaves the lip on its own line, pointing down the track.
+  // No passing on a ramp's approach, so the car leaves the lip on its own line, pointing down the
+  // track (validateTrack keeps every full-speed jump inside the run-out after the lip).
   const noPass = new Uint8Array(n);
-  track.data.ramps.forEach((data, r) => {
-    const ramp = track.ramps[r];
-    if (ramp === undefined) return;
-    const lip = Math.floor(data.at * n);
-    const slope = ramp.height / ramp.length;
-    let v = target[lip] as number;
-    for (let landed = false; !landed && v > 1; ) {
-      const flight = (v * (v * slope + Math.sqrt((v * slope) ** 2 + 2 * CAR_TUNING.gravity * ramp.height))) / CAR_TUNING.gravity;
-      landed = true;
-      for (let d = 0; landed && d <= flight / track.spacing + 1; d++) landed = (target[(lip + d) % n] as number) >= v * CAR_TUNING.landingKeep;
-      if (!landed) v -= 0.5;
-    }
-    for (let d = 0; d <= ramp.length / track.spacing + 1; d++) target[(lip - d + n) % n] = Math.min(target[(lip - d + n) % n] as number, v);
-    for (let d = 0; d <= (ramp.length + B.rampApproach) / track.spacing; d++) noPass[(lip - d + n) % n] = 1;
+  track.data.ramps.forEach((r) => {
+    const lip = Math.floor(r.at * n);
+    for (let d = 0; d <= (r.length + B.rampApproach) / track.spacing; d++) noPass[(lip - d + n) % n] = 1;
   });
-  brakeZones();
 
   let slowTicks = 0;
   let reverseTicks = 0;

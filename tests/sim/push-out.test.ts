@@ -1,30 +1,33 @@
 // Push-outs (src/sim/car.ts) never move a car further in one tick than the bot-lap gate's teleport
-// limit, however cars land on, wedge into and pile up against props and each other; and the grid
-// broadphase never changes a result.
+// limit, however cars land on, wedge into and pile up against props and each other; a car that got
+// into such a spot can always drive or back out; and the grid broadphase never changes a result.
 import { describe, expect, it } from 'vitest';
 import type { CarInput, PropKind, TrackData } from '../../src/sim/types.ts';
 import type { CarState } from '../../src/sim/car.ts';
 import { stepCars } from '../../src/sim/car.ts';
 import { createRng, nextFloat, type Rng } from '../../src/sim/rng.ts';
 import type { Track } from '../../src/sim/track.ts';
-import { buildTrack } from '../../src/sim/track.ts';
+import { HAY_BALE_WIDTH, TREE_TRUNK_RADIUS, TYRE_STACK_RADIUS, buildTrack } from '../../src/sim/track.ts';
 import {
+  GAS,
   MAX_TICK_DISPLACEMENT,
   NO_INPUT,
   REVERSE,
-  boxCorners,
   carCorners,
-  circleOverlap,
   exactJson,
   movingCar,
   polygonOverlap,
+  propOverlap,
   stripTrack,
 } from './helpers.ts';
 
 const EAST = Math.PI / 2;
 const KINDS: readonly PropKind[] = ['tyre-stack', 'cone-tree', 'hay-bale'];
-const RADIUS: Record<PropKind, number> = { 'tyre-stack': 0.8, 'cone-tree': 0.5, 'hay-bale': 0.6 };
-const field = (props: TrackData['props']): Track => buildTrack(stripTrack({ width: 200, props }));
+/** Each prop's half-size across a gap or row (bales lie across with heading 0). */
+const RADIUS: Record<PropKind, number> = { 'tyre-stack': TYRE_STACK_RADIUS, 'cone-tree': TREE_TRUNK_RADIUS, 'hay-bale': HAY_BALE_WIDTH / 2 };
+/** Open dirt around the origin (a small loop 200 wide) with these props. */
+const field = (props: TrackData['props']): Track =>
+  buildTrack(stripTrack({ width: 200, props, centreline: [[0, 0], [100, 0], [100, 200], [-100, 200], [-100, 0]] }));
 
 /** Steps the cars `ticks` times and returns the largest one-tick move of any of them. */
 function worstStep(track: Track, cars: CarState[], inputs: readonly CarInput[], ticks: number): number {
@@ -37,19 +40,26 @@ function worstStep(track: Track, cars: CarState[], inputs: readonly CarInput[], 
   return worst;
 }
 
-/** True if the car overlaps another car or a prop (setups must start apart). */
+/** Whether every car can get `away` units: within 60 ticks of reversing, or failing that of driving. */
+function free(track: Track, cars: CarState[], away = 1): boolean {
+  const done = cars.map(() => false);
+  for (const input of [REVERSE, GAS]) {
+    const from = cars.map((c) => [c.x, c.z] as const);
+    for (let t = 0; t < 60 && !done.every(Boolean); t++) {
+      stepCars(cars, cars.map(() => input), track);
+      cars.forEach((c, i) => (done[i] ||= Math.hypot(c.x - from[i]![0], c.z - from[i]![1]) >= away));
+    }
+  }
+  return done.every(Boolean);
+}
+
+/** True if any car overlaps another car or a prop (setups must start apart). */
 function overlapping(track: Track, cars: readonly CarState[]): boolean {
-  return cars.some((c, i) => {
-    const box = carCorners(c.x, c.z, c.heading);
-    return (
-      cars.some((d, j) => j > i && polygonOverlap(box, carCorners(d.x, d.z, d.heading)) > 0) ||
-      track.colliders.some((p) =>
-        p.shape === 'circle'
-          ? circleOverlap(c.x, c.z, c.heading, p.x, p.z, p.r) > 0
-          : polygonOverlap(box, boxCorners(p.x, p.z, p.heading, p.halfLength, p.halfWidth)) > 0,
-      )
-    );
-  });
+  return cars.some(
+    (c, i) =>
+      cars.some((d, j) => j > i && polygonOverlap(carCorners(c.x, c.z, c.heading), carCorners(d.x, d.z, d.heading)) > 0) ||
+      track.colliders.some((p) => propOverlap(c, p) > 0),
+  );
 }
 
 /** 1–4 cars converging at 15–25 units/s (one in five reversing) on a cluster of random props. */
@@ -71,18 +81,36 @@ function pileUp(rng: Rng, cars: number): { track: Track; cars: CarState[]; input
   return { track, cars: list, inputs };
 }
 
-describe('push-outs never look like a teleport', () => {
+describe('push-outs never look like a teleport, and never trap a car', () => {
   it('coming down onto a prop or onto another car at top speed', () => {
     for (const kind of ['car', ...KINDS] as const) {
-      for (const y of [1.2, 1.6, 2.2, 2.8]) {
-        for (const lat of [-1.5, -1.25, -0.5, 0, 0.75, 1.5]) {
-          const track = field(kind === 'car' ? [] : [{ kind, x: 0, z: lat }]);
+      for (const lat of [-1.5, -1.25, -0.5, 0, 0.75, 1.5]) {
+        const track = field(kind === 'car' ? [] : [{ kind, x: 0, z: lat }]);
+        for (const y of [1.2, 1.6, 2.2, 2.8]) {
           const flyer = movingCar(track, -12, 0, EAST, 25);
           flyer.airborne = true;
           flyer.y = kind === 'car' ? y + 1.1 : y;
           const cars = kind === 'car' ? [flyer, movingCar(track, 0, lat, EAST)] : [flyer];
-          const worst = worstStep(track, cars, cars.map(() => NO_INPUT), 90);
-          expect(worst, `${kind} from y ${y}, ${lat} off line`).toBeLessThan(MAX_TICK_DISPLACEMENT);
+          const where = `${kind} from y ${y}, ${lat} off line`;
+          expect(worstStep(track, cars, cars.map(() => NO_INPUT), 90), where).toBeLessThan(MAX_TICK_DISPLACEMENT);
+          expect(free(track, cars), where).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('coming down across a row of tyre stacks 1.9 apart (narrower than a car), it can still back out or drive on', () => {
+    const spacing = 1.9 + 2 * TYRE_STACK_RADIUS;
+    const track = field(Array.from({ length: 9 }, (_, i) => ({ kind: 'tyre-stack' as const, x: 0, z: (i - 4) * spacing })));
+    for (const y of [1.6, 2.2, 3]) {
+      for (const speed of [12, 25]) {
+        for (let dz = 0; dz < spacing; dz += spacing / 8) {
+          const car = movingCar(track, -10, dz, EAST, speed);
+          car.airborne = true;
+          car.y = y;
+          const where = `from y ${y} at ${speed}, ${dz.toFixed(2)} along the row`;
+          expect(worstStep(track, [car], [GAS], 150), where).toBeLessThan(MAX_TICK_DISPLACEMENT);
+          expect(free(track, [car]), where).toBe(true);
         }
       }
     }
@@ -91,22 +119,23 @@ describe('push-outs never look like a teleport', () => {
   it('steering into a gap between two props, or along a row of them', () => {
     for (const kind of KINDS) {
       for (let gap = 1.6; gap <= 3.4; gap += 0.15) {
+        const half = gap / 2 + RADIUS[kind];
+        const track = field([{ kind, x: 0, z: -half }, { kind, x: 0, z: half }]);
         for (const angle of [0, 0.1, 0.2, 0.4]) {
           for (const steer of [-1, -0.5, 0.5, 1]) {
             for (const speed of [25, 15]) {
-              const half = gap / 2 + RADIUS[kind];
-              const track = field([{ kind, x: 0, z: -half }, { kind, x: 0, z: half }]);
-              const worst = worstStep(track, [movingCar(track, -8, 0, EAST + angle, speed)], [{ steer, throttle: true, brake: false }], 60);
-              expect(worst, `${kind} gap ${gap.toFixed(2)} angle ${angle} steer ${steer} speed ${speed}`).toBeLessThan(MAX_TICK_DISPLACEMENT);
+              const car = movingCar(track, -8, 0, EAST + angle, speed);
+              const where = `${kind} gap ${gap.toFixed(2)} angle ${angle} steer ${steer} speed ${speed}`;
+              expect(worstStep(track, [car], [{ steer, throttle: true, brake: false }], 60), where).toBeLessThan(MAX_TICK_DISPLACEMENT);
+              expect(free(track, [car]), where).toBe(true);
             }
           }
         }
       }
       for (const clearance of [0.1, 0.3, 0.6]) {
+        const track = field(Array.from({ length: 20 }, (_, i) => ({ kind, x: -20 + i * (kind === 'hay-bale' ? 2.1 : 3.5), z: 3 + clearance + RADIUS[kind] })));
         for (const angle of [0.1, 0.5, 1.2]) {
           for (const steer of [-1, 1]) {
-            const row = Array.from({ length: 20 }, (_, i) => ({ kind, x: -20 + i * (kind === 'hay-bale' ? 2.1 : 3.5), z: 3 + clearance + RADIUS[kind] }));
-            const track = field(row);
             const worst = worstStep(track, [movingCar(track, -9, 0, EAST + angle, 25)], [{ steer, throttle: true, brake: false }], 60);
             expect(worst, `${kind} row ${clearance} away, angle ${angle}, steer ${steer}`).toBeLessThan(MAX_TICK_DISPLACEMENT);
           }
@@ -121,7 +150,11 @@ describe('push-outs never look like a teleport', () => {
       for (let trial = 0; trial < 150; trial++) {
         const pile = pileUp(rng, cars);
         if (overlapping(pile.track, pile.cars)) continue;
-        expect(worstStep(pile.track, pile.cars, pile.inputs, 120), `${cars} cars, trial ${trial}`).toBeLessThan(MAX_TICK_DISPLACEMENT);
+        const where = `${cars} cars, trial ${trial}`;
+        expect(worstStep(pile.track, pile.cars, pile.inputs, 120), where).toBeLessThan(MAX_TICK_DISPLACEMENT);
+        // A random cluster (and the other cars) can box a car in so driving straight it gets only a
+        // little way, but nothing ever freezes it in place.
+        expect(free(pile.track, pile.cars, 0.05), where).toBe(true);
       }
     }
   });

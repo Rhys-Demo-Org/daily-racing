@@ -7,9 +7,9 @@ import { createBot } from '../../src/sim/bot.ts';
 import type { World } from '../../src/sim/world.ts';
 import { createWorld, stepWorld } from '../../src/sim/world.ts';
 import type { CarState } from '../../src/sim/car.ts';
-import { CAR_LENGTH, CAR_WIDTH, DT, SURFACES, createCar, forwardSpeed } from '../../src/sim/car.ts';
+import { CAR_LENGTH, CAR_WIDTH, DT, SURFACES, createCar, forwardSpeed, stepCars } from '../../src/sim/car.ts';
 import { COUNTDOWN_TICKS } from '../../src/sim/race.ts';
-import type { Track } from '../../src/sim/track.ts';
+import type { Collider, Track } from '../../src/sim/track.ts';
 import { clamp, headingOf, wrapAngle } from '../../src/sim/vec.ts';
 
 const TRACK_DIR = join(import.meta.dirname, '../../src/content/tracks');
@@ -45,6 +45,11 @@ export function movingCar(track: Track, x: number, z: number, heading: number, s
   car.vx = Math.sin(heading) * speed;
   car.vz = -Math.cos(heading) * speed;
   return car;
+}
+
+/** Advances a single car by one tick (no other cars). */
+export function stepCar(car: CarState, input: CarInput, track: Track): void {
+  stepCars([car], [input], track);
 }
 
 /** One bot per car of the world. */
@@ -97,15 +102,16 @@ export function watch(world: World): Watch {
   return w;
 }
 
-/** True when the car's footprint is within 0.01 of any prop collider. Independent of car.ts. */
+/** True when the car's footprint is within 0.01 of any prop collider. */
 function touchesProp(world: World, car: CarState): boolean {
-  const corners = carCorners(car.x, car.z, car.heading);
-  return world.track.colliders.some((c) => {
-    if ((c.x - car.x) ** 2 + (c.z - car.z) ** 2 > 25) return false;
-    return c.shape === 'circle'
-      ? circleOverlap(car.x, car.z, car.heading, c.x, c.z, c.r + 0.01) > 0
-      : polygonOverlap(corners, boxCorners(c.x, c.z, c.heading, c.halfLength + 0.01, c.halfWidth + 0.01)) > 0;
-  });
+  return world.track.colliders.some((c) => (c.x - car.x) ** 2 + (c.z - car.z) ** 2 <= 25 && propOverlap(car, c, 0.01) > 0);
+}
+
+/** Overlap depth of the car's footprint with prop `c` grown by `grow` (0 when apart). Independent of car.ts. */
+export function propOverlap(car: CarState, c: Collider, grow = 0): number {
+  return c.shape === 'circle'
+    ? circleOverlap(car.x, car.z, car.heading, c.x, c.z, c.r + grow)
+    : polygonOverlap(carCorners(car.x, car.z, car.heading), boxCorners(c.x, c.z, c.heading, c.halfLength + grow, c.halfWidth + grow));
 }
 
 export interface BotRace {

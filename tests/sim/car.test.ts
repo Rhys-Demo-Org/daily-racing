@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { CarInput, PropKind, TrackData } from '../../src/sim/types.ts';
 import type { CarState } from '../../src/sim/car.ts';
-import { CAR_LENGTH, CAR_TUNING, DT, SURFACES, carView, forwardSpeed, stepCar } from '../../src/sim/car.ts';
+import { CAR_LENGTH, CAR_TUNING, DT, SURFACES, carView, forwardSpeed } from '../../src/sim/car.ts';
 import type { Track } from '../../src/sim/track.ts';
 import { PROP_COLLIDER_TOP, buildTrack, validateTrack } from '../../src/sim/track.ts';
-import { GAS, NO_INPUT, REVERSE, boxCorners, carCorners, circleOverlap, movingCar, polygonOverlap, stripTrack } from './helpers.ts';
+import { GAS, NO_INPUT, REVERSE, circleOverlap, movingCar, propOverlap, stepCar, stripTrack } from './helpers.ts';
 
 const EAST = Math.PI / 2;
 
@@ -285,14 +285,7 @@ describe('prop collisions', () => {
             const car = movingCar(track, -20, lateral, EAST, speed);
             for (let i = 0; i < 90; i++) {
               stepCar(car, GAS, track);
-              const depth =
-                c.shape === 'circle'
-                  ? circleOverlap(car.x, car.z, car.heading, c.x, c.z, c.r)
-                  : polygonOverlap(
-                      carCorners(car.x, car.z, car.heading),
-                      boxCorners(c.x, c.z, c.heading, c.halfLength, c.halfWidth),
-                    );
-              expect(depth, `${kind} speed ${speed} lateral ${lateral} tick ${i}`).toBeLessThan(1e-6);
+              expect(propOverlap(car, c), `${kind} speed ${speed} lateral ${lateral} tick ${i}`).toBeLessThan(1e-6);
               if (lateral === 0) expect(car.x).toBeLessThan(c.x);
             }
           }

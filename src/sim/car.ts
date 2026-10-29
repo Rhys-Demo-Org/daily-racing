@@ -77,8 +77,6 @@ export const CAR_TUNING = {
    * beyond, or a side) is a wall. Ramp slopes must rise less than this per tick at top speed (see
    * MAX_RAMP_SLOPE). It applies on every track: fine while no replay baselines exist (before G3). */
   maxStepUp: 0.3,
-  /** Overlap with props still left after the resolution passes that counts as wedged. */
-  wedgeDepth: 0.01,
   /** Push-outs may move a car at most this much further in a tick than its own speed does; the
    * rest carries over to later ticks. At top speed that keeps every tick's move under G2's
    * teleport limit (topSpeed × DT × 1.5), however cars and props pile up. */
@@ -242,25 +240,25 @@ function longitudinal(vf: number, input: CarInput, s: SurfaceTuning): number {
  * update.
  */
 export function stepCars(cars: readonly CarState[], inputs: readonly CarInput[], track: Track): void {
-  for (let i = 0; i < cars.length; i++) {
-    const car = cars[i] as CarState;
-    start[i * 4] = car.x;
-    start[i * 4 + 1] = car.z;
-    start[i * 4 + 2] = car.heading;
-    applyInput(car, inputs[i] as CarInput);
+  let steps = 1;
+  for (let k = 0; k < cars.length; k++) {
+    const car = cars[k] as CarState;
+    start[k * 3] = car.x;
+    start[k * 3 + 1] = car.z;
+    applyInput(car, inputs[k] as CarInput);
+    const travel = Math.hypot(car.vx, car.vz) * DT;
+    start[k * 3 + 2] = travel;
+    steps = Math.max(steps, Math.ceil(travel / CAR_TUNING.maxSubstep));
+    // Broadphase once per tick: the travel plus a margin for push-outs bounds where the car can get.
+    gatherNearby((nearby[k] ??= []), car, track, travel);
   }
-  moveWithCollisions(cars, track);
+  moveWithCollisions(cars, track, steps);
   for (let k = 0; k < cars.length; k++) {
     const car = cars[k] as CarState;
     updateVertical(car, k, cars, track);
     car.pos = trackPosition(track, car.x, car.z, car.pos);
     car.surface = surfaceAt(track, car.pos, car.x, car.z);
   }
-}
-
-/** Advances a single car by one tick (no other cars). */
-export function stepCar(car: CarState, input: CarInput, track: Track): void {
-  stepCars([car], [input], track);
 }
 
 /** Engine, brakes, steering and grip for one tick. In the air, steering and throttle do nothing and
@@ -312,8 +310,8 @@ function applyInput(car: CarState, input: CarInput): void {
 const nearby: number[][] = [];
 /** Scratch for groundAt on the hot path. */
 const ground: Ground = { h: 0, gx: 0, gz: 0, ramp: null };
-/** Per car (4 slots each): x, z and heading at the start of the tick, and its travel this tick.
- * Scratch, for undoing a jam and capping push-outs. */
+/** Per car (3 slots each): x and z at the start of the tick, and its travel this tick. Scratch,
+ * for capping push-outs. */
 const start: number[] = [];
 
 /** Fills `list` with the props within reach of a car that travels `travel` this tick, via the grid. */
@@ -341,23 +339,14 @@ function gatherNearby(list: number[], car: CarState, track: Track, travel: numbe
 }
 
 /**
- * Integrates horizontal motion in shared sub-steps, each no longer than `maxSubstep` for the
- * fastest car (so the count depends on every car: deterministic, but G2 must keep its car count
+ * Integrates horizontal motion in `steps` shared sub-steps, each no longer than `maxSubstep` for
+ * the fastest car (so the count depends on every car: deterministic, but G2 must keep its car count
  * fixed). After each one, each pair of cars (i < j, a fixed order) resolves its contact, then every
  * car resolves its prop contacts: props can't move, so they have the last word and nothing passes
  * through anything, even at top speed. A grounded car can't climb a ramp face taller than
  * `maxStepUp`: the face acts as a wall. Finally push-outs are capped at `maxPush` per tick.
  */
-function moveWithCollisions(cars: readonly CarState[], track: Track): void {
-  let steps = 1;
-  for (let k = 0; k < cars.length; k++) {
-    const car = cars[k] as CarState;
-    const travel = Math.hypot(car.vx, car.vz) * DT;
-    start[k * 4 + 3] = travel;
-    steps = Math.max(steps, Math.ceil(travel / CAR_TUNING.maxSubstep));
-    // Broadphase once per tick: the travel plus a margin for push-outs bounds where the car can get.
-    gatherNearby((nearby[k] ??= []), car, track, travel);
-  }
+function moveWithCollisions(cars: readonly CarState[], track: Track, steps: number): void {
   for (let i = 0; i < steps; i++) {
     for (const car of cars) {
       const x0 = car.x;
@@ -377,10 +366,10 @@ function moveWithCollisions(cars: readonly CarState[], track: Track): void {
   }
   for (let k = 0; k < cars.length; k++) {
     const car = cars[k] as CarState;
-    const x0 = start[k * 4] as number;
-    const z0 = start[k * 4 + 1] as number;
+    const x0 = start[k * 3] as number;
+    const z0 = start[k * 3 + 1] as number;
     const moved = Math.hypot(car.x - x0, car.z - z0);
-    const limit = (start[k * 4 + 3] as number) + CAR_TUNING.maxPush;
+    const limit = (start[k * 3 + 2] as number) + CAR_TUNING.maxPush;
     if (moved > limit) {
       car.x = x0 + ((car.x - x0) * limit) / moved;
       car.z = z0 + ((car.z - z0) * limit) / moved;
@@ -388,30 +377,16 @@ function moveWithCollisions(cars: readonly CarState[], track: Track): void {
   }
 }
 
-/**
- * Two passes push car `k` out of its props. If it is still in one after that (wedged between two
- * props, say) it is jammed: it goes back to where it was at the start of the tick and stops, so
- * push-outs never pile up into a jump.
- */
+/** Two passes push car `k` out of the props it overlaps (and isn't above). */
 function collideProps(car: CarState, k: number, track: Track): void {
-  for (let pass = 0; pass < 3; pass++) {
+  for (let pass = 0; pass < 2; pass++) {
     for (const id of nearby[k] as number[]) {
       const c = track.colliders[id] as Collider;
       if (car.y >= c.top) continue;
       const dx = c.x - car.x;
       const dz = c.z - car.z;
       const reach = CAR_BOUND + c.bound;
-      if (dx * dx + dz * dz > reach * reach || !touches(car, c)) continue;
-      if (pass < 2) {
-        resolveContact(car, hit.nx, hit.nz, hit.depth);
-      } else if (hit.depth > CAR_TUNING.wedgeDepth) {
-        car.x = start[k * 4] as number;
-        car.z = start[k * 4 + 1] as number;
-        car.heading = start[k * 4 + 2] as number;
-        car.vx = 0;
-        car.vz = 0;
-        return;
-      }
+      if (dx * dx + dz * dz <= reach * reach && touches(car, c)) resolveContact(car, hit.nx, hit.nz, hit.depth);
     }
   }
 }
@@ -459,12 +434,12 @@ function touches(car: CarState, c: Collider): boolean {
  * out sideways; a prop only clipped by the car's edge pushes it off instead. `k` is the car's index
  * in `cars`. */
 function restingTop(car: CarState, k: number, cars: readonly CarState[], track: Track): number {
+  const fx = Math.sin(car.heading);
+  const fz = -Math.cos(car.heading);
   let top = 0;
   for (const id of nearby[k] as number[]) {
     const c = track.colliders[id] as Collider;
     if (car.y < c.top || c.top <= top) continue;
-    const fx = Math.sin(car.heading);
-    const fz = -Math.cos(car.heading);
     const dx = c.x - car.x;
     const dz = c.z - car.z;
     if (Math.abs(dx * fx + dz * fz) <= HALF_LENGTH && Math.abs(dz * fx - dx * fz) <= HALF_WIDTH) top = c.top;

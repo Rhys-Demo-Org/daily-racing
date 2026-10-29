@@ -25,6 +25,9 @@ export const PROP_COLLIDER_TOP = 1.1;
  * at their base colour only up to sqrt(1 / TOP_FACE_MIN_Y² − 1) ≈ 0.329.
  */
 export const MAX_RAMP_SLOPE = 0.32;
+/** Highest ramp allowed. At 2 high every full-speed jump (at most ~23.1 units) lands inside the
+ * 25-unit run-out after the lip, so the bot needs no lip-speed planning. */
+export const MAX_RAMP_HEIGHT = 2;
 /** Every ramp needs this much track after its lip within RAMP_RUNOUT_DRIFT of the line a car
  * leaves the lip on, so a jump lands on the track rather than in a corner's run-off. */
 const RAMP_RUNOUT = 25;
@@ -190,6 +193,7 @@ export function validateTrack(data: unknown): TrackData {
     if (length <= 0) fail(id, `${where}.length must be positive`);
     if (height <= 0) fail(id, `${where}.height must be positive`);
     if (height / length > MAX_RAMP_SLOPE) fail(id, `${where} is too steep: height / length must be at most ${MAX_RAMP_SLOPE}`);
+    if (height > MAX_RAMP_HEIGHT) fail(id, `${where}.height must be at most ${MAX_RAMP_HEIGHT}`);
     return { at, length, height };
   });
   const line = buildCentreline(centreline);

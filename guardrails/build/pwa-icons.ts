@@ -5,11 +5,14 @@ import { PNG } from 'pngjs';
 import type { Plugin } from 'vite';
 import { PALETTE_HEX, paletteIndex, type PaletteName } from '../generated/tokens.ts';
 
-export const PWA_ICONS = [
-  { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-  { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-  { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+/** Manifest entries; `inset` (0..1) shrinks the artwork so the maskable icon keeps it in the safe zone. */
+const ICONS = [
+  { src: 'icons/icon-192.png', size: 192, inset: 0, purpose: 'any' },
+  { src: 'icons/icon-512.png', size: 512, inset: 0, purpose: 'any' },
+  { src: 'icons/icon-maskable-512.png', size: 512, inset: 0.2, purpose: 'maskable' },
 ];
+
+export const PWA_ICONS = ICONS.map(({ src, size, purpose }) => ({ src, sizes: `${size}x${size}`, type: 'image/png', purpose }));
 
 type Rgb = [number, number, number];
 
@@ -56,14 +59,7 @@ export function pwaIcons(): Plugin {
     name: 'daily-racer-pwa-icons',
     apply: 'build',
     generateBundle() {
-      const art: [string, number, number][] = [
-        ['icons/icon-192.png', 192, 0],
-        ['icons/icon-512.png', 512, 0],
-        ['icons/icon-maskable-512.png', 512, 0.2],
-      ];
-      for (const [fileName, size, inset] of art) {
-        this.emitFile({ type: 'asset', fileName, source: drawIcon(size, inset) });
-      }
+      for (const { src, size, inset } of ICONS) this.emitFile({ type: 'asset', fileName: src, source: drawIcon(size, inset) });
     },
   };
 }

@@ -40,6 +40,8 @@ export interface RaceScene {
   reset(): void;
   /** Renders one frame with the renderer passed to createRaceScene. */
   render(): void;
+  /** Frees the scene's GPU geometry and shader programs; the scene is unusable afterwards. */
+  dispose(): void;
   /** Viewport size in CSS pixels: resizes the renderer (if any, re-reading the pixel ratio), camera and outline width. */
   resize(width: number, height: number): void;
 }
@@ -186,6 +188,10 @@ export function createRaceScene(layout: TrackLayout, liveries: readonly CarLiver
     render() {
       if (!renderer) throw new Error('createRaceScene: no renderer was given');
       renderer.render(scene, rig.camera);
+    },
+    dispose() {
+      scene.traverse((o) => (o as Mesh).geometry?.dispose());
+      for (const m of [mats.toon, mats.flat, mats.hull, mats.crease]) m.dispose();
     },
     resize(width, height) {
       renderer?.setPixelRatio(pixelRatio());

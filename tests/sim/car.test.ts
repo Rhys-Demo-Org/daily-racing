@@ -65,7 +65,7 @@ describe('acceleration and speed', () => {
     expect(stopTick).toBeGreaterThan(0);
     expect(stopTick * DT).toBeLessThan(0.6);
     expect(forwardSpeed(car)).toBeLessThan(-8);
-    expect(carView(car).speed).toBeLessThan(-8);
+    expect(carView(car, track).speed).toBeLessThan(-8);
     expect(car.heading).toBeCloseTo(EAST, 12);
     // Throttle while reversing brakes first, then drives forward again.
     run(car, track, 2 * 60, GAS);

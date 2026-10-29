@@ -90,6 +90,7 @@ function interpolate(prev: readonly CarView[], curr: readonly CarView[], t: numb
       y: p.y + (c.y - p.y) * t,
       z: p.z + (c.z - p.z) * t,
       heading: lerpAngle(p.heading, c.heading, t),
+      pitch: p.pitch + (c.pitch - p.pitch) * t,
     };
   });
 }

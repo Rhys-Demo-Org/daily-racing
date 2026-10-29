@@ -3,7 +3,7 @@ import type { BufferGeometry, Line, Mesh, Object3D } from 'three';
 import type { CarView } from '../../src/sim/types.ts';
 
 export function carView(over: Partial<CarView> = {}): CarView {
-  return { x: 0, y: 0, z: 0, heading: 0, speed: 0, slip: 0, surface: 'dirt', airborne: false, ...over };
+  return { x: 0, y: 0, z: 0, heading: 0, pitch: 0, speed: 0, slip: 0, surface: 'dirt', airborne: false, ...over };
 }
 
 export function meshesOf(root: Object3D): Mesh[] {

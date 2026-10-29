@@ -80,10 +80,15 @@ export type Surface = 'dirt' | 'grass';
 /** Read-only view of a car that render/UI may use. The sim may keep more internal state. */
 export interface CarView {
   x: number;
-  /** Height above ground (jumps). */
+  /** Height of the body's base above flat ground (ramps and jumps). */
   y: number;
   z: number;
   heading: number;
+  /**
+   * Visual nose-up tilt in radians. The body rests on the ground under its nose and tail, so it
+   * follows a ramp instead of clipping into it. Visual only: physics never reads it.
+   */
+  pitch: number;
   /** Forward speed in units/s (negative when reversing). */
   speed: number;
   /** 0 = gripping, 1 = fully sliding. Drives dust and tyre visuals. */

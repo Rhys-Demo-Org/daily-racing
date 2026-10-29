@@ -121,17 +121,68 @@ export function forwardSpeed(car: CarState): number {
 }
 
 /** Read-only view for render/UI. */
-export function carView(car: CarState): CarView {
+export function carView(car: CarState, track: Track): CarView {
+  const speed = forwardSpeed(car);
+  const { y, pitch } = visualPose(car, track, speed);
   return {
     x: car.x,
-    y: car.y,
+    y,
     z: car.z,
     heading: car.heading,
-    speed: forwardSpeed(car),
+    pitch,
+    speed,
     slip: car.slip,
     surface: car.surface,
     airborne: car.airborne,
   };
+}
+
+/**
+ * Body height and tilt for drawing (never fed back into physics). Along the body axis the ground is
+ * piecewise linear (flat, ramp slopes, a drop at each lip), so the body rests on its upper convex
+ * hull: sample the nose, tail, centre and every ramp foot/lip in between, and take the hull edge
+ * above the centre. Airborne, the nose follows the trajectory, clamped so neither end of the body
+ * dips below flat ground.
+ */
+function visualPose(car: CarState, track: Track, speed: number): { y: number; pitch: number } {
+  if (car.airborne) {
+    const limit = Math.atan2(Math.max(car.y, 0), HALF_LENGTH);
+    const climb = speed >= 0 ? car.vy : -car.vy;
+    return { y: car.y, pitch: clamp(Math.atan2(climb, Math.abs(speed) + 1e-6), -limit, limit) };
+  }
+  const fx = Math.sin(car.heading);
+  const fz = -Math.cos(car.heading);
+  const ts = [-HALF_LENGTH, 0, HALF_LENGTH];
+  for (const r of track.ramps) {
+    const rx = Math.sin(r.heading);
+    const rz = -Math.cos(r.heading);
+    const rate = fx * rx + fz * rz; // ramp "along" coordinate per unit along the body
+    if (Math.abs(rate) < 1e-9) continue;
+    const along = (car.x - r.x) * rx + (car.z - r.z) * rz;
+    // Lip sampled a hair on the slope side so it reads the lip's full height.
+    for (const a of [-1e-6, -r.length]) {
+      const t = (a - along) / rate;
+      if (Math.abs(t) < HALF_LENGTH) ts.push(t);
+    }
+  }
+  const hs = ts.map((t) => groundAt(track, car.x + fx * t, car.z + fz * t).h);
+  let y = -Infinity;
+  let pitch = 0;
+  for (let i = 0; i < ts.length; i++) {
+    const ti = ts[i] as number;
+    if (ti > 0) continue;
+    for (let j = 0; j < ts.length; j++) {
+      const tj = ts[j] as number;
+      if (tj < 0 || tj === ti) continue;
+      const k = ((hs[j] as number) - (hs[i] as number)) / (tj - ti);
+      const atCentre = (hs[i] as number) - k * ti;
+      if (atCentre > y) {
+        y = atCentre;
+        pitch = Math.atan(k);
+      }
+    }
+  }
+  return { y, pitch };
 }
 
 /** Moves `v` toward 0 by at most `amount`, never crossing 0. */

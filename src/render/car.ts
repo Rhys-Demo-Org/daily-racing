@@ -6,7 +6,7 @@
 // (three's +y rotation is anticlockwise from above; sim headings run clockwise from north). The roundel and the ▼ marker are NOT
 // rotated: like the concept frames, the race number always reads upright on screen. The roundel is
 // round, so only its position follows the cabin as the car turns.
-import { Group, Mesh } from 'three';
+import { Group, Mesh, Vector3 } from 'three';
 import { tokens, type PaletteName } from '@tokens';
 import type { CarView } from '../sim/types.ts';
 import { CAMERA } from './camera.ts';
@@ -37,6 +37,8 @@ export const CAR = {
 
 /** Roundel centre along the car (local z): the middle of the cabin roof. */
 const ROUNDEL_Z = (CAR.cabin.zFront + CAR.cabin.zBack) / 2;
+/** Scratch axis for poseCar (no per-frame allocation). */
+const LATERAL = new Vector3();
 
 /** The player's livery: always rally-red with a cream stripe (tokens.cars.player). */
 export function playerLivery(number: number): CarLivery {
@@ -198,14 +200,21 @@ export function buildCar(l: CarLivery, mats: Materials): CarObject {
     root.add(marker);
   }
   const car: CarObject = { root, body, roundel, marker, livery: { ...l } };
-  poseCar(car, { x: 0, y: 0, z: 0, heading: 0 });
+  poseCar(car, { x: 0, y: 0, z: 0, heading: 0, pitch: 0 });
   return car;
 }
 
-/** Places a car from a sim view: position, jump height and heading. */
-export function poseCar(car: CarObject, v: Pick<CarView, 'x' | 'y' | 'z' | 'heading'>): void {
+/** Places a car from a sim view: position, jump height, heading and ramp/jump pitch. */
+export function poseCar(car: CarObject, v: Pick<CarView, 'x' | 'y' | 'z' | 'heading' | 'pitch'>): void {
   car.root.position.set(v.x, v.y, v.z);
-  car.body.rotation.y = -v.heading;
-  // Local (0, roof, ROUNDEL_Z) turned by the heading: x' = −z sin h, z' = z cos h.
-  car.roundel.position.set(-ROUNDEL_Z * Math.sin(v.heading), CAR.roof, ROUNDEL_Z * Math.cos(v.heading));
+  car.body.rotation.set(v.pitch, -v.heading, 0, 'YXZ');
+  // The roundel stays flat (numbers face the camera) but rides the pitched roof: local
+  // (0, roof, ROUNDEL_Z) pitched about x, then turned by the heading (x' = −z sin h, z' = z cos h).
+  const cp = Math.cos(v.pitch);
+  const sp = Math.sin(v.pitch);
+  const y = CAR.roof * cp - ROUNDEL_Z * sp;
+  const z = CAR.roof * sp + ROUNDEL_Z * cp;
+  car.roundel.position.set(-z * Math.sin(v.heading), y, z * Math.cos(v.heading));
+  // Tilt it with the roof about the car's lateral axis (yaw untouched, so numbers stay upright).
+  car.roundel.quaternion.setFromAxisAngle(LATERAL.set(Math.cos(v.heading), 0, Math.sin(v.heading)), v.pitch);
 }

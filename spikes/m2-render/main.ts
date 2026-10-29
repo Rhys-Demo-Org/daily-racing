@@ -33,6 +33,7 @@ const view = (f: number, lane: number, over: Partial<CarView>): CarView => {
     y: 0,
     z: s.z + Math.sin(s.heading) * lane,
     heading: s.heading,
+    pitch: 0,
     speed,
     slip: 0,
     surface: 'dirt',

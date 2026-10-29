@@ -102,7 +102,7 @@ export function stepWorld(world: World, inputs: readonly CarInput[]): void {
 
 /** Views of every car, in car index order (0 = player). */
 export function carViews(world: World): CarView[] {
-  return world.cars.map(carView);
+  return world.cars.map((car) => carView(car, world.track));
 }
 
 /** Race state for the HUD. */

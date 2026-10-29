@@ -1,0 +1,31 @@
+{
+  "id": "dust-bowl",
+  "name": "Dust Bowl",
+  "laps": 3,
+  "width": 8.4,
+  "centreline": [
+    [-30, 40], [0, 40], [30, 40], [60, 40],
+    [88, 28], [100, 0], [88, -28], [60, -40],
+    [30, -40], [0, -31], [-30, -40], [-60, -40],
+    [-88, -28], [-100, 0], [-88, 28], [-60, 40]
+  ],
+  "ramps": [
+    { "at": 0.09, "length": 5, "height": 1.0 }
+  ],
+  "propRows": [
+    { "kind": "hay-bale", "side": "left", "from": 0.02, "to": 0.07, "spacing": 2.1, "offset": 2 },
+    { "kind": "hay-bale", "side": "left", "from": 0.5, "to": 0.62, "spacing": 2.1, "offset": 2 },
+    { "kind": "tyre-stack", "side": "right", "from": 0.22, "to": 0.42, "spacing": 3, "offset": 1.5 },
+    { "kind": "tyre-stack", "side": "left", "from": 0.75, "to": 0.9, "spacing": 3.2, "offset": 1.5 },
+    { "kind": "cone-tree", "side": "right", "from": 0.46, "to": 0.66, "spacing": 14, "offset": 8 },
+    { "kind": "cone-tree", "side": "right", "from": 0.0, "to": 0.16, "spacing": 16, "offset": 9 }
+  ],
+  "props": [
+    { "kind": "cone-tree", "x": -40, "z": 2 },
+    { "kind": "cone-tree", "x": -12, "z": 10 },
+    { "kind": "cone-tree", "x": 18, "z": -6 },
+    { "kind": "cone-tree", "x": 44, "z": 12 },
+    { "kind": "cone-tree", "x": -26, "z": -16 },
+    { "kind": "cone-tree", "x": 62, "z": -8 }
+  ]
+}

@@ -16,7 +16,7 @@ import type { HudState } from '../../src/ui/types.ts';
 
 declare global {
   interface Window {
-    __preview: { ready: boolean; touchVisible: boolean; read: () => unknown; log: string[] };
+    __uiPreview: { ready: boolean; touchVisible: boolean; read: () => unknown; log: string[] };
   }
 }
 
@@ -107,7 +107,7 @@ if (state === 'finish') {
   createFinishPanel(app, { onRaceAgain: () => log.push('again') }).show({ timeMs: 134800, bestLapMs: 40370 });
 }
 
-window.__preview = {
+window.__uiPreview = {
   ready: true,
   get touchVisible() {
     return touch.visible;

@@ -42,7 +42,7 @@ async function open(query: string): Promise<Page> {
   page.on('pageerror', (e) => console.error('pageerror', e.message));
   page.on('console', (m) => m.type() === 'error' && console.error('console', m.text()));
   await page.goto(`http://127.0.0.1:4174/${query}`);
-  await page.waitForFunction(() => window.__preview?.ready === true);
+  await page.waitForFunction(() => window.__uiPreview?.ready === true);
   await page.evaluate(() => document.fonts.ready);
   return page;
 }
@@ -101,7 +101,7 @@ let failures = 0;
 for (const [name, query, wait] of shots) {
   const page = await open(query);
   await page.waitForTimeout(wait);
-  const touchVisible = await page.evaluate(() => window.__preview.touchVisible);
+  const touchVisible = await page.evaluate(() => window.__uiPreview.touchVisible);
   const problems = await scan(page);
   await page.screenshot({ path: `${OUT}/${name}.png` });
   console.log(`${name}: touchVisible=${touchVisible} styleProblems=${problems.length}`);
@@ -120,14 +120,14 @@ for (const [name, query, wait] of shots) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [left] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [left, gas] });
   await page.waitForTimeout(150);
-  const both = await page.evaluate(() => window.__preview.read());
+  const both = await page.evaluate(() => window.__uiPreview.read());
   await page.screenshot({ path: `${OUT}/touch-live.png` });
   // CDP lifts the listed points.
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [left] });
-  const gasOnly = await page.evaluate(() => window.__preview.read());
+  const gasOnly = await page.evaluate(() => window.__uiPreview.read());
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [slopMiss] });
-  const miss = await page.evaluate(() => window.__preview.read());
+  const miss = await page.evaluate(() => window.__uiPreview.read());
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   console.log('touch-live', JSON.stringify({ both, gasOnly, miss }));
   const ok =

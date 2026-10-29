@@ -6,8 +6,8 @@ don't re-plan). Spec: `HANDOVER.md`. Delete this file when Phase 0 is handed ove
 Milestone order: M1 → M1.5 spike → M2 → M3 → M4-thin → dry-run week → Later.
 One `phase0/mN-*` branch and PR per milestone; the owner merges.
 
-## Done (awaiting merge)
-### M1 · Scaffold, docs, tokens, backlog — PR #1, branch `phase0/m1-scaffold`
+## Done
+### M1 · Scaffold, docs, tokens, backlog — PR #1 (merged 2026-10-29)
 - Folders per HANDOVER §4; exact-pinned `package.json` + `pnpm-lock.yaml`; `.nvmrc` (24), `.npmrc`,
   `.gitignore`; strict tsconfigs (`tsconfig.json` = src/browser, `tsconfig.node.json` = tests,
   scripts, spikes, configs); `vite.config.ts` (aliases `@tokens`, `@tokens/css`; PWA manifest,
@@ -19,7 +19,7 @@ One `phase0/mN-*` branch and PR per milestone; the owner merges.
 - **Checkpoint passed (2026-10-29):** owner approved the backlog (incl. B11 lock rule, no S6
   settings button) and the UI_RULES §9 toon thresholds (≥ 0.7 / ≥ −0.6 / below).
 
-### M1.5 · Spike — branch `phase0/m1.5-spike` (stacked on M1)
+### M1.5 · Spike — PR #2 (merged 2026-10-29)
 Built:
 - `harness/container/Dockerfile`: Playwright `v1.64.1-noble` pinned by digest, Node **24.22.2**
   from nodejs.org (SHA-256 checked; replaces the image's apt Node), pnpm 12.16.1 via corepack
@@ -67,13 +67,47 @@ Findings (all run in the container, Chromium `--use-angle=swiftshader --enable-u
 **Checkpoint: owner reviews the perf margin proposal** (finding 5) before G4 is built (Later).
 Nothing blocks M2.
 
+## In progress: M2 · Playable core (branch `phase0/m2-core`)
+Built in parallel by three agents against shared contracts (`src/sim/types.ts`, `src/ui/types.ts`),
+then integrated:
+- `src/sim/`: mulberry32 RNG, closed Catmull-Rom track with arc-length sampling and local
+  nearest-search, arcade car (grip/drift split, dirt vs grass, ramp launch + landing, prop
+  collisions with push-out and sub-stepping, no respawn), race (180-tick countdown, ordered sectors
+  so shortcuts never count, finish), world, frozen replay format (int8 steer + flag bits).
+  Dirt top speed 25 u/s, grass 15. `stepWorld` quantises steer to int8 so live play == replay.
+- `src/content/tracks/dust-bowl.json`: scaled ~2.07× by the sim agent to reach a ~40 s lap (1008
+  units); more trees added at integration. `src/content/tracks.ts` registers tracks by glob.
+- `src/render/`: the one materials factory (toon ladder, hull, flat, crease), meshes (car with
+  geometry race number and ▼ marker, hay bale, tyre stack, cone tree, ramp with chevrons, ribbon
+  with ruts, chequered start band), blob shadows, pooled dust, camera rig (57°, vfov 19°,
+  56/55 units across). Faces with normal y ≥ 0.95 keep their base colour (UI_RULES §8 "top faces
+  take the base colour"); this is what keeps the dark-dirt ramp slope off ink.
+- `src/ui/` + `src/input/`: HUD (POS, LAP, minimap, TIME + BEST), touch controls (active → resting
+  after 4 s → pressed, 12 px slop, multi-touch), countdown roundels + GO! stamp, start screen,
+  finish panel; keyboard (arrows/WASD). Off-scale mockup values snapped to tokens (listed in the M2
+  PR). No pause/action buttons (B01/B12).
+- `src/game.ts` (fixed-step loop, interpolation, UI sync; GO! clears 60 ticks after the start in
+  sim time so staged frames are deterministic), `src/driver/` (`window.__racer`: startRace, freeze,
+  step, play, state), `guardrails/build/pwa-icons.ts`.
+- Spikes: `spikes/m2-render`, `spikes/m2-ui` (component previews), `spikes/m2-game` (end-to-end
+  check `run.ts`, autopilot inputs `inputs.ts`, frame capture `frames.ts`).
+
+Verified in the container: typecheck, 197 tests (sim 112, render 22, UI/input 56, content 3,
+tokens 4), build, render pixel check (0 off-palette px at both sizes), end-to-end in Chromium at
+844×390 (touch) and 1440×900: menu, staged race, keyboard drive, touch-only RACE + GAS drive,
+no page errors.
+
+**Checkpoint (HANDOVER §2.3): owner approves the 844×390 and 1440×900 reference frames.** Approved
+shots go to `guardrails/design/reference-frames/`.
+
 ## Next step
-**M2 · Playable core** per the plan, on `phase0/m2-core` (branched from M1.5 until those merge).
-Start with the replay format freeze and `src/sim`, then the materials factory reusing the spike's
-shader approach.
+After the M2 PR and reference frames: **M3 · Bot opponent** (`src/sim/bot.ts`, car–car collisions,
+race position x/2 in the HUD).
 
 ## Open questions for the owner
-1. G4 perf margin: 15% with 7 runs per side (finding 5)? A tighter margin needs more runs.
+1. G4 perf margin: 15% with 7 runs per side (M1.5 finding 5)? A tighter margin needs more runs.
+2. Dust Bowl is nearly flat-out: the test autopilot never slides. Drifting needs tighter corners;
+   a hairpin variant or a later track (B10/B11) could provide them.
 
 ## Notes for later milestones
 - PWA icons: `guardrails/build/pwa-icons.ts` (draws palette shapes with `pngjs`) lands in M2; the

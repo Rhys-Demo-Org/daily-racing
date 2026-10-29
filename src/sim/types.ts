@@ -117,3 +117,30 @@ export interface RaceView {
 }
 
 export const TICK_HZ = 60;
+
+/**
+ * World-space layout of a track, computed by the sim from TrackData (sim exports
+ * `trackLayout(track): TrackLayout`). Render builds all track meshes from this, so the sim stays the
+ * single source of geometry.
+ */
+export interface TrackLayout {
+  width: number;
+  /** Dense closed centreline [x, z], about 1 unit apart. Index 0 is on the start/finish line. */
+  centre: [number, number][];
+  /** Driving heading at the start/finish line. */
+  startHeading: number;
+  ramps: RampInstance[];
+  props: PropInstance[];
+}
+
+export interface RampInstance {
+  /** Centre of the ramp's lip (its highest edge). */
+  x: number;
+  z: number;
+  /** Driving direction over the ramp; the slope rises along it and ends at the lip. */
+  heading: number;
+  /** Up-slope length, footprint width (= track width) and lip height, in units. */
+  length: number;
+  width: number;
+  height: number;
+}

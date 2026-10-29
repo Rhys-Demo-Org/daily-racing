@@ -67,8 +67,7 @@ Findings (all run in the container, Chromium `--use-angle=swiftshader --enable-u
 
 Perf margin accepted by the owner (see Owner decisions).
 
-## Awaiting merge
-### M2 · Playable core — PR #3 (branch `phase0/m2-core`)
+### M2 · Playable core — PR #3 (merged 2026-10-29)
 Built in parallel by three agents against shared contracts (`src/sim/types.ts`, `src/ui/types.ts`),
 then integrated:
 - `src/sim/`: mulberry32 RNG, closed Catmull-Rom track with arc-length sampling and local
@@ -100,7 +99,7 @@ then integrated:
 - **Reference frames approved (2026-10-29)**: turn tick 1100 and ramp tick 442 in
   `guardrails/design/reference-frames/`.
 
-### M3 · Bot opponent — branch `phase0/m3-bot` (stacked on #3)
+### M3 · Bot opponent — PR #4 (merged 2026-10-29)
 - `src/sim/bot.ts`: `createBot(world, carIndex)` → `bot.input(world)`, the same `CarInput` as the
   player. Centreline follower with a seeded racing offset and pace; corner speed planned from
   curvature along its own line, shorter look-ahead in tight corners; passes the nearest car ahead,
@@ -133,8 +132,40 @@ content 3), build, end-to-end in Chromium at 844×390 (touch) and 1440×900 with
 **Checkpoint passed (2026-10-29):** owner re-approved the reference frames (the M2 review fixes
 and the bot car changed the look); the new shots replace the M2 ones.
 
+## In progress: M4-thin · Thin harness + nightly dry runs (branch `phase0/m4-thin`)
+Built by three agents in parallel (gates, sandbox, nightly loop), then a security audit and a code review;
+every finding fixed. Read `SETUP.md` for how to run it and its "Known residuals".
+- **Gates** (`harness/scripts/run-gates.sh`, `guardrails/gates/`): G1 typecheck + build + tests + test
+  integrity, G2 bot laps (finish, no stuck, no teleport, median lap ±10% of main), G3 physics replays, G8
+  protected files (allowlist diff, manifest, tokens). Gate code, configs and baselines only from main;
+  branch code only in `--network none --read-only` measure containers with no output mount; per-run nonce
+  on measure output; fails closed; 20-min cap. Warm run ~6 s.
+- **Baselines + manifest**: `tests/baselines/` (bot laps, 5 replays), `guardrails/manifest.json`;
+  `harness/scripts/rebaseline.sh` (owner-only) regenerates them; G8 fails every branch if main's manifest
+  is stale.
+- **Cheats**: 20 patches in `guardrails/cheats/`; `harness/scripts/self-test.sh` runs a clean control,
+  each cheat (caught by exactly the expected gate) and `self-test-sandbox.sh` (70 checks).
+- **Sandbox** (`harness/scripts/agent-run.sh`, `sandbox-net.sh`, `harness/proxy/`): isolated internal
+  Docker network; Node allowlist proxy (api.anthropic.com only; IP literals, private ranges and metadata
+  denied; resolves once); workdir read-only except `src/`, `tests/` (minus baselines, driver) and today's
+  journal; `.git` hidden; fresh HOME; token by env only; web tools off; bypassPermissions only inside.
+- **Nightly loop** (`harness/daily.sh --dry-run [--manual]`): pre-flight (STOP files, 03:00/05:15/06:30
+  London incl. DST, disk, lock), branch `daily/<date>` in `~/.daily-racer/repo`, backlog pick with a
+  dry-run ledger, Sunday maintenance, spec via `--json-schema` then locked + hashed, build, harness commit,
+  gates, up to 2 retries, usage-limit/deadline stop, journal (builder files under `builder/`, symlinks
+  dropped, token redacted, write quota), committed locally; nothing pushed.
+  `harness/scripts/dry-run-report.sh`; systemd units in `harness/systemd/` (not installed yet).
+- Verified: 373 tests, `run-gates.sh` green, `self-test.sh` (all cheats + sandbox), `daily-e2e.sh`
+  (stubbed agent: happy path, retries, usage limit, deadline, STOP, Sunday, spec tamper, planted
+  symlinks, token in output, oversized file).
+
+**Checkpoint: owner runs `claude setup-token`** (`SETUP.md`). Then: verify `claude -p` in the sandbox,
+`--max-turns`, whether `--max-budget-usd` is enforced on subscription auth; one manual
+`daily.sh --dry-run --manual` end to end; install the timer; start the dry-run week.
+
 ## Next step
-After M3 is merged: **M4-thin · Thin harness + nightly dry runs** (G1, G2, G3, G8).
+After M4-thin: host `main` (Cloudflare Pages via a GitHub Action, owner preference pending), then the
+dry-run week.
 
 ## Owner decisions
 1. G4 perf margin: 15% with 7 alternating runs per side (M1.5 finding 5). Accepted 2026-10-29.

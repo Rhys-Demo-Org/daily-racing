@@ -3,7 +3,7 @@ import type { CarInput } from '../../src/sim/types.ts';
 import type { RacerState } from '../../src/sim/race.ts';
 import {
   COUNTDOWN_TICKS,
-  SECTORS,
+  sectorCount,
   countdownValue,
   createRacer,
   positions,
@@ -17,7 +17,7 @@ import { createBot } from '../../src/sim/bot.ts';
 import { GAS, NO_INPUT, driveToward, dustBowl, runBotRace, stepN } from './helpers.ts';
 
 const L = 1000;
-const SECTOR = L / SECTORS;
+const SECTOR = L / sectorCount(L);
 
 /** Feeds a sequence of arc lengths to a racer one tick at a time. */
 function feed(r: RacerState, path: number[], laps = 3, startTick = 1): void {
@@ -97,6 +97,20 @@ describe('lap counting rules', () => {
     // Going back and doing it properly from the missed sector onwards works again.
     feed(r, span(20, L + 20));
     expect(r.lapsCompleted).toBe(1);
+  });
+
+  it('on a long lap sectors stay short, so a cut across a single old 8-sector boundary no longer counts', () => {
+    // A 2 km lap: 50 sectors of 40 units, where a fixed 8 would each have been 250 long.
+    const long = 2000;
+    expect(sectorCount(long)).toBe(50);
+    expect(sectorCount(200)).toBe(8);
+    // Start, then cut from s = 10 to s = 490: with 8 sectors that only crosses one boundary
+    // (sector 0 → 1) so it was credited, skipping 480 units of track. Then drive on over the line.
+    expect([10, 490].map((s) => Math.floor((s / long) * 8))).toEqual([0, 1]);
+    const r = createRacer(long - 10, long);
+    const path = [...span(long - 10, long + 10), ...span(490, long + 20)];
+    path.forEach((s, i) => updateRacer(r, s % long, long, i + 1, 3));
+    expect(r.lapsCompleted).toBe(0);
   });
 
   it('finishes after the last lap and stops counting', () => {

@@ -1,43 +1,10 @@
+// Determinism of the world itself. Same seed + same inputs = bit-identical state is proven by the
+// replay round trip (replay.test.ts), which compares full fingerprints of a live and a replayed run.
 import { describe, expect, it } from 'vitest';
-import type { CarInput } from '../../src/sim/types.ts';
-import { createRng, nextFloat } from '../../src/sim/rng.ts';
-import type { World } from '../../src/sim/world.ts';
-import { carViews, createWorld, raceView, stepWorld } from '../../src/sim/world.ts';
-import type { Bot } from '../../src/sim/bot.ts';
-import { botsFor, dustBowl, fingerprint } from './helpers.ts';
-
-/** Bots with seeded noise: wobbly steering, random brake taps and lifts. */
-function noisyInputs(world: World, bots: Bot[], noise: ReturnType<typeof createRng>): CarInput[] {
-  return bots.map((bot) => {
-    const base = bot.input(world);
-    const r = nextFloat(noise);
-    return {
-      steer: Math.max(-1, Math.min(1, base.steer + (nextFloat(noise) - 0.5) * 0.9)),
-      throttle: r < 0.92 ? base.throttle : false,
-      brake: r > 0.97 || base.brake,
-    };
-  });
-}
-
-function simulate(seed: number, ticks: number): World {
-  const world = createWorld(dustBowl, { seed, carCount: 3 });
-  const bots = botsFor(world);
-  const noise = createRng(seed * 31 + 7);
-  for (let t = 0; t < ticks; t++) stepWorld(world, noisyInputs(world, bots, noise));
-  return world;
-}
+import { carViews, createWorld, stepWorld } from '../../src/sim/world.ts';
+import { dustBowl, fingerprint } from './helpers.ts';
 
 describe('determinism', () => {
-  it('same seed and inputs give bit-identical state after thousands of ticks', () => {
-    const a = simulate(2024, 6000);
-    const b = simulate(2024, 6000);
-    expect(fingerprint(a)).toBe(fingerprint(b));
-    expect(carViews(a)).toEqual(carViews(b));
-    expect(raceView(a)).toEqual(raceView(b));
-    // The run actually went somewhere (not a trivially static world).
-    expect(raceView(a).racers.some((r) => r.lapsCompleted >= 1)).toBe(true);
-  });
-
   it('different seeds give different grids', () => {
     const grids = [1, 2, 3, 4].map((seed) => JSON.stringify(carViews(createWorld(dustBowl, { seed, carCount: 4 }))));
     expect(new Set(grids).size).toBe(4);

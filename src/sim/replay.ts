@@ -7,7 +7,7 @@
 // The bytes are base64-encoded (standard alphabet, with padding) inside a JSON envelope:
 //   { "version": 1, "track": "<track id>", "seed": n, "carCount": n, "ticks": n, "inputs": "<base64>" }
 import type { CarInput, CarView, TrackData } from './types.ts';
-import { carViews, createWorld, stepWorld } from './world.ts';
+import { carViews, createWorld, steerToInt8, stepWorld } from './world.ts';
 
 export interface Replay {
   version: 1;
@@ -69,8 +69,7 @@ export function encodeInputs(frames: readonly (readonly CarInput[])[], carCount:
       const input = frame[c];
       const at = (t * carCount + c) * 2;
       if (input === undefined) continue;
-      const steer = Number.isFinite(input.steer) ? Math.max(-1, Math.min(1, input.steer)) : 0;
-      bytes[at] = Math.round(steer * 127) & 255;
+      bytes[at] = steerToInt8(input.steer) & 255;
       bytes[at + 1] = (input.throttle ? FLAG_THROTTLE : 0) | (input.brake ? FLAG_BRAKE : 0);
     }
   });
@@ -108,16 +107,9 @@ export function createReplay(
   return { version: 1, track: trackId, seed, carCount, ticks: frames.length, inputs: encodeInputs(frames, carCount) };
 }
 
-/** Serialises a replay to its JSON envelope. */
+/** Serialises a replay to its JSON envelope (key order as createReplay/decodeReplay build it). */
 export function encodeReplay(replay: Replay): string {
-  return JSON.stringify({
-    version: replay.version,
-    track: replay.track,
-    seed: replay.seed,
-    carCount: replay.carCount,
-    ticks: replay.ticks,
-    inputs: replay.inputs,
-  });
+  return JSON.stringify(replay);
 }
 
 /** Parses and checks a replay JSON envelope. Throws on anything malformed. */

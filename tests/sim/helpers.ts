@@ -1,32 +1,50 @@
-// Test-only helpers for the simulation suites.
+// Test-only helpers for the simulation suites. Plain-node runnable (spikes import it too).
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { CarInput, TrackData } from '../../src/sim/types.ts';
 import type { Bot } from '../../src/sim/bot.ts';
 import { createBot } from '../../src/sim/bot.ts';
 import type { World } from '../../src/sim/world.ts';
 import { createWorld, stepWorld } from '../../src/sim/world.ts';
 import type { CarState } from '../../src/sim/car.ts';
-import { CAR_LENGTH, CAR_TUNING, CAR_WIDTH, DT, SURFACES, forwardSpeed } from '../../src/sim/car.ts';
+import { CAR_LENGTH, CAR_WIDTH, DT, SURFACES, createCar, forwardSpeed } from '../../src/sim/car.ts';
 import { COUNTDOWN_TICKS } from '../../src/sim/race.ts';
+import type { Track } from '../../src/sim/track.ts';
 import { clamp, headingOf, wrapAngle } from '../../src/sim/vec.ts';
-import dustBowlJson from '../../src/content/tracks/dust-bowl.json' with { type: 'json' };
 
-export const dustBowl = dustBowlJson as TrackData;
+const TRACK_DIR = join(import.meta.dirname, '../../src/content/tracks');
+/** Every registered track (src/content/tracks/*.json), read once, in file-name order. */
+export const TRACKS: readonly TrackData[] = readdirSync(TRACK_DIR)
+  .filter((f) => f.endsWith('.json'))
+  .sort()
+  .map((f) => JSON.parse(readFileSync(join(TRACK_DIR, f), 'utf8')) as TrackData);
+export const dustBowl = TRACKS.find((t) => t.id === 'dust-bowl') as TrackData;
 
 export const NO_INPUT: CarInput = { steer: 0, throttle: false, brake: false };
 export const GAS: CarInput = { steer: 0, throttle: true, brake: false };
+/** Brake, which becomes reverse once stopped. */
+export const REVERSE: CarInput = { steer: 0, throttle: false, brake: true };
 
 /** Largest displacement a car may make in one tick without it counting as a teleport. */
 export const MAX_TICK_DISPLACEMENT = SURFACES.dirt.topSpeed * DT * 1.5;
 
-/** Every number in the world, as exact bit patterns, so -0/+0 and last-bit differences show up. */
+/** JSON with every number as its exact bit pattern, so -0/+0 and last-bit differences show up. */
+export function exactJson(value: unknown): string {
+  const bits = (v: number): string => Array.from(new Uint32Array(new Float64Array([v]).buffer), (u) => u.toString(16)).join(':');
+  return JSON.stringify(value, (_, v) => (typeof v === 'number' ? bits(v) : v));
+}
+
+/** Every number in the world, exactly. */
 export function fingerprint(world: World): string {
-  const bits = (v: number): string => {
-    const f = new Float64Array([v]);
-    return Array.from(new Uint32Array(f.buffer), (u) => u.toString(16)).join(':');
-  };
-  return JSON.stringify({ cars: world.cars, racers: world.racers, tick: world.tick, rng: world.rng }, (_, v) =>
-    typeof v === 'number' ? bits(v) : v,
-  );
+  return exactJson({ cars: world.cars, racers: world.racers, tick: world.tick, rng: world.rng });
+}
+
+/** A car at (x, z) facing `heading`, already moving along it at `speed` (negative = reversing). */
+export function movingCar(track: Track, x: number, z: number, heading: number, speed = 0): CarState {
+  const car = createCar(track, x, z, heading);
+  car.vx = Math.sin(heading) * speed;
+  car.vz = -Math.cos(heading) * speed;
+  return car;
 }
 
 /** One bot per car of the world. */
@@ -44,17 +62,22 @@ export interface Watch {
   grassTicks: number;
   /** Ticks (summed over cars) a car's footprint was within 0.01 of a prop. */
   propTicks: number;
+  /** Times (summed over cars) a car started reversing faster than 2 units/s: bots only do that to
+   * recover from being stuck. */
+  reversals: number;
   update(world: World): void;
 }
 
 export function watch(world: World): Watch {
   let prev = world.cars.map((c) => ({ x: c.x, z: c.z }));
   const slow = world.cars.map(() => 0);
+  const reversing = world.cars.map(() => false);
   const w: Watch = {
     maxStep: 0,
     maxSlowTicks: 0,
     grassTicks: 0,
     propTicks: 0,
+    reversals: 0,
     update(world) {
       world.cars.forEach((car, i) => {
         const p = prev[i]!;
@@ -64,6 +87,9 @@ export function watch(world: World): Watch {
         w.maxSlowTicks = Math.max(w.maxSlowTicks, slow[i]!);
         if (car.surface === 'grass') w.grassTicks++;
         if (touchesProp(world, car)) w.propTicks++;
+        const back = forwardSpeed(car) < -2;
+        if (back && !reversing[i]) w.reversals++;
+        reversing[i] = back;
       });
       prev = world.cars.map((c) => ({ x: c.x, z: c.z }));
     },
@@ -84,7 +110,6 @@ function touchesProp(world: World, car: CarState): boolean {
 
 export interface BotRace {
   world: World;
-  bots: Bot[];
   seen: Watch;
   /** Lap times in seconds, per car. */
   lapSeconds: number[][];
@@ -92,18 +117,25 @@ export interface BotRace {
   finished: boolean;
 }
 
-/** Runs a race with every car driven by its bot, until all cars finish or `maxTicks` pass. */
-export function runBotRace(track: TrackData, seed: number, carCount = 1, maxTicks = 60 * 240): BotRace {
+/** Runs a race with every car driven by its bot, until all cars finish or `maxTicks` pass, calling
+ * `onTick` after every tick. */
+export function runBotRace(
+  track: TrackData,
+  seed: number,
+  carCount = 1,
+  onTick?: (world: World) => void,
+  maxTicks = 60 * 240,
+): BotRace {
   const world = createWorld(track, { seed, carCount });
   const bots = botsFor(world);
   const seen = watch(world);
   for (let t = 0; t < maxTicks && world.racers.some((r) => r.finishTick === null); t++) {
     stepWorld(world, bots.map((b) => b.input(world)));
     seen.update(world);
+    onTick?.(world);
   }
   return {
     world,
-    bots,
     seen,
     lapSeconds: world.racers.map((r) => r.lapTicks.map((t) => t * DT)),
     finished: world.racers.every((r) => r.finishTick !== null),
@@ -148,7 +180,7 @@ export function stripTrack(extra: Partial<TrackData> = {}): TrackData {
  * Hairpin fixture: leg A runs east along z = 0, turns through a tight hairpin at x ≈ 200 and comes
  * back west as leg B along z = −16. The legs' edges are 7.6 apart, so there is grass between them.
  */
-export function hairpinTrack(): TrackData {
+export function hairpinTrack(extra: Partial<TrackData> = {}): TrackData {
   return {
     id: 'test-hairpin',
     name: 'Test Hairpin',
@@ -162,21 +194,42 @@ export function hairpinTrack(): TrackData {
     ramps: [],
     propRows: [],
     props: [],
+    ...extra,
+  };
+}
+
+/** The hairpin with a row of hay bales all along the inside (left) of the track, 2 off the edge. */
+export function baleHairpinTrack(): TrackData {
+  return hairpinTrack({ id: 'test-bale-hairpin', propRows: [{ kind: 'hay-bale', side: 'left', from: 0, to: 1, spacing: 2.1, offset: 2 }] });
+}
+
+/**
+ * A 2-unit ramp at the steepest allowed slope, with its lip just one run-out before a 90° left
+ * corner lined with tyre stacks on both sides.
+ */
+export function rampCornerTrack(): TrackData {
+  return {
+    id: 'test-ramp-corner',
+    name: 'Test Ramp Corner',
+    laps: 2,
+    width: 8.4,
+    centreline: [
+      [0, 0], [50, 0], [100, 0], [110, 3], [116, 10], [118, 20], [118, 60], [118, 100], [100, 120],
+      [0, 120], [-40, 100], [-40, 20], [-20, 2],
+    ],
+    ramps: [{ at: 0.149, length: 6.25, height: 2 }],
+    propRows: [
+      { kind: 'tyre-stack', side: 'left', from: 0.05, to: 0.3, spacing: 3.5, offset: 1.5 },
+      { kind: 'tyre-stack', side: 'right', from: 0.05, to: 0.3, spacing: 3.5, offset: 1.5 },
+      { kind: 'hay-bale', side: 'left', from: 0, to: 0.05, spacing: 2.1, offset: 2 },
+    ],
+    props: [],
   };
 }
 
 /** Corners of the car's footprint (world XZ). */
 export function carCorners(x: number, z: number, heading: number): [number, number][] {
-  const fx = Math.sin(heading);
-  const fz = -Math.cos(heading);
-  const hl = CAR_LENGTH / 2;
-  const hw = CAR_WIDTH / 2;
-  return [
-    [x + fx * hl - fz * hw, z + fz * hl + fx * hw],
-    [x + fx * hl + fz * hw, z + fz * hl - fx * hw],
-    [x - fx * hl + fz * hw, z - fz * hl - fx * hw],
-    [x - fx * hl - fz * hw, z - fz * hl + fx * hw],
-  ];
+  return boxCorners(x, z, heading, CAR_LENGTH / 2, CAR_WIDTH / 2);
 }
 
 /** Penetration depth of a circle into the car footprint (0 when apart). Independent of car.ts. */
@@ -233,5 +286,3 @@ export function boxCorners(x: number, z: number, heading: number, halfLength: nu
     [x - fx * halfLength - fz * halfWidth, z - fz * halfLength + fx * halfWidth],
   ];
 }
-
-export { CAR_TUNING };

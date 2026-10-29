@@ -76,11 +76,10 @@ export function createCameraRig(width = 844, height = 390): CameraRig {
     camera.position.set(tgt.x, Math.sin(p) * distance, tgt.z + Math.cos(p) * distance);
     camera.updateMatrixWorld();
   };
-  const ahead = (v: number): number => v * CAMERA.lookAheadSeconds;
-  const clampAhead = (ax: number, az: number): [number, number] => {
-    const len = Math.hypot(ax, az);
-    const k = len > CAMERA.lookAheadMax ? CAMERA.lookAheadMax / len : 1;
-    return [ax * k, az * k];
+  /** Seconds of look-ahead for velocity (vx, vz): lookAheadSeconds, shortened to cap the distance. */
+  const aheadSeconds = (vx: number, vz: number): number => {
+    const speed = Math.hypot(vx, vz);
+    return speed * CAMERA.lookAheadSeconds > CAMERA.lookAheadMax ? CAMERA.lookAheadMax / speed : CAMERA.lookAheadSeconds;
   };
 
   const rig: CameraRig = {
@@ -95,16 +94,16 @@ export function createCameraRig(width = 844, height = 390): CameraRig {
       place();
     },
     follow(x, z, vx, vz, dt) {
-      const [ax, az] = clampAhead(ahead(vx), ahead(vz));
+      const s = aheadSeconds(vx, vz);
       const k = dt > 0 ? 1 - Math.pow(0.5, dt / CAMERA.followHalfLife) : 0;
-      tgt.x += (x + ax - tgt.x) * k;
-      tgt.z += (z + az - tgt.z) * k;
+      tgt.x += (x + vx * s - tgt.x) * k;
+      tgt.z += (z + vz * s - tgt.z) * k;
       place();
     },
     snap(x, z, vx = 0, vz = 0) {
-      const [ax, az] = clampAhead(ahead(vx), ahead(vz));
-      tgt.x = x + ax;
-      tgt.z = z + az;
+      const s = aheadSeconds(vx, vz);
+      tgt.x = x + vx * s;
+      tgt.z = z + vz * s;
       place();
     },
     target: () => ({ ...tgt }),

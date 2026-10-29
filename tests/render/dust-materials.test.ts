@@ -1,8 +1,9 @@
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { MeshBasicMaterial, Vector3 } from 'three';
+import { MeshBasicMaterial, Vector3, type BufferAttribute } from 'three';
 import { paletteIndex, PALETTE } from '@tokens';
-import { createDust, createMaterials, DUST, isFactoryMaterial, toonShade } from '../../src/render/index.ts';
-import { buildConeTree, buildRamp } from '../../src/render/props.ts';
+import { addRamp, createDust, createMaterials, DUST, isFactoryMaterial, MeshBuilder, PROPS, TOP_FACE_MIN_Y, toonShade } from '../../src/render/index.ts';
+import { trackLayout } from '../../src/sim/index.ts';
 import { carView } from './helpers.ts';
 
 describe('dust pool', () => {
@@ -44,6 +45,24 @@ describe('dust pool', () => {
     expect(run()).toEqual(run());
   });
 
+  it('is hidden with no live puffs and uploads positions only when a puff moved', () => {
+    const dust = createDust(createMaterials(), 7);
+    const pos = dust.mesh.geometry.getAttribute('position') as BufferAttribute;
+    expect(dust.mesh.visible).toBe(false);
+    const idle = pos.version;
+    for (let i = 0; i < 30; i++) dust.update([carView({ speed: 25 })], 1 / 60);
+    expect(pos.version).toBe(idle);
+    dust.update([carView({ speed: 25, slip: 1 })], 0.1);
+    expect(dust.mesh.visible).toBe(true);
+    expect(pos.version).toBeGreaterThan(idle);
+    for (let i = 0; i < 60; i++) dust.update([carView({ speed: 25 })], 1 / 60); // every puff dies
+    expect(dust.active()).toBe(0);
+    expect(dust.mesh.visible).toBe(false);
+    const parked = pos.version;
+    for (let i = 0; i < 30; i++) dust.update([carView({ speed: 25 })], 1 / 60);
+    expect(pos.version).toBe(parked);
+  });
+
   it('puffs are cream with an ink hull', () => {
     const dust = createDust(createMaterials(), 1);
     expect(new Set(dust.mesh.geometry.getAttribute('paletteIndex').array)).toEqual(new Set([paletteIndex('cream')]));
@@ -71,7 +90,7 @@ describe('materials factory and toon steps', () => {
   });
 
   it('a ramp slope reads dark-dirt (not ink) whichever way the ramp faces', () => {
-    const geo = buildRamp({ length: 5, width: 8.4, height: 1 });
+    const geo = addRamp(new MeshBuilder(), { length: 5, width: 8.4, height: 1 }).build();
     const n = geo.getAttribute('normal');
     const c = geo.getAttribute('paletteIndex');
     for (let h = 0; h < 16; h++) {
@@ -85,8 +104,27 @@ describe('materials factory and toon steps', () => {
     }
   });
 
+  it('every ramp on every registered track has a slope steep enough to stay at its base colour', () => {
+    const dir = 'src/content/tracks';
+    const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      for (const r of trackLayout(JSON.parse(readFileSync(`${dir}/${file}`, 'utf8'))).ramps) {
+        const geo = addRamp(new MeshBuilder(), r).build();
+        const n = geo.getAttribute('normal');
+        let slopeFaces = 0;
+        for (let i = 0; i < n.count; i += 3) {
+          if (n.getY(i) <= 0.5) continue; // the slope is the only upward face
+          expect(n.getY(i), `${file}: ramp slope normal`).toBeGreaterThanOrEqual(TOP_FACE_MIN_Y);
+          slopeFaces++;
+        }
+        expect(slopeFaces).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it('cone tree trunk reads dark-dirt and canopy shows grass and deep-green facets', () => {
-    const geo = buildConeTree();
+    const geo = PROPS['cone-tree'].add(new MeshBuilder()).build();
     const n = geo.getAttribute('normal');
     const c = geo.getAttribute('paletteIndex');
     const trunk = new Set<string>();

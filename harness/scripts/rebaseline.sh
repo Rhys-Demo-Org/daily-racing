@@ -9,24 +9,19 @@
 #
 #   harness/scripts/rebaseline.sh
 set -euo pipefail
-root="$(cd "$(dirname "$0")/../.." && pwd)"
-# shellcheck source=/dev/null
-[[ -f "$root/harness/config.env" ]] && source "$root/harness/config.env"
-: "${BOT_SEEDS:=1,2,3,42,1234}"
+source "$(dirname "$0")/../lib/common.sh"
 
-dirty="$(git -C "$root" status --porcelain -- . ':!tests/baselines' ':!guardrails/manifest.json')"
-[[ -z "$dirty" ]] || { echo "rebaseline.sh: commit your changes first; baselines come from committed code:" >&2; echo "$dirty" >&2; exit 2; }
-
-image="daily-racer-toolchain:$(sha256sum "$root/harness/container/Dockerfile" | cut -c1-12)"
-docker image inspect "$image" >/dev/null 2>&1 || { echo "rebaseline.sh: image $image missing; run harness/container/build.sh" >&2; exit 2; }
-in_container() { docker run --rm -i --network none --user "$(id -u):$(id -g)" --tmpfs /tmp:exec -e HOME=/tmp/home -v "$root:/repo" -w /repo "$image" "$@"; }
-
-in_container bash -euc '
+dirty="$(git -C "$HARNESS_ROOT" status --porcelain -- . ':!tests/baselines' ':!guardrails/manifest.json')"
+[[ -z "$dirty" ]] || die "commit your changes first; baselines come from committed code:"$'\n'"$dirty"
+run=("$HARNESS_ROOT/harness/scripts/in-container.sh" --)
+"${run[@]}" bash -euc '
+  export GATE_NONCE=rebaseline
+  v="--exit 0 --stderr /dev/null --nonce $GATE_NONCE --main . --image $1"
   node guardrails/gates/record-replays.ts
   node --permission --allow-fs-read=/repo guardrails/gates/g3-measure.ts tests/baselines/replays src/content/tracks >/tmp/g3.out
-  node guardrails/gates/g3-verdict.ts --measure /tmp/g3.out --exit 0 --stderr /dev/null --main . --image "$1" --baseline tests/baselines/replay-states.json
+  node guardrails/gates/g3-verdict.ts --measure /tmp/g3.out $v --baseline tests/baselines/replay-states.json
   node --permission --allow-fs-read=/repo guardrails/gates/g2-measure.ts . "$2" >/tmp/g2.out
-  node guardrails/gates/g2-verdict.ts --measure /tmp/g2.out --exit 0 --stderr /dev/null --main . --image "$1" --baseline tests/baselines/bot-laps.json
-' _ "$image" "$BOT_SEEDS"
-git -C "$root" ls-files -z --cached --others --exclude-standard | in_container node guardrails/scripts/gen-manifest.ts
-git -C "$root" status --short -- tests/baselines guardrails/manifest.json
+  node guardrails/gates/g2-verdict.ts --measure /tmp/g2.out $v --baseline tests/baselines/bot-laps.json
+' _ "$IMAGE" "$BOT_SEEDS"
+git -C "$HARNESS_ROOT" ls-files -z --cached --others --exclude-standard | "${run[@]}" node guardrails/scripts/gen-manifest.ts
+git -C "$HARNESS_ROOT" status --short -- tests/baselines guardrails/manifest.json

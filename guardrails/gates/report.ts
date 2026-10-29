@@ -5,9 +5,9 @@
 //   node report.ts --results <dir> --out <dir> --branch-sha <sha> --main-sha <sha>
 //                  --started <ISO> --duration-ms <n> [--maintenance]
 //   <results>/<id>.json  verdict result   <id>.ms  wall time   <id>.note  harness note
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cli, flag, isResult, type GateResult } from './lib.ts';
+import { cli, flag, isResult, readText, type GateResult } from './lib.ts';
 
 const GATES = [
   ['G1', 'Build, types & unit tests'],
@@ -18,13 +18,7 @@ const GATES = [
 
 const { flags } = cli();
 const dir = flag(flags, 'results');
-const read = (name: string): string | null => {
-  try {
-    return readFileSync(join(dir, name), 'utf8');
-  } catch {
-    return null;
-  }
-};
+const read = (name: string): string | null => readText(join(dir, name));
 
 const gates = GATES.map(([id, name]) => {
   const note = read(`${id}.note`)?.trim().replace(/\n/g, '; ');

@@ -76,7 +76,7 @@ export function parseRaw(raw: string): Omit<Change, 'binary'>[] {
 }
 
 /** Paths that `git diff --numstat -z --no-renames` reports as binary (`-\t-\t`). */
-export function parseNumstatBinary(numstat: string): Set<string> {
+function parseNumstatBinary(numstat: string): Set<string> {
   const binary = new Set<string>();
   for (const entry of numstat.split('\0')) {
     const m = /^\n?(-|\d+)\t(-|\d+)\t(.*)$/s.exec(entry);

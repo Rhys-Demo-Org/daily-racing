@@ -3,7 +3,7 @@
 // exists, every race finishes, nobody is stuck or teleports, and each existing track's median lap
 // is within 10% of main's baseline (identical on maintenance days).
 //
-//   node g2-verdict.ts --measure <f> --exit <n> --stderr <f> --main <dir> --image <tag>
+//   node g2-verdict.ts --measure <f> --exit <n> --stderr <f> --nonce <s> --main <dir> --image <tag>
 //                      (--out <result.json> [--maintenance] | --baseline <bot-laps.json>)
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,7 +12,7 @@ import { COUNTDOWN_TICKS, createRacer, updateRacer } from '../../src/sim/race.ts
 import { buildTrack, nearestGlobal, trackPosition, validateTrack, type Track } from '../../src/sim/track.ts';
 import type { TrackData } from '../../src/sim/types.ts';
 import type { G2Measure, G2Race } from './g2-measure.ts';
-import { cli, finish, flag, isResult, jsonFiles, loadMeasure, median, readJson, verdict } from './lib.ts';
+import { finish, flag, jsonFiles, median, readJson, toolchainProblem, verdict, verdictArgs } from './lib.ts';
 
 /** Largest per-tick move that is driving, not teleporting: dirt top speed × DT × 1.5 (0.625). */
 const MAX_STEP = SURFACES.dirt.topSpeed * DT * 1.5;
@@ -30,7 +30,7 @@ export interface BotLapBaseline {
 }
 
 /** Laps and problems of one car's trajectory, judged against `data` with main's code. */
-function judgeCar(data: TrackData, track: Track, car: G2Race['cars'][number], label: string) {
+export function judgeCar(data: TrackData, track: Track, car: G2Race['cars'][number], label: string) {
   const problems: string[] = [];
   const n = Math.min(car.x.length, car.z.length);
   let pos = nearestGlobal(track, car.x[0]!, car.z[0]!);
@@ -57,80 +57,73 @@ function judgeCar(data: TrackData, track: Track, car: G2Race['cars'][number], la
   return { laps: racer.lapTicks, problems: problems.slice(0, 5), worstStep };
 }
 
-const { flags } = cli();
-const mainDir = flag(flags, 'main');
-const image = flag(flags, 'image');
-const baselineOut = flags['baseline'];
-const out = typeof baselineOut === 'string' ? '' : flag(flags, 'out');
-const maintenance = flags['maintenance'] === true;
-const m = loadMeasure<G2Measure>(flags);
-if (isResult(m)) {
-  if (out === '') throw new Error(`${m.summary}\n${m.details}`);
-  finish(out, m);
-}
+function main(): void {
+  const { flags, m, out, baseline } = verdictArgs<G2Measure>();
+  const mainDir = flag(flags, 'main');
+  const image = flag(flags, 'image');
+  const maintenance = flags['maintenance'] === true;
 
-const problems: string[] = [];
-const tracksDir = join(mainDir, 'src', 'content', 'tracks');
-const mainIds = jsonFiles(tracksDir).map((f) => f.slice(0, -5));
-const measuredIds = m.tracks.map((t) => t.file.slice(0, -5));
-for (const id of mainIds) if (!measuredIds.includes(id)) problems.push(`track "${id}" exists on main but is no longer registered`);
+  const problems: string[] = [];
+  const tracksDir = join(mainDir, 'src', 'content', 'tracks');
+  const mainIds = jsonFiles(tracksDir);
+  const measuredIds = m.tracks.map((t) => t.id);
+  for (const id of mainIds) if (!measuredIds.includes(id)) problems.push(`track "${id}" exists on main but is no longer registered`);
 
-const measured: BotLapBaseline['tracks'] = {};
-let worst = 0;
-for (const t of m.tracks) {
-  const id = t.file.slice(0, -5);
-  if (t.error !== undefined) {
-    problems.push(`${id}: ${t.error}`);
-    continue;
-  }
-  const existing = mainIds.includes(id);
-  const data = (existing ? readJson<unknown>(join(tracksDir, t.file)) : t.data) as TrackData;
-  if (data?.id !== id) problems.push(`${t.file}: id "${String(data?.id)}" must equal the file name`);
-  if (t.races.map((r) => r.seed).join() !== m.seeds.join()) problems.push(`${id}: races do not match the seeds`);
-  const laps: number[] = [];
-  try {
-    const track = buildTrack(validateTrack(data));
-    for (const r of t.races) {
-      r.cars.forEach((car, i) => {
-        const judged = judgeCar(data, track, car, `${id} seed ${r.seed} car ${i}`);
-        problems.push(...judged.problems);
-        laps.push(...judged.laps);
-        worst = Math.max(worst, judged.worstStep);
-      });
+  const measured: BotLapBaseline['tracks'] = {};
+  let worst = 0;
+  for (const { id, ...t } of m.tracks) {
+    if (t.error !== undefined) {
+      problems.push(`${id}: ${t.error}`);
+      continue;
     }
-  } catch (e) {
-    problems.push(`${id}: ${(e as Error).message}`);
+    const existing = mainIds.includes(id);
+    const data = (existing ? readJson<unknown>(join(tracksDir, `${id}.json`)) : t.data) as TrackData;
+    if (data?.id !== id) problems.push(`${id}.json: id "${String(data?.id)}" must equal the file name`);
+    if (t.races.map((r) => r.seed).join() !== m.seeds.join()) problems.push(`${id}: races do not match the seeds`);
+    const laps: number[] = [];
+    try {
+      const track = buildTrack(validateTrack(data));
+      for (const r of t.races) {
+        r.cars.forEach((car, i) => {
+          const judged = judgeCar(data, track, car, `${id} seed ${r.seed} car ${i}`);
+          problems.push(...judged.problems);
+          laps.push(...judged.laps);
+          worst = Math.max(worst, judged.worstStep);
+        });
+      }
+    } catch (e) {
+      problems.push(`${id}: ${(e as Error).message}`);
+    }
+    measured[id] = { medianLapTicks: laps.length ? median(laps) : 0, lapTicks: laps };
   }
-  measured[id] = { medianLapTicks: laps.length ? median(laps) : 0, lapTicks: laps };
+
+  if (baseline !== null) {
+    if (problems.length) throw new Error(problems.join('\n'));
+    writeFileSync(baseline, `${JSON.stringify({ node: process.version, image, seeds: m.seeds, tracks: measured } satisfies BotLapBaseline, null, 2)}\n`);
+    process.exit(0);
+  }
+
+  const base = readJson<BotLapBaseline>(join(mainDir, 'tests', 'baselines', 'bot-laps.json'));
+  problems.push(...toolchainProblem(base, image, ` / seeds ${base.seeds.join()}`, ` / seeds ${m.seeds.join()}`));
+  const lines: string[] = [];
+  for (const [id, now] of Object.entries(measured)) {
+    const was = mainIds.includes(id) ? base.tracks[id] : undefined;
+    const sec = (ticks: number): string => (ticks * DT).toFixed(2);
+    if (was === undefined) {
+      lines.push(`${id} ${sec(now.medianLapTicks)} s (new)`);
+      continue;
+    }
+    const change = now.medianLapTicks / was.medianLapTicks - 1;
+    lines.push(`${id} ${sec(now.medianLapTicks)} s (${change >= 0 ? '+' : ''}${(change * 100).toFixed(1)}%)`);
+    if (maintenance ? now.lapTicks.join() !== was.lapTicks.join() : Math.abs(change) > LAP_TOLERANCE) {
+      problems.push(
+        `${id}: median lap ${sec(now.medianLapTicks)} s vs main ${sec(was.medianLapTicks)} s (${(change * 100).toFixed(1)}%; ` +
+          `${maintenance ? 'maintenance days require identical laps' : `limit ±${LAP_TOLERANCE * 100}%`})`,
+      );
+    }
+  }
+  const summary = `${lines.join(', ')}; worst step ${worst.toFixed(3)}`;
+  finish(out, verdict(problems, summary, (n) => `${n} problem(s); ${summary}`));
 }
 
-if (typeof baselineOut === 'string') {
-  if (problems.length) throw new Error(problems.join('\n'));
-  const baseline: BotLapBaseline = { node: process.version, image, seeds: m.seeds, tracks: measured };
-  writeFileSync(baselineOut, `${JSON.stringify(baseline, null, 2)}\n`);
-  process.exit(0);
-}
-
-const base = readJson<BotLapBaseline>(join(mainDir, 'tests', 'baselines', 'bot-laps.json'));
-if (base.node !== process.version || base.image !== image || base.seeds.join() !== m.seeds.join()) {
-  problems.push(`toolchain mismatch: baseline from ${base.node} / ${base.image} / seeds ${base.seeds.join()}, now ${process.version} / ${image} / seeds ${m.seeds.join()} (owner: harness/scripts/rebaseline.sh)`);
-}
-const lines: string[] = [];
-for (const [id, now] of Object.entries(measured)) {
-  const was = mainIds.includes(id) ? base.tracks[id] : undefined;
-  const sec = (ticks: number): string => (ticks * DT).toFixed(2);
-  if (was === undefined) {
-    lines.push(`${id} ${sec(now.medianLapTicks)} s (new)`);
-    continue;
-  }
-  const change = now.medianLapTicks / was.medianLapTicks - 1;
-  lines.push(`${id} ${sec(now.medianLapTicks)} s (${change >= 0 ? '+' : ''}${(change * 100).toFixed(1)}%)`);
-  if (maintenance ? now.lapTicks.join() !== was.lapTicks.join() : Math.abs(change) > LAP_TOLERANCE) {
-    problems.push(
-      `${id}: median lap ${sec(now.medianLapTicks)} s vs main ${sec(was.medianLapTicks)} s (${(change * 100).toFixed(1)}%; ` +
-        `${maintenance ? 'maintenance days require identical laps' : `limit ±${LAP_TOLERANCE * 100}%`})`,
-    );
-  }
-}
-const summary = `${lines.join(', ')}; worst step ${worst.toFixed(3)}`;
-finish(out, verdict(problems, summary, (n) => `${n} problem(s); ${summary}`));
+if (import.meta.main) main();

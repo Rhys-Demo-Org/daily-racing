@@ -9,8 +9,8 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkDiff } from '../../harness/lib/allowlist.ts';
-import { hashFile, protectedPaths, type Manifest } from '../scripts/gen-manifest.ts';
-import { cli, finish, flag, readJson, tail, verdict } from './lib.ts';
+import { protectedPaths, type Manifest } from '../scripts/gen-manifest.ts';
+import { cli, finish, flag, hashFile, readJson, tail, verdict } from './lib.ts';
 
 const { flags } = cli();
 const out = flag(flags, 'out');

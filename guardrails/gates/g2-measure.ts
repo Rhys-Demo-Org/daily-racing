@@ -23,7 +23,7 @@ export interface G2Race {
 
 export interface G2Measure {
   seeds: number[];
-  tracks: { file: string; data: unknown; races: G2Race[]; error?: string }[];
+  tracks: { id: string; data: unknown; races: G2Race[]; error?: string }[];
 }
 
 function race(data: TrackData, seed: number): G2Race {
@@ -43,13 +43,13 @@ function race(data: TrackData, seed: number): G2Race {
 const [root = process.cwd(), seedList = ''] = process.argv.slice(2);
 const seeds = seedList.split(',').filter(Boolean).map(Number);
 const dir = join(root, 'src', 'content', 'tracks');
-const tracks = jsonFiles(dir).map((file) => {
+const tracks = jsonFiles(dir).map((id) => {
   let data: unknown = null;
   try {
-    data = JSON.parse(readFileSync(join(dir, file), 'utf8'));
-    return { file, data, races: seeds.map((seed) => race(data as TrackData, seed)) };
+    data = JSON.parse(readFileSync(join(dir, `${id}.json`), 'utf8'));
+    return { id, data, races: seeds.map((seed) => race(data as TrackData, seed)) };
   } catch (e) {
-    return { file, data, races: [], error: String(e) };
+    return { id, data, races: [], error: String(e) };
   }
 });
 emit({ seeds, tracks } satisfies G2Measure);

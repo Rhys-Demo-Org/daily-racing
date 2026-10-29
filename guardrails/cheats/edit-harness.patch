@@ -2,11 +2,11 @@ Expect: G8
 Also: -
 
 diff --git a/harness/scripts/in-container.sh b/harness/scripts/in-container.sh
-index e1bf40f..dac0ab9 100755
+index 82bab7d..2c586b1 100755
 --- a/harness/scripts/in-container.sh
 +++ b/harness/scripts/in-container.sh
-@@ -46,3 +46,4 @@ exec docker run --rm "${tty_flags[@]}" "${cpu_flags[@]}" \
-   -v daily-racer-pnpm-store:/pnpm-store \
-   -w /repo \
-   "$image" "$@"
+@@ -29,3 +29,4 @@ tty_flags=()
+ [[ -t 0 && -t 1 ]] && tty_flags=(-t)
+ exec docker run "${DOCKER_BASE[@]}" -i "${tty_flags[@]}" "${cpu_flags[@]}" --network "$network" \
+   -v "$HARNESS_ROOT:/repo:$mount_mode" -v daily-racer-pnpm-store:/pnpm-store -w /repo "$IMAGE" "$@"
 +# harmless-looking edit

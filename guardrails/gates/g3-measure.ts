@@ -15,10 +15,9 @@ export interface G3Measure {
 }
 
 const [replayDir = '', trackDir = ''] = process.argv.slice(2);
-const replays = jsonFiles(replayDir).map((file) => {
-  const name = file.slice(0, -5);
+const replays = jsonFiles(replayDir).map((name) => {
   try {
-    const replay = decodeReplay(readFileSync(join(replayDir, file), 'utf8'));
+    const replay = decodeReplay(readFileSync(join(replayDir, `${name}.json`), 'utf8'));
     const track = JSON.parse(readFileSync(join(trackDir, `${replay.track}.json`), 'utf8')) as TrackData;
     return { name, cars: runReplay(track, replay) };
   } catch (e) {

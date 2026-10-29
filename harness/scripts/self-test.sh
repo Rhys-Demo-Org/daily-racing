@@ -8,12 +8,14 @@
 #
 #   harness/scripts/self-test.sh [--jobs <n>] [<cheat-id>...]
 set -euo pipefail
-root="$(cd "$(dirname "$0")/../.." && pwd)"
-jobs=4
+source "$(dirname "$0")/../lib/common.sh"
+root=$HARNESS_ROOT jobs=4
 [[ ${1:-} == --jobs ]] && { jobs=$2; shift 2; }
-[[ -z "$(git -C "$root" status --porcelain)" ]] || { echo "self-test.sh: commit first; the gates test committed HEAD" >&2; exit 2; }
+[[ -z "$(git -C "$root" status --porcelain)" ]] || die "commit first; the gates test committed HEAD"
 base="$(git -C "$root" rev-parse HEAD)"
-out="$(mktemp -d "${TMPDIR:-/tmp}/self-test.XXXXXX")"
+out="$(scratch "${TMPDIR:-/tmp}" self-test)"
+gates=("$root/harness/scripts/run-gates.sh" --main-ref "$base" --today "$(TZ="$TZ_NAME" date +%F)" "$root")
+failed() { jq -r '[.gates[] | select(.pass | not) | .id] | join(",")' "$1/gates.json" 2>/dev/null; }
 cheats=("$@")
 if [[ ${#cheats[@]} -eq 0 ]]; then
   for p in "$root"/guardrails/cheats/*.patch; do cheats+=("$(basename "$p" .patch)"); done
@@ -32,10 +34,10 @@ commit_patch() {
 check() {
   local id=$1 sha expect also failing verdict=ok
   sha="$(commit_patch "$id")"
-  "$root/harness/scripts/run-gates.sh" --main-ref "$base" "$root" "$sha" "$out/$id" >/dev/null 2>&1 || true
+  "${gates[@]}" "$sha" "$out/$id" >/dev/null 2>&1 || true
   expect="$(sed -n 's/^Expect: //p;q' "$root/guardrails/cheats/$id.patch")"
   also="$(sed -n '2s/^Also: //p' "$root/guardrails/cheats/$id.patch")"
-  failing="$(jq -r '[.gates[] | select(.pass | not) | .id] | join(",")' "$out/$id/gates.json" 2>/dev/null || echo "no gates.json")"
+  failing="$(failed "$out/$id" || echo "no gates.json")"
   [[ "$(jq -r .pass "$out/$id/gates.json" 2>/dev/null)" == false ]] || verdict="NOT CAUGHT"
   [[ ",$failing," == *",$expect,"* ]] || verdict="NOT CAUGHT by $expect"
   local g
@@ -47,10 +49,10 @@ check() {
 echo "| cheat | expect | also allowed | failed | verdict |"
 echo "|---|---|---|---|---|"
 fails=0
-if "$root/harness/scripts/run-gates.sh" --main-ref "$base" "$root" "$base" "$out/control" >/dev/null 2>&1; then
+if "${gates[@]}" "$base" "$out/control" >/dev/null 2>&1; then
   echo "| (clean control) | pass | - | none | ok |"
 else
-  echo "| (clean control) | pass | - | $(jq -r '[.gates[] | select(.pass | not) | .id] | join(",")' "$out/control/gates.json" 2>/dev/null) | FAILED |"
+  echo "| (clean control) | pass | - | $(failed "$out/control") | FAILED |"
   echo "self-test.sh: the clean control must pass; see $out/control/summary.md" >&2
   exit 1
 fi

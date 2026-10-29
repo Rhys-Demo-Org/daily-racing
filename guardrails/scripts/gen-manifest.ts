@@ -4,23 +4,14 @@
 // image has no git).
 //
 //   git ls-files -z | node guardrails/scripts/gen-manifest.ts
-import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isProtected } from '../../harness/lib/allowlist.ts';
+import { hashFile } from '../gates/lib.ts';
 
 export interface Manifest {
   files: Record<string, string>;
-}
-
-/** SHA-256 hex of a file, or null when it is missing or unreadable. */
-export function hashFile(path: string): string | null {
-  try {
-    return createHash('sha256').update(readFileSync(path)).digest('hex');
-  } catch {
-    return null;
-  }
 }
 
 /** Protected paths of a NUL-separated file list, sorted. */

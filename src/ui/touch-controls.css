@@ -1,0 +1,129 @@
+/* Touch controls (S1–S2, board 02 "Touch controls · 3 states", board 05 #2). Tokens only.
+   The layer ignores pointer events: src/input/touch.ts hit-tests pointers with a 12px slop. */
+
+.ui-touch {
+  pointer-events: none;
+}
+
+/* Slots hold the drawn shape and never move; the button inside sinks and pops. */
+.ui-touch__slot {
+  position: absolute;
+  bottom: var(--safe-bottom);
+}
+.ui-touch__slot--left,
+.ui-touch__slot--right {
+  width: var(--touch-steer-pad-w);
+  height: var(--touch-steer-pad-h);
+}
+.ui-touch__slot--left {
+  left: var(--safe-left);
+}
+.ui-touch__slot--right {
+  left: calc(var(--safe-left) + var(--touch-steer-pad-w) + var(--touch-steer-gap));
+}
+.ui-touch__slot--gas {
+  right: var(--safe-right);
+  width: var(--touch-gas);
+  height: var(--touch-gas);
+}
+.ui-touch__slot--brake {
+  right: calc(var(--safe-right) + var(--touch-gas) + var(--space-s3));
+  width: var(--touch-brake);
+  height: var(--touch-brake);
+}
+
+.ui-tc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: var(--outline-default) solid var(--color-ink);
+  border-radius: var(--radius-rect);
+  box-shadow: var(--shadow-button);
+  line-height: 1;
+  text-transform: uppercase;
+  pointer-events: none;
+  transition:
+    transform var(--duration-release) var(--ease-snap),
+    box-shadow var(--duration-release) var(--ease-snap);
+}
+.ui-tc__icon {
+  width: calc(var(--space-s6) + var(--space-s2));
+  height: calc(var(--space-s6) + var(--space-s2));
+}
+
+/* Active fills: cream steer pads, red GAS, navy BRAKE. */
+.ui-tc--left,
+.ui-tc--right {
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+.ui-tc--gas,
+.ui-tc--brake {
+  border-radius: var(--radius-round);
+  color: var(--color-cream);
+}
+/* GAS: mockup 30px italic 900 is off-scale: title (32px italic 900). */
+.ui-tc--gas {
+  background: var(--color-rally-red);
+  font-family: var(--type-title-font);
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  font-style: var(--type-title-style);
+}
+/* BRAKE: mockup 18px is off-scale: button size (22px, 800). */
+.ui-tc--brake {
+  background: var(--color-navy);
+  font-family: var(--type-button-font);
+  font-size: var(--type-button-size);
+  font-weight: var(--type-button-weight);
+  font-style: var(--type-button-style);
+}
+
+/* Pressed: mustard, sink 3px onto a 1px shadow (60ms). */
+.ui-tc.is-pressed {
+  background: var(--color-mustard);
+  color: var(--color-ink);
+  transform: translate(var(--ui-sink-button), var(--ui-sink-button));
+  box-shadow: var(--ui-shadow-pressed);
+  transition-duration: var(--duration-press);
+}
+
+/* Rest step 1: the shadow retracts 4 → 0 (160ms) with the fill still on. */
+.ui-tc.is-retracting {
+  box-shadow: var(--ui-shadow-none);
+  transition-duration: var(--duration-stamp);
+}
+
+/* Resting: hollow. No fill, ink ring, ink glyph, no shadow. */
+.ui-tc.is-resting {
+  background: none;
+  color: var(--color-ink);
+  box-shadow: none;
+  transition: none;
+}
+
+/* Wake: fill cuts in at 0.9 and settles to 1 as the shadow grows 0 → 4px (120ms, stamp). */
+.ui-tc.is-waking {
+  animation: ui-tc-wake var(--duration-release) var(--ease-stamp);
+}
+@keyframes ui-tc-wake {
+  from {
+    transform: scale(0.9);
+    box-shadow: var(--ui-shadow-none);
+  }
+  to {
+    transform: none;
+    box-shadow: var(--shadow-button);
+  }
+}
+
+/* Reduced motion: keep the press sink, cut the wake pop and the rest retract. */
+@media (prefers-reduced-motion: reduce) {
+  .ui-tc.is-waking {
+    animation: none;
+  }
+}

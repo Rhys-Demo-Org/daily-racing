@@ -1,0 +1,143 @@
+/* Race HUD (S1–S2, board 02 "HUD widgets"). Tokens only. */
+
+.ui-hud {
+  pointer-events: none;
+}
+
+/* Corner stacks inside the safe area; 8px between widgets. */
+.ui-hud__tl {
+  position: absolute;
+  left: var(--safe-left);
+  top: var(--safe-top);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-s2);
+}
+.ui-hud__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-s2);
+}
+.ui-hud__tr {
+  position: absolute;
+  right: var(--safe-right);
+  top: var(--safe-top);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+/* Mockup padding 2px 10px 6px is off-scale: 4px 8px. */
+.ui-hud-panel {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-s1) var(--space-s2);
+}
+
+/* POS: "2" mustard at hud-xl, "/6" cream at button size. */
+.ui-hud-pos__value {
+  display: flex;
+  align-items: baseline;
+  font-weight: var(--type-hud-xl-weight);
+  font-variant-numeric: var(--font-numeric);
+  line-height: 0.9;
+}
+.ui-hud-pos__n {
+  font-size: var(--type-hud-xl-size);
+  color: var(--color-mustard);
+}
+.ui-hud-pos__of {
+  font-size: var(--type-button-size);
+  color: var(--color-cream);
+}
+
+/* LAP: mockup 30px is off-scale: hud-l (28px). */
+.ui-hud-lap__value {
+  font-size: var(--type-hud-l-size);
+  font-weight: var(--type-hud-l-weight);
+  font-variant-numeric: var(--font-numeric);
+  line-height: 1;
+}
+
+/* Minimap: 104×72 navy panel, cream track with ink edge, palette car dots. */
+.ui-hud-map {
+  width: calc(var(--space-s7) * 2 + var(--space-s2));
+  height: calc(var(--space-s7) + var(--space-s5));
+  background: var(--color-navy);
+}
+.ui-hud-map svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ui-hud-map__edge,
+.ui-hud-map__road {
+  fill: none;
+  stroke-linejoin: round;
+}
+/* Road 5, edge 9 (2px of ink each side). */
+.ui-hud-map__road {
+  stroke: var(--color-cream);
+  stroke-width: calc(var(--outline-small) + var(--outline-default));
+}
+.ui-hud-map__edge {
+  stroke: var(--color-ink);
+  stroke-width: calc(var(--outline-small) * 3 + var(--outline-default));
+}
+.ui-hud-map__car {
+  stroke: var(--color-ink);
+  stroke-width: calc(var(--outline-small) * 0.75);
+}
+.ui-hud-map__car--player {
+  stroke-width: var(--outline-small);
+}
+.ui-hud-map__car--cream { fill: var(--color-cream); }
+.ui-hud-map__car--dirt { fill: var(--color-dirt); }
+.ui-hud-map__car--dark-dirt { fill: var(--color-dark-dirt); }
+.ui-hud-map__car--grass { fill: var(--color-grass); }
+.ui-hud-map__car--deep-green { fill: var(--color-deep-green); }
+.ui-hud-map__car--teal { fill: var(--color-teal); }
+.ui-hud-map__car--rally-red { fill: var(--color-rally-red); }
+.ui-hud-map__car--mustard { fill: var(--color-mustard); }
+.ui-hud-map__car--navy { fill: var(--color-navy); }
+.ui-hud-map__car--ink { fill: var(--color-ink); }
+/* Dark dots on the navy panel get a cream ring so they don't vanish. */
+.ui-hud-map__car--navy,
+.ui-hud-map__car--ink {
+  stroke: var(--color-cream);
+}
+
+/* TIME: navy, right-aligned, min 112px. Mockup padding 2px 10px 4px: 4px 8px. */
+.ui-hud-time {
+  position: relative;
+  align-items: flex-end;
+  min-width: calc(var(--space-s7) * 2 + var(--space-s4));
+}
+.ui-hud-time__value {
+  font-size: var(--type-hud-l-size);
+  font-weight: var(--type-hud-l-weight);
+  font-variant-numeric: var(--font-numeric);
+  line-height: 1;
+}
+
+/* BEST chip tucks under the timer: mustard, no top outline, square top corners. */
+.ui-hud-best {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s2);
+  padding: var(--space-s1) var(--space-s2);
+  background: var(--color-mustard);
+  color: var(--color-ink);
+  border: var(--outline-default) solid var(--color-ink);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-rect) var(--radius-rect);
+  box-shadow: var(--shadow-hud);
+  line-height: 1;
+}
+/* Mockup value is 16px (off-scale on mobile): label size. */
+.ui-hud-best__value {
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  font-variant-numeric: var(--font-numeric);
+}

@@ -1,0 +1,119 @@
+/* Start screen and finish panel. Tokens only. */
+
+.ui-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+.ui-screen[hidden] {
+  display: none;
+}
+
+/* Start: full-screen menu on a solid navy ground. */
+.ui-start {
+  flex-direction: column;
+  gap: var(--space-s5);
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  background: var(--color-navy);
+  color: var(--color-cream);
+}
+.ui-start__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-s3);
+}
+.ui-start__title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+  font-family: var(--type-display-font);
+  font-size: var(--type-display-size);
+  font-weight: var(--type-display-weight);
+  font-style: var(--type-display-style);
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+.ui-start__title-top {
+  color: var(--color-mustard);
+}
+.ui-start__subtitle {
+  margin: 0;
+  color: var(--color-mustard);
+}
+
+/* Triple stripe: red, mustard, cream at 4:2:1 (board header / screen-change pattern). */
+.ui-stripes {
+  display: flex;
+}
+.ui-stripe {
+  height: var(--space-s4);
+  border: var(--outline-default) solid var(--color-ink);
+  border-right: 0;
+}
+.ui-stripe:last-child {
+  border-right: var(--outline-default) solid var(--color-ink);
+}
+.ui-stripe--red {
+  width: calc(var(--space-s7) * 4);
+  background: var(--color-rally-red);
+}
+.ui-stripe--mustard {
+  width: calc(var(--space-s7) * 2);
+  background: var(--color-mustard);
+}
+.ui-stripe--cream {
+  width: var(--space-s7);
+  background: var(--color-cream);
+}
+
+/* Finish: hatch over the frozen race, navy overlay card (4px outline, 6px shadow) drops in. */
+.ui-finish__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-s4);
+  padding: var(--space-s5) var(--space-s6);
+  background: var(--color-navy);
+  color: var(--color-cream);
+  border: var(--outline-large) solid var(--color-ink);
+  border-radius: var(--radius-rect);
+  box-shadow: var(--shadow-overlay);
+  animation: ui-card-drop var(--duration-stamp) var(--ease-stamp) both;
+}
+.ui-finish__title {
+  margin: 0;
+  font-family: var(--type-display-font);
+  font-size: var(--type-display-size);
+  font-weight: var(--type-display-weight);
+  font-style: var(--type-display-style);
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+.ui-finish__stats {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-s4);
+}
+.ui-finish__stat,
+.ui-finish__best {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-s1) var(--space-s2);
+}
+.ui-finish__value {
+  font-size: var(--type-hud-l-size);
+  font-weight: var(--type-hud-l-weight);
+  font-variant-numeric: var(--font-numeric);
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-finish__card {
+    animation: none;
+  }
+}

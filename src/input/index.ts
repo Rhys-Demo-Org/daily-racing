@@ -4,19 +4,6 @@ import type { CarInput } from '../sim/types.ts';
 import { createKeyboard } from './keyboard.ts';
 import { createTouchInput, type TouchListener, type TouchZone } from './touch.ts';
 
-export { KEY_MAP, createKeyboard, type KeyAction, type Keyboard, type KeyState } from './keyboard.ts';
-export {
-  HIT_SLOP,
-  TOUCH_CONTROL_IDS,
-  createTouchInput,
-  hitTest,
-  type TouchControlId,
-  type TouchInput,
-  type TouchListener,
-  type TouchState,
-  type TouchZone,
-} from './touch.ts';
-
 export interface InputOptions {
   /** Receives keydown/keyup. Default: window. */
   keyTarget?: EventTarget;

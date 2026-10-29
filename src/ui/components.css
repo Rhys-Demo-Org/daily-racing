@@ -15,7 +15,7 @@
   --ui-shadow-pressed: var(--ui-hairline) var(--ui-hairline) 0 var(--color-ink);
   --ui-shadow-none: 0 0 0 var(--color-ink);
   --ui-shadow-lift: calc(var(--ui-off-button) + var(--ui-hairline)) calc(var(--ui-off-button) + var(--ui-hairline)) 0 var(--color-ink);
-  /* Countdown drop height (board 05: starts 28px high). */
+  /* Overlay drop height (board 05: starts 28px high). */
   --ui-drop: calc(var(--space-s5) + var(--space-s1));
 }
 
@@ -27,6 +27,8 @@
   color: var(--color-ink);
   /* SVG paint defaults to black; inherit the (palette) text colour instead. */
   fill: currentColor;
+  /* No translucent browser tap flash on buttons (UI_RULES §1: no alpha). */
+  -webkit-tap-highlight-color: transparent;
 }
 .ui-layer,
 .ui-layer *,
@@ -47,11 +49,37 @@
   text-transform: var(--type-label-transform);
 }
 
+/* Display heading: italic 900 caps (start title, FINISHED). */
+.ui-display {
+  margin: 0;
+  font-family: var(--type-display-font);
+  font-size: var(--type-display-size);
+  font-weight: var(--type-display-weight);
+  font-style: var(--type-display-style);
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+/* Changing value at hud-l (LAP, TIME, finish stats). */
+.ui-value {
+  font-size: var(--type-hud-l-size);
+  font-weight: var(--type-hud-l-weight);
+  font-variant-numeric: var(--font-numeric);
+  line-height: 1;
+}
+
 /* Panel: flat fill, ink outline, solid ink shadow. HUD tier by default. */
 .ui-panel {
   border: var(--outline-default) solid var(--color-ink);
   border-radius: var(--radius-rect);
   box-shadow: var(--shadow-hud);
+}
+/* Big overlay (finish card, countdown roundel): over 120px so a 4px outline, 6px shadow, and it
+   drops onto the table: 28px high at --ui-drop-scale with no shadow, landing with a stamp. */
+.ui-panel--overlay {
+  border-width: var(--outline-large);
+  box-shadow: var(--shadow-overlay);
+  animation: ui-drop var(--duration-stamp) var(--ease-stamp) both;
 }
 .ui-panel--navy {
   background: var(--color-navy);
@@ -164,10 +192,9 @@
   }
 }
 
-/* Overlay card drops onto the table: 24px, stamp, shadow 0 → 6px. */
-@keyframes ui-card-drop {
+@keyframes ui-drop {
   from {
-    transform: translateY(calc(var(--space-s5) * -1));
+    transform: translateY(calc(var(--ui-drop) * -1)) scale(var(--ui-drop-scale, 1));
     box-shadow: var(--ui-shadow-none);
   }
   to {
@@ -182,7 +209,8 @@
     transform: none;
     box-shadow: var(--shadow-button);
   }
-  .ui-hatch {
+  .ui-hatch,
+  .ui-panel--overlay {
     animation: none;
   }
 }

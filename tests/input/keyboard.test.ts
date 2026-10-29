@@ -1,23 +1,28 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
-import { KEY_MAP, createInput, createKeyboard } from '../../src/input/index.ts';
+import { createInput } from '../../src/input/index.ts';
+import { createKeyboard } from '../../src/input/keyboard.ts';
 
 const key = (target: EventTarget, type: 'keydown' | 'keyup', code: string): void => {
   target.dispatchEvent(new KeyboardEvent(type, { code, bubbles: true, cancelable: true }));
 };
 
 describe('keyboard map', () => {
-  it('maps arrows and WASD to steer, gas and brake', () => {
-    expect(KEY_MAP).toEqual({
-      ArrowLeft: 'left',
-      KeyA: 'left',
-      ArrowRight: 'right',
-      KeyD: 'right',
-      ArrowUp: 'gas',
-      KeyW: 'gas',
-      ArrowDown: 'brake',
-      KeyS: 'brake',
-    });
+  it.each([
+    ['ArrowLeft', { steer: -1, throttle: false, brake: false }],
+    ['KeyA', { steer: -1, throttle: false, brake: false }],
+    ['ArrowRight', { steer: 1, throttle: false, brake: false }],
+    ['KeyD', { steer: 1, throttle: false, brake: false }],
+    ['ArrowUp', { steer: 0, throttle: true, brake: false }],
+    ['KeyW', { steer: 0, throttle: true, brake: false }],
+    ['ArrowDown', { steer: 0, throttle: false, brake: true }],
+    ['KeyS', { steer: 0, throttle: false, brake: true }],
+  ])('%s → %o', (code, expected) => {
+    const t = new EventTarget();
+    const input = createInput({ keyTarget: t, pointerTarget: new EventTarget() });
+    key(t, 'keydown', code);
+    expect(input.read()).toEqual(expected);
+    input.destroy();
   });
 
   it('tracks held keys and releases them independently', () => {

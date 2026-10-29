@@ -2,29 +2,21 @@
 // Visual state comes from the pure state machine in touch-state.ts; pointer handling lives in
 // src/input/touch.ts, which reads zones() from here and notifies the state machine.
 import { tokens } from '@tokens';
-import type { TouchControlId, TouchZone } from '../input/touch.ts';
-import { TOUCH_CONTROL_IDS } from '../input/touch.ts';
+import { TOUCH_CONTROL_IDS, type TouchControlId, type TouchZone } from '../input/touch.ts';
 import './components.css';
 import './touch-controls.css';
-import { h, prefersReducedMotion } from './dom.ts';
+import { h } from './dom.ts';
 import { icon } from './icons.ts';
 import { createTouchStateMachine, type TouchStateMachine, type TouchStateOptions, type TouchVisual } from './touch-state.ts';
-
-export interface TouchControlsOptions extends TouchStateOptions {
-  /** Force visibility; by default shown on coarse pointers or after the first touch. */
-  visible?: boolean;
-}
 
 export interface TouchControls {
   readonly element: HTMLElement;
   /** State machine; pass it to createInput as the touch listener. */
   readonly machine: TouchStateMachine;
   /** Drawn shapes in client px (empty while hidden), for the input hit test. */
-  zones(): TouchZone[];
+  zones(): readonly TouchZone[];
   /** Race start or resume: every control wakes for 4 s. */
   wake(): void;
-  setVisible(visible: boolean): void;
-  readonly visible: boolean;
   destroy(): void;
 }
 
@@ -35,35 +27,26 @@ const LABELS: Record<TouchControlId, string> = {
   brake: 'Brake or reverse',
 };
 
-/** True on devices whose primary pointer is a finger. */
-export function isCoarsePointer(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-}
+const isPad = (id: TouchControlId): id is 'left' | 'right' => id === 'left' || id === 'right';
 
-export function createTouchControls(root: HTMLElement, opts: TouchControlsOptions = {}): TouchControls {
+/** Shown on touch-first devices, or from the first touch (touch laptops report a fine pointer). */
+export function createTouchControls(root: HTMLElement, opts: TouchStateOptions = {}): TouchControls {
   const machine = createTouchStateMachine(opts);
-  const now = opts.now ?? (() => performance.now());
-
   const slots = {} as Record<TouchControlId, HTMLElement>;
   const buttons = {} as Record<TouchControlId, HTMLButtonElement>;
   for (const id of TOUCH_CONTROL_IDS) {
-    const b = h('button', `ui-tc ui-tc--${id} is-resting`);
-    b.type = 'button';
-    b.tabIndex = -1;
-    b.setAttribute('aria-label', LABELS[id]);
-    if (id === 'left') b.append(icon('arrow-left', 'ui-tc__icon'));
-    else if (id === 'right') b.append(icon('arrow-right', 'ui-tc__icon'));
-    else b.append(id === 'gas' ? 'Gas' : 'Brake');
-    buttons[id] = b;
-    slots[id] = h('div', `ui-touch__slot ui-touch__slot--${id}`, [b]);
+    const glyph = isPad(id) ? icon(`arrow-${id}`, 'ui-tc__icon') : id === 'gas' ? 'Gas' : 'Brake';
+    buttons[id] = h('button', `ui-tc ui-tc--${id} is-resting`, [glyph], { type: 'button', tabindex: '-1', 'aria-label': LABELS[id] });
+    slots[id] = h('div', `ui-touch__slot ui-touch__slot--${id}`, [buttons[id]]);
   }
   const element = h('div', 'ui-layer ui-touch', TOUCH_CONTROL_IDS.map((id) => slots[id]));
+  element.hidden = !matchMedia('(pointer: coarse)').matches;
   root.append(element);
 
-  // What each button currently shows, including the short 'retracting' step before resting.
+  // What each button shows, including the short 'retracting' step before resting.
   const shown: Record<TouchControlId, TouchVisual | 'retracting'> = { left: 'resting', right: 'resting', gas: 'resting', brake: 'resting' };
   const timers = new Set<ReturnType<typeof setTimeout>>();
-  let restTimer: ReturnType<typeof setTimeout> | null = null;
+  let restTimer: ReturnType<typeof setTimeout> | undefined;
 
   const later = (fn: () => void, ms: number): void => {
     const t = setTimeout(() => {
@@ -76,21 +59,20 @@ export function createTouchControls(root: HTMLElement, opts: TouchControlsOption
   function show(id: TouchControlId, v: TouchVisual | 'retracting', waking = false): void {
     shown[id] = v;
     const b = buttons[id];
-    b.classList.remove('is-active', 'is-resting', 'is-pressed', 'is-retracting', 'is-waking');
-    b.classList.add(`is-${v}`);
+    b.className = `ui-tc ui-tc--${id} is-${v}`;
     if (waking) {
       b.classList.add('is-waking');
       later(() => b.classList.remove('is-waking'), tokens.motion.durationMs.release);
     }
   }
 
+  // Reduced motion is CSS only: it cuts the wake pop and shows 'retracting' as resting.
   function sync(): void {
-    const reduced = prefersReducedMotion();
     for (const id of TOUCH_CONTROL_IDS) {
       const next = machine.state(id);
       const cur = shown[id];
       if (next === cur || (next === 'resting' && cur === 'retracting')) continue;
-      if (next === 'resting' && !reduced) {
+      if (next === 'resting') {
         // Rest: the shadow retracts first (160ms), then the fill cuts to hollow.
         show(id, 'retracting');
         later(() => {
@@ -98,59 +80,60 @@ export function createTouchControls(root: HTMLElement, opts: TouchControlsOption
         }, tokens.motion.durationMs.stamp);
       } else {
         // Wake from resting pops 0.9 → 1 as the shadow grows back.
-        show(id, next, next === 'active' && (cur === 'resting' || cur === 'retracting') && !reduced);
+        show(id, next, next === 'active' && (cur === 'resting' || cur === 'retracting'));
       }
     }
-    if (restTimer !== null) clearTimeout(restTimer);
-    restTimer = null;
-    const at = machine.nextChangeAt();
-    if (at !== null) restTimer = setTimeout(sync, Math.max(0, at - now()));
+    clearTimeout(restTimer);
+    const ms = machine.nextChangeIn();
+    restTimer = ms === null ? undefined : setTimeout(sync, ms);
   }
-
   const unsubscribe = machine.subscribe(sync);
 
-  let visible = false;
-  const setVisible = (v: boolean): void => {
-    visible = v;
-    element.hidden = !v;
+  // Zones are measured once, then cached until the layer resizes (viewport resize, orientation
+  // change, or this layer or an ancestor being hidden or shown).
+  let cache: TouchZone[] | null = null;
+  const invalidate = (): void => {
+    cache = null;
   };
-  setVisible(opts.visible ?? isCoarsePointer());
-
-  // Any touch reveals the controls (touch laptops report a fine primary pointer).
-  const onTouch = (e: Event): void => {
-    if (e.type === 'touchstart' || (e as PointerEvent).pointerType === 'touch') setVisible(true);
-  };
-  const autoShow = opts.visible === undefined && typeof window !== 'undefined';
-  if (autoShow) {
-    window.addEventListener('touchstart', onTouch, { passive: true, capture: true });
-    window.addEventListener('pointerdown', onTouch, { capture: true });
+  const resize = new ResizeObserver(invalidate);
+  resize.observe(element);
+  function measure(): TouchZone[] {
+    const zones: TouchZone[] = [];
+    for (const id of TOUCH_CONTROL_IDS) {
+      const r = slots[id].getBoundingClientRect();
+      // Zero size: hidden, so nothing can be pressed.
+      if (r.width === 0) return [];
+      zones.push(
+        isPad(id)
+          ? { id, shape: 'rect', left: r.left, top: r.top, width: r.width, height: r.height }
+          : { id, shape: 'circle', cx: r.left + r.width / 2, cy: r.top + r.height / 2, r: r.width / 2 },
+      );
+    }
+    return zones;
   }
+
+  // Window capture runs before the input layer's hit test, so the first touch can already press.
+  const reveal = (e: PointerEvent): void => {
+    if (e.pointerType !== 'touch' || !element.hidden) return;
+    element.hidden = false;
+    invalidate();
+  };
+  window.addEventListener('pointerdown', reveal, { capture: true });
 
   return {
     element,
     machine,
-    zones() {
-      if (!visible) return [];
-      return TOUCH_CONTROL_IDS.map((id): TouchZone => {
-        const r = slots[id].getBoundingClientRect();
-        return id === 'left' || id === 'right'
-          ? { id, shape: 'rect', left: r.left, top: r.top, width: r.width, height: r.height }
-          : { id, shape: 'circle', cx: r.left + r.width / 2, cy: r.top + r.height / 2, r: r.width / 2 };
-      });
-    },
-    wake: () => machine.wake(),
-    setVisible,
-    get visible() {
-      return visible;
+    zones: () => (cache ??= measure()),
+    wake() {
+      invalidate();
+      machine.wake();
     },
     destroy() {
       unsubscribe();
-      if (restTimer !== null) clearTimeout(restTimer);
+      resize.disconnect();
+      clearTimeout(restTimer);
       timers.forEach(clearTimeout);
-      if (autoShow) {
-        window.removeEventListener('touchstart', onTouch, { capture: true });
-        window.removeEventListener('pointerdown', onTouch, { capture: true });
-      }
+      window.removeEventListener('pointerdown', reveal, { capture: true });
       element.remove();
     },
   };

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const DIRS = ['src/ui', 'src/input'];
-const files = DIRS.flatMap((d) => readdirSync(d).map((f) => join(d, f))).filter((f) => /\.(ts|css)$/.test(f));
+const files = DIRS.flatMap((d) => readdirSync(d, { recursive: true, encoding: 'utf8' }).map((f) => join(d, f))).filter((f) => /\.(ts|css)$/.test(f));
 const css = files.filter((f) => f.endsWith('.css'));
 /** Source without comments. */
 const code = (f: string): string =>
@@ -43,18 +43,31 @@ describe('UI source rules', () => {
   });
 
   it('only transitions transform and box-shadow, and only animates allowed properties', () => {
+    const keyframes = new Set<string>();
     for (const f of css) {
       const src = code(f);
-      for (const m of src.matchAll(/transition:\s*([^;]+);/g)) {
+      for (const m of src.matchAll(/transition(?:-property)?:\s*([^;]+);/g)) {
         const value = m[1] ?? '';
         if (value.trim() === 'none') continue;
         for (const part of value.split(',')) {
           expect(part.trim().split(/\s+/)[0], f).toMatch(/^(transform|box-shadow)$/);
         }
       }
-      for (const m of src.matchAll(/@keyframes\s+[\w-]+\s*\{([\s\S]*?\})\s*\}/g)) {
-        for (const p of (m[1] ?? '').matchAll(/([\w-]+)\s*:/g)) {
+      for (const m of src.matchAll(/@keyframes\s+([\w-]+)\s*\{([\s\S]*?\})\s*\}/g)) {
+        keyframes.add(m[1] ?? '');
+        for (const p of (m[2] ?? '').matchAll(/([\w-]+)\s*:/g)) {
           expect(p[1], f).toMatch(/^(transform|box-shadow|clip-path|visibility)$/);
+        }
+      }
+    }
+    // Every animation runs one of the keyframes checked above.
+    expect(keyframes.size).toBeGreaterThanOrEqual(5);
+    for (const f of css) {
+      for (const m of code(f).matchAll(/animation(?:-name)?:\s*([^;]+);/g)) {
+        const value = m[1] ?? '';
+        if (value.trim() === 'none') continue;
+        for (const part of value.split(',')) {
+          expect(part.trim().split(/\s+/).some((w) => keyframes.has(w)), `${f}: ${part.trim()}`).toBe(true);
         }
       }
     }

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { NO_TIME, formatOptionalTime, formatPosition, formatTime } from '../../src/ui/format.ts';
+import { NO_TIME, formatOptionalTime, formatTime } from '../../src/ui/format.ts';
 
 describe('formatTime (m:ss.cc)', () => {
   it('formats zero and sub-minute times', () => {
@@ -37,13 +37,5 @@ describe('formatTime (m:ss.cc)', () => {
     expect(formatOptionalTime(null)).toBe(NO_TIME);
     expect(NO_TIME).toBe('–:––.––');
     expect(formatOptionalTime(40370)).toBe('0:40.37');
-  });
-});
-
-describe('formatPosition (x/n)', () => {
-  it('formats position over car count', () => {
-    expect(formatPosition(2, 6)).toBe('2/6');
-    expect(formatPosition(1, 2)).toBe('1/2');
-    expect(formatPosition(10, 12)).toBe('10/12');
   });
 });

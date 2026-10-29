@@ -1,9 +1,10 @@
 // Race HUD (mockup S1–S2): POS + LAP + minimap top-left, TIME + BEST top-right.
-// The game loop calls update() every frame; the DOM is only touched when a shown value changes.
+// The game loop calls update() every frame. Each shown value is one persistent Text node or SVG
+// attribute, written only when its cached value changes; update() never reads the DOM or allocates.
 import { tokens } from '@tokens';
 import './components.css';
 import './hud.css';
-import { h, s, setText } from './dom.ts';
+import { h, s } from './dom.ts';
 import { formatOptionalTime, formatTime } from './format.ts';
 import type { HudState, MinimapState } from './types.ts';
 
@@ -11,8 +12,6 @@ export interface Hud {
   /** The HUD layer element (absolute, fills root). */
   readonly element: HTMLElement;
   update(state: HudState): void;
-  setVisible(visible: boolean): void;
-  destroy(): void;
 }
 
 // Minimap geometry in SVG user units (1 unit = 1 CSS px). The panel is 104×72 outside its 3px
@@ -25,14 +24,29 @@ const DOT_R = tokens.space.s1;
 const PLAYER_R = tokens.space.s1 + tokens.outline.small / 2;
 
 /** Rounds to 0.1 user units so tiny movements don't rewrite attributes. */
-const r1 = (v: number): string => String(Math.round(v * 10) / 10);
+const r1 = (v: number): number => Math.round(v * 10) / 10;
+
+/** A Text node rewritten only when its value changes. */
+function field<T>(format: (v: T) => string): { node: Text; set(v: T): void } {
+  const node = document.createTextNode('');
+  let last: T | undefined;
+  return {
+    node,
+    set(v) {
+      if (v === last) return;
+      last = v;
+      node.data = format(v);
+    },
+  };
+}
 
 export function createHud(root: HTMLElement): Hud {
-  const posN = h('span', 'ui-hud-pos__n');
-  const posOf = h('span', 'ui-hud-pos__of');
-  const lapValue = h('span', 'ui-hud-lap__value');
-  const timeValue = h('span', 'ui-hud-time__value');
-  const bestValue = h('span', 'ui-hud-best__value');
+  const pos = field<number>(String);
+  const count = field<number>(String);
+  const lap = field<number>(String);
+  const laps = field<number>(String);
+  const time = field(formatTime);
+  const best = field(formatOptionalTime);
 
   const road = s('path', { class: 'ui-hud-map__road' });
   const edge = s('path', { class: 'ui-hud-map__edge' });
@@ -44,92 +58,78 @@ export function createHud(root: HTMLElement): Hud {
       h('div', 'ui-hud__row', [
         h('div', 'ui-panel ui-panel--navy ui-hud-panel ui-hud-pos', [
           h('span', 'ui-label', ['Pos']),
-          h('span', 'ui-hud-pos__value', [posN, posOf]),
+          h('span', 'ui-hud-pos__value', [h('span', 'ui-hud-pos__n', [pos.node]), h('span', 'ui-hud-pos__of', ['/', count.node])]),
         ]),
-        h('div', 'ui-panel ui-panel--cream ui-hud-panel ui-hud-lap', [h('span', 'ui-label', ['Lap']), lapValue]),
+        h('div', 'ui-panel ui-panel--cream ui-hud-panel ui-hud-lap', [h('span', 'ui-label', ['Lap']), h('span', 'ui-value', [lap.node, '/', laps.node])]),
       ]),
       h('div', 'ui-panel ui-panel--navy ui-hud-map', [map]),
     ]),
     h('div', 'ui-hud__tr', [
-      h('div', 'ui-panel ui-panel--navy ui-hud-panel ui-hud-time', [h('span', 'ui-label', ['Time']), timeValue]),
-      h('div', 'ui-hud-best', [h('span', 'ui-label', ['Best']), bestValue]),
+      h('div', 'ui-panel ui-panel--navy ui-hud-panel ui-hud-time', [h('span', 'ui-label', ['Time']), h('span', 'ui-value', [time.node])]),
+      h('div', 'ui-panel ui-panel--mustard ui-hud-best', [h('span', 'ui-label', ['Best']), h('span', 'ui-hud-best__value', [best.node])]),
     ]),
   ]);
   root.append(element);
 
-  // Minimap cache: the outline is refitted only when its array changes; dots are rebuilt only when
-  // the set of cars (colour/player) changes.
-  let outlineRef: MinimapState['outline'] | null = null;
-  let fit = { scale: 1, ox: 0, oz: 0 };
-  let carsKey = '';
-  let dots: SVGCircleElement[] = [];
+  // A new race passes a new outline array: refit it and rebuild the dots (colours may differ).
+  // Otherwise the dots only move.
+  let outline: MinimapState['outline'] | null = null;
+  let scale = 1;
+  let ox = 0;
+  let oz = 0;
+  /** Car dots with their last written cx/cy. */
+  let dots: { el: SVGCircleElement; x: number; y: number }[] = [];
 
-  function fitOutline(outline: MinimapState['outline']): void {
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minZ = Infinity;
-    let maxZ = -Infinity;
-    for (const [x, z] of outline) {
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minZ = Math.min(minZ, z);
-      maxZ = Math.max(maxZ, z);
+  function rebuild(m: MinimapState): void {
+    if (m.outline !== outline) {
+      outline = m.outline;
+      const xs = outline.map((p) => p[0]);
+      const zs = outline.map((p) => p[1]);
+      const minX = Math.min(...xs);
+      const minZ = Math.min(...zs);
+      const w = Math.max(Math.max(...xs) - minX, 1e-6);
+      const d = Math.max(Math.max(...zs) - minZ, 1e-6);
+      scale = Math.min((MAP_W - 2 * MAP_PAD) / w, (MAP_H - 2 * MAP_PAD) / d);
+      // Centre the track; +x is east (right), +z is south (down), so north is up.
+      ox = (MAP_W - w * scale) / 2 - minX * scale;
+      oz = (MAP_H - d * scale) / 2 - minZ * scale;
+      const pts = outline.map(([x, z]) => `${r1(x * scale + ox)} ${r1(z * scale + oz)}`);
+      const path = pts.length ? `M${pts.join('L')}Z` : '';
+      road.setAttribute('d', path);
+      edge.setAttribute('d', path);
     }
-    const w = Math.max(maxX - minX, 1e-6);
-    const d = Math.max(maxZ - minZ, 1e-6);
-    const scale = Math.min((MAP_W - 2 * MAP_PAD) / w, (MAP_H - 2 * MAP_PAD) / d);
-    // Centre the track; +x is east (right), +z is south (down), so north is up.
-    fit = { scale, ox: (MAP_W - w * scale) / 2 - minX * scale, oz: (MAP_H - d * scale) / 2 - minZ * scale };
-    const pts = outline.map(([x, z]) => `${r1(x * fit.scale + fit.ox)} ${r1(z * fit.scale + fit.oz)}`);
-    const d0 = pts.length ? `M${pts.join('L')}Z` : '';
-    road.setAttribute('d', d0);
-    edge.setAttribute('d', d0);
-  }
-
-  function updateMap(m: MinimapState): void {
-    if (m.outline !== outlineRef) {
-      outlineRef = m.outline;
-      fitOutline(m.outline);
-    }
+    dots = m.cars.map((c) => ({
+      el: s('circle', { r: c.player ? PLAYER_R : DOT_R, class: `ui-hud-map__car ui-hud-map__car--${c.colour}` }),
+      x: NaN,
+      y: NaN,
+    }));
+    carsGroup.replaceChildren(...dots.map((d) => d.el));
     // Player last so it draws on top.
-    const cars = [...m.cars.filter((c) => !c.player), ...m.cars.filter((c) => c.player)];
-    const key = cars.map((c) => `${c.colour}${c.player ? '*' : ''}`).join(',');
-    if (key !== carsKey) {
-      carsKey = key;
-      dots = cars.map((c) =>
-        s('circle', {
-          r: c.player ? PLAYER_R : DOT_R,
-          class: `ui-hud-map__car ui-hud-map__car--${c.colour}${c.player ? ' ui-hud-map__car--player' : ''}`,
-        }),
-      );
-      carsGroup.replaceChildren(...dots);
-    }
-    cars.forEach((c, i) => {
-      const dot = dots[i];
-      if (!dot) return;
-      const cx = r1(c.x * fit.scale + fit.ox);
-      const cy = r1(c.z * fit.scale + fit.oz);
-      if (dot.getAttribute('cx') !== cx) dot.setAttribute('cx', cx);
-      if (dot.getAttribute('cy') !== cy) dot.setAttribute('cy', cy);
-    });
+    const player = dots[m.cars.findIndex((c) => c.player)];
+    if (player) carsGroup.append(player.el);
   }
 
   return {
     element,
-    update(state) {
-      setText(posN, String(state.position));
-      setText(posOf, `/${state.carCount}`);
-      setText(lapValue, `${state.lap}/${state.laps}`);
+    update(st) {
+      pos.set(st.position);
+      count.set(st.carCount);
+      lap.set(st.lap);
+      laps.set(st.laps);
       // Before GO the timer reads 0:00.00 (mockup S3).
-      setText(timeValue, formatTime(state.timeMs ?? 0));
-      setText(bestValue, formatOptionalTime(state.bestLapMs));
-      updateMap(state.minimap);
-    },
-    setVisible(visible) {
-      element.hidden = !visible;
-    },
-    destroy() {
-      element.remove();
+      time.set(st.timeMs ?? 0);
+      best.set(st.bestLapMs);
+      const m = st.minimap;
+      if (m.outline !== outline || m.cars.length !== dots.length) rebuild(m);
+      for (let i = 0; i < dots.length; i++) {
+        const c = m.cars[i];
+        const d = dots[i];
+        if (!c || !d) continue;
+        const x = r1(c.x * scale + ox);
+        const y = r1(c.z * scale + oz);
+        if (x !== d.x) d.el.setAttribute('cx', String((d.x = x)));
+        if (y !== d.y) d.el.setAttribute('cy', String((d.y = y)));
+      }
     },
   };
 }

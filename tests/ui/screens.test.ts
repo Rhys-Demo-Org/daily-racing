@@ -1,11 +1,8 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createFinishPanel } from '../../src/ui/finish-panel.ts';
 import { createStartScreen } from '../../src/ui/start-screen.ts';
-
-afterEach(() => {
-  document.body.replaceChildren();
-});
+import './helpers.ts';
 
 describe('start → race → finish flow', () => {
   it('fires onRace from the start screen and onRaceAgain from the finish panel', () => {

@@ -14,7 +14,6 @@ export interface Countdown {
   hide(): void;
   /** The step on screen, or null when hidden. */
   readonly current: CountdownStep | null;
-  destroy(): void;
 }
 
 /** Roundel modifier per step: red 3, mustard 2, cream 1, grass GO! (board 02). */
@@ -25,11 +24,7 @@ const LIT: Record<CountdownStep, number> = { 3: 1, 2: 2, 1: 3, 0: 4 };
 export function createCountdown(root: HTMLElement): Countdown {
   const stage = h('div', 'ui-cd-stage');
   const lights = [0, 1, 2, 3].map((i) => h('span', `ui-cd-light ui-cd-light--${i}`));
-  const lightRow = h('div', 'ui-cd-lights', lights);
-  lightRow.setAttribute('aria-hidden', 'true');
-  const element = h('div', 'ui-layer ui-countdown', [stage, lightRow]);
-  element.setAttribute('role', 'status');
-  element.hidden = true;
+  const element = h('div', 'ui-layer ui-countdown', [stage, h('div', 'ui-cd-lights', lights, { 'aria-hidden': 'true' })], { role: 'status', hidden: '' });
   root.append(element);
 
   let current: CountdownStep | null = null;
@@ -43,9 +38,11 @@ export function createCountdown(root: HTMLElement): Countdown {
       element.hidden = false;
       element.classList.toggle('is-go', step === 0);
       // A fresh roundel per beat restarts its drop animation without reflow tricks.
-      const roundel = h('div', `ui-cd-roundel ${STEP_CLASS[step]}`, [step === 0 ? 'Go!' : String(step)]);
-      roundel.setAttribute('aria-label', step === 0 ? 'Go' : `Countdown: ${step}`);
-      stage.replaceChildren(roundel);
+      stage.replaceChildren(
+        h('div', `ui-panel ui-panel--overlay ui-cd-roundel ${STEP_CLASS[step]}`, [step === 0 ? 'Go!' : String(step)], {
+          'aria-label': step === 0 ? 'Go' : `Countdown: ${step}`,
+        }),
+      );
       lights.forEach((light, i) => {
         const lit = i < LIT[step];
         light.classList.toggle('is-lit', lit);
@@ -62,9 +59,6 @@ export function createCountdown(root: HTMLElement): Countdown {
     },
     get current() {
       return current;
-    },
-    destroy() {
-      element.remove();
     },
   };
 }

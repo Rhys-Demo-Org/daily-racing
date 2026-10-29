@@ -4,10 +4,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: auto;
-}
-.ui-screen[hidden] {
-  display: none;
 }
 
 /* Start: full-screen menu on a solid navy ground. */
@@ -28,13 +24,6 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin: 0;
-  font-family: var(--type-display-font);
-  font-size: var(--type-display-size);
-  font-weight: var(--type-display-weight);
-  font-style: var(--type-display-style);
-  line-height: 0.9;
-  text-transform: uppercase;
 }
 .ui-start__title-top {
   color: var(--color-mustard);
@@ -69,7 +58,7 @@
   background: var(--color-cream);
 }
 
-/* Finish: hatch over the frozen race, navy overlay card (4px outline, 6px shadow) drops in. */
+/* Finish: hatch over the frozen race, a navy overlay panel drops in (positioned to sit above it). */
 .ui-finish__card {
   position: relative;
   display: flex;
@@ -77,43 +66,15 @@
   align-items: center;
   gap: var(--space-s4);
   padding: var(--space-s5) var(--space-s6);
-  background: var(--color-navy);
-  color: var(--color-cream);
-  border: var(--outline-large) solid var(--color-ink);
-  border-radius: var(--radius-rect);
-  box-shadow: var(--shadow-overlay);
-  animation: ui-card-drop var(--duration-stamp) var(--ease-stamp) both;
-}
-.ui-finish__title {
-  margin: 0;
-  font-family: var(--type-display-font);
-  font-size: var(--type-display-size);
-  font-weight: var(--type-display-weight);
-  font-style: var(--type-display-style);
-  line-height: 0.9;
-  text-transform: uppercase;
 }
 .ui-finish__stats {
   display: flex;
   align-items: stretch;
   gap: var(--space-s4);
 }
-.ui-finish__stat,
-.ui-finish__best {
+.ui-finish__stat {
   display: flex;
   flex-direction: column;
   justify-content: center;
   padding: var(--space-s1) var(--space-s2);
-}
-.ui-finish__value {
-  font-size: var(--type-hud-l-size);
-  font-weight: var(--type-hud-l-weight);
-  font-variant-numeric: var(--font-numeric);
-  line-height: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ui-finish__card {
-    animation: none;
-  }
 }

@@ -1,10 +1,7 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createCountdown } from '../../src/ui/countdown.ts';
-
-afterEach(() => {
-  document.body.replaceChildren();
-});
+import './helpers.ts';
 
 const roundel = (): HTMLElement | null => document.querySelector('.ui-cd-roundel');
 const lit = (): number => document.querySelectorAll('.ui-cd-light.is-lit').length;

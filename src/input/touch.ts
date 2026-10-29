@@ -21,9 +21,6 @@ export interface TouchListener {
 
 export type TouchState = Record<TouchControlId, boolean>;
 
-/** Hit slop beyond each drawn shape, in px. */
-export const HIT_SLOP: number = tokens.touch.hitSlop;
-
 /** Distance from a point to a zone's drawn shape (0 inside). */
 function distance(z: TouchZone, x: number, y: number): number {
   if (z.shape === 'circle') return Math.max(0, Math.hypot(x - z.cx, y - z.cy) - z.r);
@@ -32,13 +29,13 @@ function distance(z: TouchZone, x: number, y: number): number {
   return Math.hypot(dx, dy);
 }
 
-/** Returns the control under (x, y), allowing `slop` px beyond its shape; the nearest shape wins. */
-export function hitTest(zones: readonly TouchZone[], x: number, y: number, slop = HIT_SLOP): TouchControlId | null {
+/** Returns the control under (x, y), allowing the hit slop beyond its shape; the nearest shape wins. */
+export function hitTest(zones: readonly TouchZone[], x: number, y: number): TouchControlId | null {
   let best: TouchControlId | null = null;
   let bestD = Infinity;
   for (const z of zones) {
     const d = distance(z, x, y);
-    if (d <= slop && d < bestD) {
+    if (d <= tokens.touch.hitSlop && d < bestD) {
       best = z.id;
       bestD = d;
     }

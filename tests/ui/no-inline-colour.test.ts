@@ -7,6 +7,7 @@ import { createFinishPanel } from '../../src/ui/finish-panel.ts';
 import { createHud } from '../../src/ui/hud.ts';
 import { createStartScreen } from '../../src/ui/start-screen.ts';
 import { createTouchControls } from '../../src/ui/touch-controls.ts';
+import { hudState } from './helpers.ts';
 
 const COLOUR_PROPS = /(^|;|\s)(color|background|background-color|fill|stroke|border|border-color|outline|outline-color|box-shadow)\s*:/i;
 const COLOUR_VALUE = /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i;
@@ -14,32 +15,12 @@ const PAINT_ATTRS = ['fill', 'stroke', 'color', 'stop-color', 'flood-color', 'li
 
 describe('UI DOM', () => {
   it('sets no colour in any inline style or SVG paint attribute', () => {
-    document.body.replaceChildren();
     const root = document.body;
-    createHud(root).update({
-      position: 2,
-      carCount: 6,
-      lap: 1,
-      laps: 3,
-      timeMs: 6120,
-      bestLapMs: 40370,
-      minimap: {
-        outline: [
-          [0, 0],
-          [10, 0],
-          [10, 5],
-        ],
-        cars: [
-          { x: 0, z: 0, colour: 'teal', player: false },
-          { x: 1, z: 1, colour: 'rally-red', player: true },
-        ],
-      },
-    });
-    const tc = createTouchControls(root, { visible: true });
+    createHud(root).update(hudState({ bestLapMs: 40370 }));
+    const tc = createTouchControls(root);
     tc.wake();
     tc.machine.press('gas');
-    const cd = createCountdown(root);
-    cd.show(2);
+    createCountdown(root).show(2);
     createStartScreen(root, { onRace: () => {} }).show();
     createFinishPanel(root, { onRaceAgain: () => {} }).show({ timeMs: 1, bestLapMs: null });
 

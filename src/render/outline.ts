@@ -1,15 +1,19 @@
 // Outline helpers: attach an ink inverted hull and crease lines to a mesh, and build meshes with the
 // right material + outline in one call. Every non-ground mesh in the scene goes through `solidMesh`
-// or `outlinedFlatMesh`; ground-level meshes use `groundMesh`, which refuses non-up normals.
+// or `outlinedFlatMesh`; ground-level meshes use `groundMesh`, which refuses anything that is not
+// flat on the ground.
 //
 // Scene-graph conventions (used by tests and the gate's scene walk):
 //   mesh.userData.render = 'toon' | 'flat' | 'ground' | 'hull' | 'crease'
 //   a 'toon' or 'flat' mesh has exactly one child with render === 'hull' (and maybe a 'crease' child)
-//   a 'ground' mesh uses the flat material and every normal is straight up, so it has no hull.
-import { BufferAttribute, BufferGeometry, EdgesGeometry, LineSegments, Mesh } from 'three';
+//   a 'ground' mesh uses the flat material, every normal is straight up and nothing is above the
+//   shadow layer, so it has no hull.
+import { BufferAttribute, BufferGeometry, EdgesGeometry, LineSegments, Matrix3, Mesh, type Matrix4 } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { paletteIndex } from '@tokens';
 import { allNormalsUp, paletteAttribute } from './geometry.ts';
 import type { Materials } from './materials/index.ts';
+import { LAYER } from './track.ts';
 
 /** Faces meeting at more than this angle (degrees) get a crease line. */
 export const CREASE_ANGLE_DEG = 25;
@@ -57,6 +61,25 @@ function outlineGeometries(geo: BufferGeometry): OutlineGeometries {
   return g;
 }
 
+/**
+ * One geometry made of placed copies of `parts` (MeshBuilder geometries without decals). Its hull and
+ * crease lines are the parts' own, moved along rather than recomputed, which keeps merging hundreds
+ * of props cheap at build time.
+ */
+export function mergePlaced(parts: readonly { geo: BufferGeometry; matrix: Matrix4 }[]): BufferGeometry {
+  const normalMatrix = new Matrix3();
+  const geo = mergeGeometries(
+    parts.map(({ geo, matrix }) => {
+      const g = geo.clone().applyMatrix4(matrix);
+      (g.getAttribute('smoothNormal') as BufferAttribute).applyNormalMatrix(normalMatrix.getNormalMatrix(matrix));
+      return g;
+    }),
+  );
+  const crease = mergeGeometries(parts.map(({ geo, matrix }) => outlineGeometries(geo).crease.clone().applyMatrix4(matrix)));
+  cache.set(geo, { hull: geo, crease });
+  return geo;
+}
+
 /** Adds an ink hull (and, unless `crease` is false, crease lines) as children of `mesh`. */
 export function attachOutline(mesh: Mesh, mats: Materials, opts: { crease?: boolean } = {}): Mesh {
   const g = outlineGeometries(mesh.geometry);
@@ -73,27 +96,34 @@ export function attachOutline(mesh: Mesh, mats: Materials, opts: { crease?: bool
   return mesh;
 }
 
+/** A named mesh with its role; toon and flat meshes get their outline. */
+function roleMesh(geo: BufferGeometry, mats: Materials, name: string, role: 'toon' | 'flat' | 'ground', opts: { crease?: boolean } = {}): Mesh {
+  const mesh = new Mesh(geo, role === 'toon' ? mats.toon : mats.flat);
+  mesh.name = name;
+  mesh.userData.render = role satisfies RenderRole;
+  return role === 'ground' ? mesh : attachOutline(mesh, mats, opts);
+}
+
 /** A toon-lit mesh with hull and crease lines. */
 export function solidMesh(geo: BufferGeometry, mats: Materials, name: string, opts: { crease?: boolean } = {}): Mesh {
-  const mesh = new Mesh(geo, mats.toon);
-  mesh.name = name;
-  mesh.userData.render = 'toon' satisfies RenderRole;
-  return attachOutline(mesh, mats, opts);
+  return roleMesh(geo, mats, name, 'toon', opts);
 }
 
 /** An unlit (base colour) mesh that is not ground-level, so it still gets a hull (dust, the ▼ marker). */
 export function outlinedFlatMesh(geo: BufferGeometry, mats: Materials, name: string, opts: { crease?: boolean } = {}): Mesh {
-  const mesh = new Mesh(geo, mats.flat);
-  mesh.name = name;
-  mesh.userData.render = 'flat' satisfies RenderRole;
-  return attachOutline(mesh, mats, opts);
+  return roleMesh(geo, mats, name, 'flat', opts);
 }
 
-/** A ground-level mesh (track, shadows, grass). Throws unless every normal points straight up. */
-export function groundMesh(geo: BufferGeometry, mats: Materials, name: string): Mesh {
+/**
+ * A ground-level mesh (track, shadows) placed at height `y`: unlit and with no hull. Throws unless
+ * every normal points straight up and its top is at or below the shadow layer, so a floating flat
+ * mesh can't skip its outline. Ground meshes only ever move sideways after this.
+ */
+export function groundMesh(geo: BufferGeometry, mats: Materials, name: string, y = 0): Mesh {
   if (!allNormalsUp(geo)) throw new Error(`groundMesh "${name}": every normal must point straight up`);
-  const mesh = new Mesh(geo, mats.flat);
-  mesh.name = name;
-  mesh.userData.render = 'ground' satisfies RenderRole;
+  geo.computeBoundingBox();
+  if ((geo.boundingBox?.max.y ?? Infinity) + y > LAYER.shadow + 1e-6) throw new Error(`groundMesh "${name}": must not rise above the shadow layer`);
+  const mesh = roleMesh(geo, mats, name, 'ground');
+  mesh.position.y = y;
   return mesh;
 }

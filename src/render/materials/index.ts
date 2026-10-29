@@ -2,14 +2,15 @@
 //
 // Colour pipeline (proved in the M1.5 spike, see PHASE0_STATUS.md):
 // - Every geometry carries a Uint8 `paletteIndex` attribute (0..9, PALETTE order from @tokens).
-// - Shaders are GLSL3 RawShaderMaterials. The vertex shader picks the final palette index and passes
-//   it through a `flat` varying; the fragment shader looks it up in `palette[10]`. Shading only steps
-//   down `ladder[10]` (LADDER_INDEX), so a pixel can never be anything but one of the 10 colours.
+// - Shaders are GLSL3 RawShaderMaterials. The vertex shader picks the final palette index, looks it
+//   up in `palette[10]` and passes the colour through a `flat` varying; the fragment shader just
+//   writes it. Shading only steps down `ladder[10]` (LADDER_INDEX), so a pixel can never be anything
+//   but one of the 10 colours.
 // - Renderer side: ColorManagement disabled, LinearSRGB output, no tone mapping (see ../renderer.ts).
 //
 // Kinds (also stored in material.userData.kind):
 // - toon:   lit, 3 hard steps per UI_RULES §9. For every solid mesh; needs an outline hull.
-// - flat:   unlit base colour. Ground-level meshes (track, shadows, ground) whose normals all point
+// - flat:   unlit base colour. Ground-level meshes (track chunks, shadows) whose normals all point
 //           straight up need no hull; anything else using it (dust, the ▼ marker) still gets one.
 // - hull:   inverted-hull ink outline, pushed out in clip space along `smoothNormal`.
 // - crease: ink edge lines (LineSegments) between faces.
@@ -61,71 +62,65 @@ function hexToVec3(hex: string): Vector3 {
   return new Vector3(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }
 
-const INK = `${paletteIndex('ink')}u`;
+const INK = paletteIndex('ink');
+
+/**
+ * Shared vertex header. Every shader picks its palette colour per vertex into a `flat` varying, so
+ * fragment shaders only write it. Model matrices are rotation + translation only (no scale anywhere),
+ * so `mat3(modelMatrix)` turns normals into world space without an inverse-transpose.
+ */
+const HEADER = /* glsl */ `
+in vec3 position;
+in uint paletteIndex;
+uniform mat4 modelMatrix, viewMatrix, projectionMatrix;
+uniform vec3 palette[10];
+flat out vec3 vColor;
+vec4 clipPosition() { return projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0); }`;
 
 const FRAGMENT = /* glsl */ `
 precision highp float;
-uniform vec3 palette[10];
-flat in uint vIndex;
+flat in vec3 vColor;
 out vec4 outColor;
-void main() { outColor = vec4(palette[vIndex], 1.0); }`;
+void main() { outColor = vec4(vColor, 1.0); }`;
 
-const TOON_VERTEX = /* glsl */ `
-in vec3 position;
+const TOON_VERTEX = /* glsl */ `${HEADER}
 in vec3 normal;
-in uint paletteIndex;
-uniform mat4 modelMatrix, viewMatrix, projectionMatrix;
 uniform vec3 lightDir;
 uniform int ladder[10];
-flat out uint vIndex;
 void main() {
-  vec3 n = normalize(transpose(inverse(mat3(modelMatrix))) * normal);
+  vec3 n = normalize(mat3(modelMatrix) * normal);
   float d = dot(n, lightDir);
   int idx = int(paletteIndex);
   bool top = n.y >= ${TOP_FACE_MIN_Y.toFixed(3)};
   if (!top && d < ${TOON_STEPS.base.toFixed(3)}) idx = ladder[idx];
   if (!top && d < ${TOON_STEPS.oneRung.toFixed(3)}) idx = ladder[idx];
-  vIndex = uint(idx);
-  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+  vColor = palette[idx];
+  gl_Position = clipPosition();
 }`;
 
-const FLAT_VERTEX = /* glsl */ `
-in vec3 position;
-in uint paletteIndex;
-uniform mat4 modelMatrix, viewMatrix, projectionMatrix;
-flat out uint vIndex;
+/** Unlit base colour. `zBias` pulls crease lines just in front of the faces they sit on. */
+const flatVertex = (zBias: number): string => /* glsl */ `${HEADER}
 void main() {
-  vIndex = paletteIndex;
-  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+  vColor = palette[paletteIndex];
+  gl_Position = clipPosition();
+  gl_Position.z -= ${zBias.toFixed(4)} * gl_Position.w;
 }`;
 
-const HULL_VERTEX = /* glsl */ `
-in vec3 position;
+// The push direction is normalised in pixels (not NDC), so diagonal outlines are as thick as
+// horizontal and vertical ones on a non-square viewport.
+const HULL_VERTEX = /* glsl */ `${HEADER}
 in vec3 smoothNormal;
-uniform mat4 modelMatrix, viewMatrix, projectionMatrix;
 uniform vec2 resolution;
 uniform float widthPx;
-flat out uint vIndex;
 void main() {
-  vec4 clip = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
-  vec3 n = mat3(viewMatrix) * (transpose(inverse(mat3(modelMatrix))) * smoothNormal);
-  vec2 dir = (projectionMatrix * vec4(n, 0.0)).xy;
+  vec4 clip = clipPosition();
+  vec3 n = mat3(viewMatrix) * (mat3(modelMatrix) * smoothNormal);
+  vec2 dir = (projectionMatrix * vec4(n, 0.0)).xy * resolution;
   float len = length(dir);
   dir = len > 1e-5 ? dir / len : vec2(0.0);
   clip.xy += dir * widthPx * 2.0 / resolution * clip.w;
-  vIndex = ${INK};
+  vColor = palette[${INK}];
   gl_Position = clip;
-}`;
-
-const CREASE_VERTEX = /* glsl */ `
-in vec3 position;
-in uint paletteIndex;
-uniform mat4 modelMatrix, viewMatrix, projectionMatrix;
-flat out uint vIndex;
-void main() {
-  vIndex = paletteIndex;
-  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
-  gl_Position.z -= 0.0003 * gl_Position.w; // pull edges just in front of the faces they sit on
 }`;
 
 /** The shared material set for one scene. Meshes share these instances. */
@@ -136,8 +131,6 @@ export interface Materials {
   readonly crease: RawShaderMaterial;
   /** Call with the drawing-buffer size (CSS size × pixel ratio) whenever it changes. */
   setViewport(bufferWidth: number, bufferHeight: number): void;
-  /** Current outline width in drawing-buffer pixels. */
-  outlinePx(): number;
 }
 
 function make(kind: MaterialKind, params: ConstructorParameters<typeof RawShaderMaterial>[0]): RawShaderMaterial {
@@ -159,7 +152,7 @@ export function createMaterials(): Materials {
     side: FrontSide,
     uniforms: { palette, lightDir: { value: LIGHT_DIRECTION.clone() }, ladder: { value: [...LADDER_INDEX] } },
   });
-  const flat = make('flat', { vertexShader: FLAT_VERTEX, side: FrontSide, uniforms: { palette } });
+  const flat = make('flat', { vertexShader: flatVertex(0), side: FrontSide, uniforms: { palette } });
   const hull = make('hull', {
     vertexShader: HULL_VERTEX,
     side: BackSide,
@@ -168,7 +161,7 @@ export function createMaterials(): Materials {
     polygonOffsetUnits: 1,
     uniforms: { palette, resolution, widthPx },
   });
-  const crease = make('crease', { vertexShader: CREASE_VERTEX, uniforms: { palette } });
+  const crease = make('crease', { vertexShader: flatVertex(0.0003), uniforms: { palette } });
 
   return {
     toon,
@@ -179,6 +172,5 @@ export function createMaterials(): Materials {
       resolution.value.set(Math.max(1, bufferWidth), Math.max(1, bufferHeight));
       widthPx.value = (OUTLINE_PX_AT_844 * Math.max(1, bufferWidth)) / 844;
     },
-    outlinePx: () => widthPx.value,
   };
 }

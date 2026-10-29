@@ -1,12 +1,14 @@
 // Dust: a fixed pool of cream puffs (flat colour, ink hull), all in ONE dynamic geometry so the
 // whole pool is two draw calls. Nothing is allocated per frame: emitting past capacity recycles the
 // oldest puff. Puffs grow then shrink (scale only; opacity tricks are banned by UI_RULES §11).
+// The position buffer is uploaded only on frames where something moved, and the mesh is hidden
+// while no puff is live.
 //
 // Emission: behind each car's rear wheels while it slides (slip) or drives on grass, and a burst on
-// landing after a jump. Randomness comes from a small local seeded RNG (never Math.random), so a
-// given input sequence always produces the same dust.
-import { IcosahedronGeometry, Mesh, Vector3 } from 'three';
-import type { CarView } from '../sim/types.ts';
+// landing after a jump. Randomness comes from the sim's seeded RNG (never Math.random), so a given
+// input sequence always produces the same dust.
+import { DynamicDrawUsage, IcosahedronGeometry, Vector3, type BufferAttribute, type Mesh } from 'three';
+import { createRng, nextFloat, type CarView } from '../sim/index.ts';
 import { MeshBuilder, type Vec3 } from './geometry.ts';
 import type { Materials } from './materials/index.ts';
 import { outlinedFlatMesh } from './outline.ts';
@@ -25,17 +27,6 @@ export const DUST = {
   size: [0.6, 0.95],
 } as const;
 
-/** Small deterministic RNG (mulberry32), local to render. Returns floats in [0, 1). */
-export function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 1831565813) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 const PARKED_Y = -1000; // inactive puffs sit far below the ground, outside the camera frustum
 
 export interface DustPool {
@@ -47,10 +38,13 @@ export interface DustPool {
   emit(x: number, y: number, z: number, vx: number, vy: number, vz: number): void;
   /** Emits from cars (index-aligned with previous calls) and advances all puffs by dt seconds. */
   update(cars: readonly CarView[], dtSeconds: number): void;
+  /** Parks every puff and reseeds, so the pool then behaves exactly like a new one. */
+  reset(): void;
 }
 
 export function createDust(mats: Materials, seed = 1): DustPool {
-  const rnd = mulberry32(seed);
+  let rng = createRng(seed);
+  const rnd = (): number => nextFloat(rng);
   const cap = DUST.capacity;
 
   // One low-poly puff template (20 faces), copied `cap` times into a single geometry.
@@ -69,14 +63,14 @@ export function createDust(mats: Materials, seed = 1): DustPool {
   }
   ico.dispose();
   const geo = b.build();
-  const pos = geo.getAttribute('position');
+  const pos = (geo.getAttribute('position') as BufferAttribute).setUsage(DynamicDrawUsage);
   const positions = pos.array as Float32Array;
   const mesh = outlinedFlatMesh(geo, mats, 'dust', { crease: false });
   mesh.frustumCulled = false;
   for (const child of mesh.children) child.frustumCulled = false;
 
   // Per-puff state in flat typed arrays.
-  const age = new Float32Array(cap).fill(Infinity);
+  const age = new Float32Array(cap);
   const px = new Float32Array(cap);
   const py = new Float32Array(cap);
   const pz = new Float32Array(cap);
@@ -85,12 +79,15 @@ export function createDust(mats: Materials, seed = 1): DustPool {
   const vz = new Float32Array(cap);
   const size = new Float32Array(cap);
   let next = 0;
+  let live = 0;
+  let dirty = false;
 
   // Per-car emitter state (grown only when the car count grows, i.e. at most once per race).
   let acc = new Float32Array(0);
   let wasAirborne = new Uint8Array(0);
 
   const writePuff = (p: number, scale: number, x: number, y: number, z: number): void => {
+    dirty = true;
     const base = p * perPuff * 3;
     for (let i = 0; i < perPuff * 3; i += 3) {
       positions[base + i] = x + (template[i] as number) * scale;
@@ -98,19 +95,19 @@ export function createDust(mats: Materials, seed = 1): DustPool {
       positions[base + i + 2] = z + (template[i + 2] as number) * scale;
     }
   };
-  for (let p = 0; p < cap; p++) writePuff(p, 0, 0, PARKED_Y, 0);
+  const park = (p: number): void => {
+    age[p] = Infinity;
+    writePuff(p, 0, 0, PARKED_Y, 0);
+  };
 
   const pool: DustPool = {
     mesh,
     capacity: cap,
-    active() {
-      let n = 0;
-      for (let p = 0; p < cap; p++) if ((age[p] as number) < DUST.life) n++;
-      return n;
-    },
+    active: () => live,
     emit(x, y, z, dx, dy, dz) {
       const p = next;
       next = (next + 1) % cap;
+      if ((age[p] as number) >= DUST.life) live++;
       age[p] = 0;
       px[p] = x;
       py[p] = y;
@@ -157,22 +154,17 @@ export function createDust(mats: Materials, seed = 1): DustPool {
       }
 
       const damp = Math.exp(-3 * dt);
+      live = 0;
       for (let p = 0; p < cap; p++) {
         const a = age[p] as number;
-        if (a >= DUST.life) {
-          if (a !== Infinity) {
-            age[p] = Infinity;
-            writePuff(p, 0, 0, PARKED_Y, 0);
-          }
-          continue;
-        }
+        if (a >= DUST.life) continue;
         const na = a + dt;
         age[p] = na;
         if (na >= DUST.life) {
-          writePuff(p, 0, 0, PARKED_Y, 0);
-          age[p] = Infinity;
+          park(p);
           continue;
         }
+        live++;
         px[p] = (px[p] as number) + (vx[p] as number) * dt;
         py[p] = (py[p] as number) + (vy[p] as number) * dt;
         pz[p] = (pz[p] as number) + (vz[p] as number) * dt;
@@ -184,8 +176,22 @@ export function createDust(mats: Materials, seed = 1): DustPool {
         const k = t < 0.25 ? 0.4 + 0.6 * (t / 0.25) : 1 - 0.65 * ((t - 0.25) / 0.75);
         writePuff(p, (size[p] as number) * k, px[p] as number, py[p] as number, pz[p] as number);
       }
+      mesh.visible = live > 0;
+      if (dirty) pos.needsUpdate = true;
+      dirty = false;
+    },
+    reset() {
+      for (let p = 0; p < cap; p++) park(p);
       pos.needsUpdate = true;
+      dirty = false;
+      rng = createRng(seed);
+      next = 0;
+      live = 0;
+      acc.fill(0);
+      wasAirborne.fill(0);
+      mesh.visible = false;
     },
   };
+  pool.reset();
   return pool;
 }

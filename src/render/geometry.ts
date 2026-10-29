@@ -8,12 +8,12 @@
 // "Decal" triangles (stripes, race numbers) sit a hair above a surface. They are stored after the
 // solid triangles (geometry.userData.solidVertexCount marks the split) and are left out of the hull
 // and crease lines, so they read as paint rather than as separate outlined blocks.
-import { BufferAttribute, BufferGeometry, IntType, Matrix4, Vector3 } from 'three';
+import { BufferAttribute, BufferGeometry, IntType, Vector3 } from 'three';
 import { paletteIndex, type PaletteName } from '@tokens';
 
 export type Vec3 = readonly [number, number, number];
 
-/** A face colour: fixed, or chosen from the face's (local, pre-transform) outward normal. */
+/** A face colour: fixed, or chosen from the face's outward normal. */
 export type Paint = PaletteName | ((normal: Vector3) => PaletteName);
 
 /** Lathe profile point: [radius, y]. */
@@ -31,19 +31,6 @@ export class MeshBuilder {
   private readonly solid: { pos: number[]; col: number[] } = { pos: [], col: [] };
   private readonly decal: { pos: number[]; col: number[] } = { pos: [], col: [] };
   private target = this.solid;
-  private matrix: Matrix4 | null = null;
-
-  /** Applies `m` to everything added inside `fn` (nesting multiplies). */
-  transformed(m: Matrix4, fn: () => void): this {
-    const prev = this.matrix;
-    this.matrix = prev ? prev.clone().multiply(m) : m.clone();
-    try {
-      fn();
-    } finally {
-      this.matrix = prev;
-    }
-    return this;
-  }
 
   /** Everything added inside `fn` is a decal: no hull, no crease lines. */
   decals(fn: () => void): this {
@@ -75,11 +62,6 @@ export class MeshBuilder {
     }
     _n.normalize();
     const name = typeof paint === 'string' ? paint : paint(_n.clone());
-    if (this.matrix) {
-      _a.applyMatrix4(this.matrix);
-      _b.applyMatrix4(this.matrix);
-      _c.applyMatrix4(this.matrix);
-    }
     this.target.pos.push(_a.x, _a.y, _a.z, _b.x, _b.y, _b.z, _c.x, _c.y, _c.z);
     this.target.col.push(paletteIndex(name));
     return this;

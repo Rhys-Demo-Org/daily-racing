@@ -1,6 +1,20 @@
-// Shared helpers for render tests: car views and a scene-graph walk.
+// Shared helpers for render tests: the real Dust Bowl layout, car views and a scene-graph walk.
 import type { BufferGeometry, Line, Mesh, Object3D } from 'three';
-import type { CarView } from '../../src/sim/types.ts';
+import { trackLayout, type CarView } from '../../src/sim/index.ts';
+import { dustBowl } from '../sim/helpers.ts';
+
+export const layout = trackLayout(dustBowl);
+
+/** Centreline point and driving heading (0 = north, clockwise) at a lap fraction of Dust Bowl. */
+export function at(fraction: number): { x: number; z: number; heading: number } {
+  const c = layout.centre;
+  const n = c.length;
+  const i = ((Math.round(fraction * n) % n) + n) % n;
+  const [x, z] = c[i] as [number, number];
+  const [ax, az] = c[(i - 1 + n) % n] as [number, number];
+  const [bx, bz] = c[(i + 1) % n] as [number, number];
+  return { x, z, heading: Math.atan2(bx - ax, -(bz - az)) };
+}
 
 export function carView(over: Partial<CarView> = {}): CarView {
   return { x: 0, y: 0, z: 0, heading: 0, pitch: 0, speed: 0, slip: 0, surface: 'dirt', airborne: false, ...over };

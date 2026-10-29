@@ -3,7 +3,7 @@ import type { CarInput } from '../../src/sim/types.ts';
 import type { RacerState } from '../../src/sim/race.ts';
 import {
   COUNTDOWN_TICKS,
-  SECTORS,
+  sectorCount,
   countdownValue,
   createRacer,
   positions,
@@ -13,10 +13,11 @@ import {
 import type { World } from '../../src/sim/world.ts';
 import { carViews, createWorld, raceView, stepWorld } from '../../src/sim/world.ts';
 import { sampleAt } from '../../src/sim/track.ts';
-import { GAS, NO_INPUT, autopilot, driveToward, dustBowl, runAutopilotRace, stepN } from './helpers.ts';
+import { createBot } from '../../src/sim/bot.ts';
+import { GAS, NO_INPUT, driveToward, dustBowl, runBotRace, stepN } from './helpers.ts';
 
 const L = 1000;
-const SECTOR = L / SECTORS;
+const SECTOR = L / sectorCount(L);
 
 /** Feeds a sequence of arc lengths to a racer one tick at a time. */
 function feed(r: RacerState, path: number[], laps = 3, startTick = 1): void {
@@ -98,6 +99,20 @@ describe('lap counting rules', () => {
     expect(r.lapsCompleted).toBe(1);
   });
 
+  it('on a long lap sectors stay short, so a cut across a single old 8-sector boundary no longer counts', () => {
+    // A 2 km lap: 50 sectors of 40 units, where a fixed 8 would each have been 250 long.
+    const long = 2000;
+    expect(sectorCount(long)).toBe(50);
+    expect(sectorCount(200)).toBe(8);
+    // Start, then cut from s = 10 to s = 490: with 8 sectors that only crosses one boundary
+    // (sector 0 → 1) so it was credited, skipping 480 units of track. Then drive on over the line.
+    expect([10, 490].map((s) => Math.floor((s / long) * 8))).toEqual([0, 1]);
+    const r = createRacer(long - 10, long);
+    const path = [...span(long - 10, long + 10), ...span(490, long + 20)];
+    path.forEach((s, i) => updateRacer(r, s % long, long, i + 1, 3));
+    expect(r.lapsCompleted).toBe(0);
+  });
+
   it('finishes after the last lap and stops counting', () => {
     const r = createRacer(L - 10, L);
     feed(r, span(L - 10, 3 * L + 20), 2);
@@ -139,13 +154,14 @@ function driveUntil(world: World, drive: (w: World) => CarInput, until: (w: Worl
 describe('laps on Dust Bowl', () => {
   it('reversing back over the line after the start does not count a lap', () => {
     const world = createWorld(dustBowl, { seed: 3, carCount: 1 });
+    const bot = createBot(world, 0);
     stepN(world, COUNTDOWN_TICKS, NO_INPUT);
     const L = world.track.length;
-    driveUntil(world, autopilot, (w) => w.cars[0]!.pos.s > 30 && w.cars[0]!.pos.s < L / 2, 600);
+    driveUntil(world, bot.input, (w) => w.cars[0]!.pos.s > 30 && w.cars[0]!.pos.s < L / 2, 600);
     expect(world.racers[0]!.started).toBe(true);
     // Reverse until well behind the line, then drive forward across it again.
     driveUntil(world, () => ({ steer: 0, throttle: false, brake: true }), (w) => w.cars[0]!.pos.s > L - 15, 900);
-    driveUntil(world, autopilot, (w) => w.cars[0]!.pos.s > 40 && w.cars[0]!.pos.s < L / 2, 900);
+    driveUntil(world, bot.input, (w) => w.cars[0]!.pos.s > 40 && w.cars[0]!.pos.s < L / 2, 900);
     const view = raceView(world).racers[0]!;
     expect(view.lapsCompleted).toBe(0);
     expect(view.lap).toBe(1);
@@ -153,10 +169,11 @@ describe('laps on Dust Bowl', () => {
 
   it('cutting across the infield does not count a lap', () => {
     const world = createWorld(dustBowl, { seed: 4, carCount: 1 });
+    const bot = createBot(world, 0);
     stepN(world, COUNTDOWN_TICKS, NO_INPUT);
     const L = world.track.length;
     // Past the ramp, then turn left across the infield onto the top straight.
-    driveUntil(world, autopilot, (w) => w.cars[0]!.pos.s > 0.12 * L && w.cars[0]!.pos.s < L / 2, 900);
+    driveUntil(world, bot.input, (w) => w.cars[0]!.pos.s > 0.12 * L && w.cars[0]!.pos.s < L / 2, 900);
     const target = sampleAt(world.track, 0.47 * L);
     driveUntil(
       world,
@@ -170,7 +187,7 @@ describe('laps on Dust Bowl', () => {
     let wrapped = false;
     driveUntil(
       world,
-      autopilot,
+      bot.input,
       (w) => {
         if (w.cars[0]!.pos.s > 0.95 * L) wrapped = true;
         return wrapped && w.cars[0]!.pos.s < 30;
@@ -179,11 +196,11 @@ describe('laps on Dust Bowl', () => {
     );
     expect(raceView(world).racers[0]!.lapsCompleted).toBe(0);
     // The skipped sectors still have to be driven: one more proper lap counts.
-    driveUntil(world, autopilot, (w) => w.racers[0]!.lapsCompleted === 1, 60 * 60);
+    driveUntil(world, bot.input, (w) => w.racers[0]!.lapsCompleted === 1, 60 * 60);
   });
 
   it('a full race finishes after 3 laps with consistent lap times', () => {
-    const race = runAutopilotRace(dustBowl, 11);
+    const race = runBotRace(dustBowl, 11);
     const view = raceView(race.world);
     const me = view.racers[0]!;
     expect(view.phase).toBe('finished');
@@ -199,7 +216,8 @@ describe('laps on Dust Bowl', () => {
     const world = createWorld(dustBowl, { seed: 5, carCount: 2 });
     stepN(world, COUNTDOWN_TICKS, NO_INPUT);
     // Car 1 starts behind car 0; only car 1 drives.
-    for (let i = 0; i < 60 * 5; i++) stepWorld(world, [NO_INPUT, autopilot(world, 1)]);
+    const bot = createBot(world, 1);
+    for (let i = 0; i < 60 * 5; i++) stepWorld(world, [NO_INPUT, bot.input(world)]);
     const view = raceView(world);
     expect(view.racers[1]!.position).toBe(1);
     expect(view.racers[0]!.position).toBe(2);

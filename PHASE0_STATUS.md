@@ -4,7 +4,8 @@ Resume point for any session working on Phase 0. Plan: `plans/phase0-plan.md` (o
 don't re-plan). Spec: `HANDOVER.md`. Delete this file when Phase 0 is handed over.
 
 Milestone order: M1 → M1.5 spike → M2 → M3 → M4-thin → dry-run week → Later.
-One `phase0/mN-*` branch and PR per milestone; the owner merges.
+One `phase0/mN-*` branch and PR per milestone; the owner merges. Every milestone gets a spec
+audit and a code review (speed, LOC, duplication) with fixes applied before handover.
 
 ## Done
 ### M1 · Scaffold, docs, tokens, backlog — PR #1 (merged 2026-10-29)
@@ -28,7 +29,7 @@ Built:
   `daily-racer-toolchain:<Dockerfile sha256[:12]>`.
 - `harness/scripts/in-container.sh [--net] [--ro] [--cpuset <cpus>] -- <cmd>`: host uid, tmpfs
   `/tmp` + `HOME`, `--network none` unless `--net`, shared `daily-racer-pnpm-store` volume.
-- `spikes/m1.5/`: throwaway test scene + gate-side runner (delete at Phase 0 handover).
+- `spikes/m1.5/`: throwaway test scene + gate-side runner (since deleted; findings below).
 
 Findings (all run in the container, Chromium `--use-angle=swiftshader --enable-unsafe-swiftshader`):
 1. **Install then offline works.** `pnpm install --frozen-lockfile --ignore-scripts --store-dir
@@ -64,10 +65,10 @@ Findings (all run in the container, Chromium `--use-angle=swiftshader --enable-u
    faces away from the light enough to drop to ink, so ramp tops need care in M2. Outlines at
    `widthPx 2` read thin at 844 wide, so tune the width in M2.
 
-**Checkpoint: owner reviews the perf margin proposal** (finding 5) before G4 is built (Later).
-Nothing blocks M2.
+Perf margin accepted by the owner (see Owner decisions).
 
-## In progress: M2 · Playable core (branch `phase0/m2-core`)
+## Awaiting merge
+### M2 · Playable core — PR #3 (branch `phase0/m2-core`)
 Built in parallel by three agents against shared contracts (`src/sim/types.ts`, `src/ui/types.ts`),
 then integrated:
 - `src/sim/`: mulberry32 RNG, closed Catmull-Rom track with arc-length sampling and local
@@ -75,43 +76,72 @@ then integrated:
   collisions with push-out and sub-stepping, no respawn), race (180-tick countdown, ordered sectors
   so shortcuts never count, finish), world, frozen replay format (int8 steer + flag bits).
   Dirt top speed 25 u/s, grass 15. `stepWorld` quantises steer to int8 so live play == replay.
-- `src/content/tracks/dust-bowl.json`: scaled ~2.07× by the sim agent to reach a ~40 s lap (1008
-  units); more trees added at integration. `src/content/tracks.ts` registers tracks by glob.
+  `CarView.pitch` tilts the car on ramps (upper convex hull of the ground under it, so the body
+  never clips the slope or the lip).
+- `src/content/tracks/dust-bowl.json`: scaled ~2.07× to reach a ~40 s lap (1008 units).
+  `src/content/tracks.ts` registers tracks by glob (id must match the file name).
 - `src/render/`: the one materials factory (toon ladder, hull, flat, crease), meshes (car with
   geometry race number and ▼ marker, hay bale, tyre stack, cone tree, ramp with chevrons, ribbon
   with ruts, chequered start band), blob shadows, pooled dust, camera rig (57°, vfov 19°,
-  56/55 units across). Faces with normal y ≥ 0.95 keep their base colour (UI_RULES §8 "top faces
-  take the base colour"); this is what keeps the dark-dirt ramp slope off ink.
+  56/55 units across). Static geometry is merged: ground in ~64-row chunks, props in 32-unit
+  cells, so a frame is ~26 draw calls. Faces with normal y ≥ 0.95 keep their base colour
+  (UI_RULES §8 "top faces take the base colour"); this keeps the dark-dirt ramp slope off ink.
+  Outline width is 2.5 px at 844 wide, scaled with the viewport. DPR capped at 1.5.
 - `src/ui/` + `src/input/`: HUD (POS, LAP, minimap, TIME + BEST), touch controls (active → resting
   after 4 s → pressed, 12 px slop, multi-touch), countdown roundels + GO! stamp, start screen,
   finish panel; keyboard (arrows/WASD). Off-scale mockup values snapped to tokens (listed in the M2
-  PR). No pause/action buttons (B01/B12).
+  PR). No pause/action buttons (B01/B12). No per-frame DOM writes or allocations when nothing changes.
 - `src/game.ts` (fixed-step loop, interpolation, UI sync; GO! clears 60 ticks after the start in
   sim time so staged frames are deterministic), `src/driver/` (`window.__racer`: startRace, freeze,
   step, play, state), `guardrails/build/pwa-icons.ts`.
-- Spikes: `spikes/m2-render`, `spikes/m2-ui` (component previews), `spikes/m2-game` (end-to-end
-  check `run.ts`, autopilot inputs `inputs.ts`, frame capture `frames.ts`).
+- `spikes/m2-game`: end-to-end check `run.ts`, input generator `inputs.ts`, frame capture `frames.ts`.
+- Reviewed (spec audit + code review per area) and fixed before handover: restart camera, gate-5
+  colour scan, per-frame churn, ramp-lip pop-up, dead and duplicated code.
+- **Reference frames approved (2026-10-29)**: turn tick 1100 and ramp tick 442 in
+  `guardrails/design/reference-frames/`.
 
-Verified in the container: typecheck, 197 tests (sim 112, render 22, UI/input 56, content 3,
-tokens 4), build, render pixel check (0 off-palette px at both sizes), end-to-end in Chromium at
-844×390 (touch) and 1440×900: menu, staged race, keyboard drive, touch-only RACE + GAS drive,
-no page errors.
+### M3 · Bot opponent — branch `phase0/m3-bot` (stacked on #3)
+- `src/sim/bot.ts`: `createBot(world, carIndex)` → `bot.input(world)`, the same `CarInput` as the
+  player. Centreline follower with a seeded racing offset and pace; corner speed planned from
+  curvature along its own line, shorter look-ahead in tight corners; passes the nearest car ahead,
+  but not in tight corners or on a ramp approach; stuck recovery by reversing on opposite lock.
+- Car–car collisions (oriented boxes, split push-out). Cars rest on prop tops and car roofs;
+  push-outs are capped at travel + 0.2 units per tick, so no tick moves a car more than 0.625 units
+  (G2's teleport limit; worst seen 0.617).
+- Track rules in `validateTrack`: ramp slope ≤ `MAX_RAMP_SLOPE` (0.32), height ≤ `MAX_RAMP_HEIGHT`
+  (2) and 25 units of straight track after every lip, so every full-speed jump lands on the
+  straight and the bot needs no lip-speed planning. Sectors are `max(8, ceil(length / 40))`
+  (Dust Bowl: 26).
+- Sim speed: grid broadphase and allocation-light contacts, ~1 µs/tick per car (was ~3),
+  proven bit-identical on 48 long runs before the behaviour changes.
+- Game: car 1 is the bot (KOSKI #7, mustard/navy); HUD shows POS x/2 and both cars on the minimap.
+  `src/ui/race-ui.ts` owns the countdown, GO!, finish panel and HUD sync; one scene is kept and
+  reused on restart, disposed on a track change.
+- Tests: bots finish every registered track (5 seeds, lap-time bounds, never stuck, no teleport),
+  hairpin and ramp-before-corner tracks, stuck recovery, positions, car contact, push-out bounds
+  (and that a car landing between props can always drive away), broadphase identity, race UI flow.
+- Reviewed: spec audit (displacement, bot robustness, ramp rules) + code review (speed, LOC,
+  duplication); every finding fixed. Re-checked with the auditor's own scripts: worst step 0.617,
+  all 90 races of its sweep (6 tracks × 1/2/4 cars × 5 seeds) pass. A second review of the fixes
+  found a "jammed car returns to its tick-start position" rule that could freeze a car for good
+  after landing on a tyre row (19 of 2,880 landings); it was removed, along with bot code that
+  never changed a race (braking zones, lip-speed cap). The approved frames' inputs are unchanged.
 
-**Checkpoint (HANDOVER §2.3): owner approves the 844×390 and 1440×900 reference frames.** Approved
-shots go to `guardrails/design/reference-frames/`.
+Verified in the container: typecheck, 272 tests (sim 166, UI 44, render 31, input 24, tokens 4,
+content 3), build, end-to-end in Chromium at 844×390 (touch) and 1440×900 with two cars.
+
+**Checkpoint passed (2026-10-29):** owner re-approved the reference frames (the M2 review fixes
+and the bot car changed the look); the new shots replace the M2 ones.
 
 ## Next step
-After the M2 PR and reference frames: **M3 · Bot opponent** (`src/sim/bot.ts`, car–car collisions,
-race position x/2 in the HUD).
+After M3 is merged: **M4-thin · Thin harness + nightly dry runs** (G1, G2, G3, G8).
 
-## Open questions for the owner
-1. G4 perf margin: 15% with 7 runs per side (M1.5 finding 5)? A tighter margin needs more runs.
-2. Dust Bowl is nearly flat-out: the test autopilot never slides. Drifting needs tighter corners;
-   a hairpin variant or a later track (B10/B11) could provide them.
+## Owner decisions
+1. G4 perf margin: 15% with 7 alternating runs per side (M1.5 finding 5). Accepted 2026-10-29.
+2. Dust Bowl stays nearly flat-out (the bot never slides); drifting comes from tighter later
+   tracks (B10/B11). Accepted 2026-10-29.
 
 ## Notes for later milestones
-- PWA icons: `guardrails/build/pwa-icons.ts` (draws palette shapes with `pngjs`) lands in M2; the
-  manifest currently has `icons: []`.
 - `playwright.config.ts` is not created until a milestone uses `@playwright/test` (the spike uses
   the Playwright library directly).
 - npm 11 in the image blocks Claude Code's `postinstall` by default; `claude --version` works

@@ -5,8 +5,14 @@ import { TICK_HZ } from './types.ts';
 
 /** Countdown length: 3 s at 60 Hz. Cars cannot move until it is over. */
 export const COUNTDOWN_TICKS = 3 * TICK_HZ;
-/** The lap is split into this many equal-length sectors that must be entered in order. */
-export const SECTORS = 8;
+/** Longest a sector may be, in units. */
+const MAX_SECTOR_LENGTH = 40;
+
+/** The lap is split into this many equal sectors (at least 8, none longer than 40 units) that must
+ * be entered in order, so cutting across one sector boundary can only skip a short stretch. */
+export function sectorCount(lapLength: number): number {
+  return Math.max(8, Math.ceil(lapLength / MAX_SECTOR_LENGTH));
+}
 
 export interface RacerState {
   /** Next sector the car must enter (forward, from the previous one) to make progress. */
@@ -22,9 +28,15 @@ export interface RacerState {
   finishTick: number | null;
 }
 
-/** Sector index (0..SECTORS-1) of arc length s on a lap of `lapLength`. */
-export function sectorOf(s: number, lapLength: number): number {
-  return Math.min(SECTORS - 1, Math.max(0, Math.floor((s / lapLength) * SECTORS)));
+/** Signed distance along the lap from arc length a forward to b, in [−lapLength/2, lapLength/2). */
+export function lapGap(a: number, b: number, lapLength: number): number {
+  return ((b - a + 1.5 * lapLength) % lapLength) - lapLength / 2;
+}
+
+/** Sector index (0..sectorCount − 1) of arc length s on a lap of `lapLength`. */
+function sectorOf(s: number, lapLength: number): number {
+  const n = sectorCount(lapLength);
+  return Math.min(n - 1, Math.max(0, Math.floor((s / lapLength) * n)));
 }
 
 /** Racer state for a car standing at arc length s on the grid (behind the line). */
@@ -46,12 +58,13 @@ export function createRacer(s: number, lapLength: number): RacerState {
  * backwards over the line, or jumping ahead by cutting across the infield, never earns a lap.
  */
 export function updateRacer(r: RacerState, s: number, lapLength: number, raceTick: number, laps: number): void {
+  const n = sectorCount(lapLength);
   const now = sectorOf(s, lapLength);
   const prev = r.sector;
   r.sector = now;
   if (r.finishTick !== null || now === prev) return;
-  if (now !== r.expected || prev !== (now + SECTORS - 1) % SECTORS) return;
-  r.expected = (now + 1) % SECTORS;
+  if (now !== r.expected || prev !== (now + n - 1) % n) return;
+  r.expected = (now + 1) % n;
   if (now !== 0) return;
   if (!r.started) {
     r.started = true; // first crossing from the grid starts lap 1; the clock started at GO
@@ -65,14 +78,15 @@ export function updateRacer(r: RacerState, s: number, lapLength: number, raceTic
 
 /**
  * Validated race distance used for ranking: laps done plus progress through the sectors passed
- * in order this lap. Progress inside the current sector is capped at the sector's length, so a
- * car that skipped sectors does not gain from it.
+ * in order this lap. Progress only counts inside the last sector entered in order, so a car that
+ * skipped ahead, or reversed back out of it (over the line, say), gains nothing.
  */
 export function raceDistance(r: RacerState, s: number, lapLength: number): number {
   if (!r.started) return s - lapLength; // on the grid, behind the line
-  const sectorLength = lapLength / SECTORS;
-  const last = (r.expected + SECTORS - 1) % SECTORS; // last sector entered in order
-  const within = Math.min(sectorLength, Math.max(0, s - last * sectorLength));
+  const n = sectorCount(lapLength);
+  const sectorLength = lapLength / n;
+  const last = (r.expected + n - 1) % n; // last sector entered in order
+  const within = sectorOf(s, lapLength) === last ? s - last * sectorLength : 0;
   return r.lapsCompleted * lapLength + last * sectorLength + within;
 }
 

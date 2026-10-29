@@ -1,7 +1,7 @@
 // Captures candidate reference frames (HANDOVER §2.3) from the real build (throwaway spike).
 //   pnpm build && node spikes/m2-game/inputs.ts 1 2600 > /tmp/inputs.json
 //   node spikes/m2-game/frames.ts /tmp/inputs.json <outDir> <tick,tick,...>
-// Starts Dust Bowl with seed 1, freezes real time, plays the autopilot inputs through the driver and
+// Starts Dust Bowl with seed 1, freezes real time, plays the bot inputs from inputs.ts through the driver and
 // screenshots at each tick, at 844x390 (touch) and 1440x900.
 import { createServer } from 'node:http';
 import { mkdirSync, readFileSync } from 'node:fs';

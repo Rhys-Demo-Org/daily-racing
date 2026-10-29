@@ -1,7 +1,7 @@
 // The world: track, cars and race state, advanced one fixed tick at a time.
 import type { CarInput, CarView, RaceView, TrackData } from './types.ts';
 import type { CarState } from './car.ts';
-import { carView, createCar, stepCar } from './car.ts';
+import { carView, createCar, stepCars } from './car.ts';
 import type { RacerState } from './race.ts';
 import {
   COUNTDOWN_TICKS,
@@ -17,6 +17,7 @@ import type { Rng } from './rng.ts';
 import { createRng, nextRange } from './rng.ts';
 import type { Track } from './track.ts';
 import { buildTrack, validateTrack } from './track.ts';
+import { clamp } from './vec.ts';
 
 export interface WorldOptions {
   seed: number;
@@ -43,7 +44,8 @@ const GRID_COLUMN = 2;
 const GRID_JITTER_ALONG = 0.6;
 const GRID_JITTER_SIDE = 0.4;
 
-const NEUTRAL: CarInput = { steer: 0, throttle: false, brake: false };
+/** This tick's sanitised inputs (scratch reused every tick, so stepping doesn't allocate). */
+const clean: CarInput[] = [];
 
 /**
  * Creates a world at tick 0 (start of the countdown). Cars are staggered in two columns behind
@@ -73,13 +75,11 @@ export function createWorld(trackData: TrackData, options: WorldOptions): World 
   return { track, seed: options.seed, rng, tick: 0, cars, racers };
 }
 
-/** Quantises steer exactly as replays store it, so live play and replays are bit-identical. */
-export function sanitiseInput(input: CarInput | undefined): CarInput {
-  if (input === undefined) return NEUTRAL;
-  const raw = Number.isFinite(input.steer) ? Math.max(-1, Math.min(1, input.steer)) : 0;
+/** Steer as replays store it: int8 steps of 1/127 (non-finite steer is 0). Live play goes through
+ * this too, so live play and replays are bit-identical. */
+export function steerToInt8(steer: number): number {
   // `|| 0` turns −0 into +0, matching what a decoded replay yields.
-  const steps = Math.round(raw * 127) || 0;
-  return { steer: steps / 127, throttle: input.throttle === true, brake: input.brake === true };
+  return Math.round(Number.isFinite(steer) ? clamp(steer, -1, 1) * 127 : 0) || 0;
 }
 
 /** Advances the world by exactly one tick. `inputs[i]` drives car i (missing = no input). During
@@ -90,8 +90,13 @@ export function stepWorld(world: World, inputs: readonly CarInput[]): void {
     return;
   }
   for (let i = 0; i < world.cars.length; i++) {
-    stepCar(world.cars[i] as CarState, sanitiseInput(inputs[i]), world.track);
+    const input = inputs[i];
+    const c = (clean[i] ??= { steer: 0, throttle: false, brake: false });
+    c.steer = input === undefined ? 0 : steerToInt8(input.steer) / 127;
+    c.throttle = input?.throttle === true;
+    c.brake = input?.brake === true;
   }
+  stepCars(world.cars, clean, world.track);
   world.tick++;
   const raceTick = world.tick - COUNTDOWN_TICKS;
   for (let i = 0; i < world.cars.length; i++) {

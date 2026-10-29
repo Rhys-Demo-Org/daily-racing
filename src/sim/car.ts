@@ -8,14 +8,16 @@
 //     drift. `slip` reports how much sideways velocity there is, 0..1.
 import type { CarInput, CarView, Surface } from './types.ts';
 import { TICK_HZ } from './types.ts';
-import type { Collider, Track, TrackPos } from './track.ts';
+import type { Collider, Ground, Ramp, Track, TrackPos } from './track.ts';
 import { groundAt, nearestGlobal, surfaceAt, trackPosition } from './track.ts';
-import { clamp } from './vec.ts';
+import { clamp, wrapAngle } from './vec.ts';
 
 export const DT = 1 / TICK_HZ;
 /** Car footprint in units. */
 export const CAR_LENGTH = 4.2;
 export const CAR_WIDTH = 2.2;
+/** Height of the car's collision box: cars whose bases are further apart than this pass over each other. */
+const CAR_HEIGHT = 1.1;
 
 export interface SurfaceTuning {
   /** Speed the engine can reach on this surface, units/s. */
@@ -71,6 +73,14 @@ export const CAR_TUNING = {
   impactBleedMax: 0.6,
   /** Longest distance the car moves between collision checks, so it cannot tunnel. */
   maxSubstep: 0.2,
+  /** Highest step a grounded car can climb in one tick; a taller ramp face (the lip seen from
+   * beyond, or a side) is a wall. Ramp slopes must rise less than this per tick at top speed (see
+   * MAX_RAMP_SLOPE). It applies on every track: fine while no replay baselines exist (before G3). */
+  maxStepUp: 0.3,
+  /** Push-outs may move a car at most this much further in a tick than its own speed does; the
+   * rest carries over to later ticks. At top speed that keeps every tick's move under G2's
+   * teleport limit (topSpeed × DT × 1.5), however cars and props pile up. */
+  maxPush: 0.2,
 } as const;
 
 const HALF_LENGTH = CAR_LENGTH / 2;
@@ -154,11 +164,9 @@ function visualPose(car: CarState, track: Track, speed: number): { y: number; pi
   const fz = -Math.cos(car.heading);
   const ts = [-HALF_LENGTH, 0, HALF_LENGTH];
   for (const r of track.ramps) {
-    const rx = Math.sin(r.heading);
-    const rz = -Math.cos(r.heading);
-    const rate = fx * rx + fz * rz; // ramp "along" coordinate per unit along the body
+    const rate = fx * r.fx + fz * r.fz; // ramp "along" coordinate per unit along the body
     if (Math.abs(rate) < 1e-9) continue;
-    const along = (car.x - r.x) * rx + (car.z - r.z) * rz;
+    const along = (car.x - r.x) * r.fx + (car.z - r.z) * r.fz;
     // Lip sampled a hair on the slope side so it reads the lip's full height.
     for (const a of [-1e-6, -r.length]) {
       const t = (a - along) / rate;
@@ -182,7 +190,8 @@ function visualPose(car: CarState, track: Track, speed: number): { y: number; pi
       }
     }
   }
-  return { y, pitch };
+  // Resting on a prop top or car roof (above the ground under it): sit level at that height.
+  return y >= car.y ? { y, pitch } : { y: car.y, pitch: 0 };
 }
 
 /** Moves `v` toward 0 by at most `amount`, never crossing 0. */
@@ -226,10 +235,35 @@ function longitudinal(vf: number, input: CarInput, s: SurfaceTuning): number {
 }
 
 /**
- * Advances one car by one tick. Mutates `car`. In the air, steering and throttle do nothing and
- * the car follows a ballistic arc until it lands.
+ * Advances every car by one tick (mutating them): inputs change each car's velocity, then all cars
+ * move together so they collide with props and with each other, then heights and track positions
+ * update.
  */
-export function stepCar(car: CarState, input: CarInput, track: Track): void {
+export function stepCars(cars: readonly CarState[], inputs: readonly CarInput[], track: Track): void {
+  let steps = 1;
+  for (let k = 0; k < cars.length; k++) {
+    const car = cars[k] as CarState;
+    start[k * 3] = car.x;
+    start[k * 3 + 1] = car.z;
+    applyInput(car, inputs[k] as CarInput);
+    const travel = Math.hypot(car.vx, car.vz) * DT;
+    start[k * 3 + 2] = travel;
+    steps = Math.max(steps, Math.ceil(travel / CAR_TUNING.maxSubstep));
+    // Broadphase once per tick: the travel plus a margin for push-outs bounds where the car can get.
+    gatherNearby((nearby[k] ??= []), car, track, travel);
+  }
+  moveWithCollisions(cars, track, steps);
+  for (let k = 0; k < cars.length; k++) {
+    const car = cars[k] as CarState;
+    updateVertical(car, k, cars, track);
+    car.pos = trackPosition(track, car.x, car.z, car.pos);
+    car.surface = surfaceAt(track, car.pos, car.x, car.z);
+  }
+}
+
+/** Engine, brakes, steering and grip for one tick. In the air, steering and throttle do nothing and
+ * the car follows a ballistic arc until it lands. */
+function applyInput(car: CarState, input: CarInput): void {
   const T = CAR_TUNING;
   if (!car.airborne) {
     const surf = SURFACES[car.surface];
@@ -246,10 +280,7 @@ export function stepCar(car: CarState, input: CarInput, track: Track): void {
       const fade = clamp((Math.abs(driftAngle) - T.driftAngleSoft) / (T.driftAngleHard - T.driftAngleSoft), 0, 1);
       yaw *= 1 - fade;
     }
-    car.heading += yaw * DT;
-    // Keep heading in a bounded range without changing behaviour.
-    if (car.heading > Math.PI) car.heading -= Math.PI * 2;
-    else if (car.heading <= -Math.PI) car.heading += Math.PI * 2;
+    car.heading = wrapAngle(car.heading + yaw * DT);
 
     // Re-split the (unchanged) velocity in the new heading frame.
     fx = Math.sin(car.heading);
@@ -272,45 +303,160 @@ export function stepCar(car: CarState, input: CarInput, track: Track): void {
   } else {
     car.slip = 0;
   }
-
-  moveWithCollisions(car, track.colliders);
-  updateVertical(car, track);
-  car.pos = trackPosition(track, car.x, car.z, car.pos);
-  car.surface = surfaceAt(track, car.pos, car.x, car.z);
 }
 
-/** Integrates horizontal motion in sub-steps no longer than `maxSubstep`, resolving prop contacts
- * after each one, so even at top speed the car cannot pass through a prop. */
-function moveWithCollisions(car: CarState, colliders: readonly Collider[]): void {
-  const dist = Math.hypot(car.vx, car.vz) * DT;
-  const steps = Math.max(1, Math.ceil(dist / CAR_TUNING.maxSubstep));
-  for (let i = 0; i < steps; i++) {
-    // Velocity can change on impact, so recompute the step from the current velocity.
-    car.x += (car.vx * DT) / steps;
-    car.z += (car.vz * DT) / steps;
-    for (let pass = 0; pass < 2; pass++) {
-      for (const c of colliders) {
-        if (car.y > c.top) continue;
+/** Per car, indices of the props it could reach this tick, ascending (so contacts resolve in the
+ * same order as a scan of every prop would). Scratch reused every tick, so ticks don't allocate. */
+const nearby: number[][] = [];
+/** Scratch for groundAt on the hot path. */
+const ground: Ground = { h: 0, gx: 0, gz: 0, ramp: null };
+/** Per car (3 slots each): x and z at the start of the tick, and its travel this tick. Scratch,
+ * for capping push-outs. */
+const start: number[] = [];
+
+/** Fills `list` with the props within reach of a car that travels `travel` this tick, via the grid. */
+function gatherNearby(list: number[], car: CarState, track: Track, travel: number): void {
+  const g = track.grid;
+  const r = CAR_BOUND + g.maxBound + travel + 2; // a margin beyond any reach below
+  const i1 = Math.min(g.cols - 1, Math.floor((car.x + r - g.x0) / g.cell));
+  const j0 = Math.max(0, Math.floor((car.z - r - g.z0) / g.cell));
+  const j1 = Math.min(g.rows - 1, Math.floor((car.z + r - g.z0) / g.cell));
+  list.length = 0;
+  for (let i = Math.max(0, Math.floor((car.x - r - g.x0) / g.cell)); i <= i1; i++) {
+    for (let j = j0; j <= j1; j++) {
+      for (const id of g.cells[i * g.rows + j] as number[]) {
+        const c = track.colliders[id] as Collider;
         const dx = c.x - car.x;
         const dz = c.z - car.z;
-        const reach = CAR_BOUND + c.bound;
+        const reach = CAR_BOUND + c.bound + travel + 1;
         if (dx * dx + dz * dz > reach * reach) continue;
-        const hit = c.shape === 'circle' ? contactCircle(car, c.x, c.z, c.r) : contactBox(car, c);
-        if (hit !== null) resolveContact(car, hit.nx, hit.nz, hit.depth);
+        let n = list.length; // insertion keeps the list ascending
+        for (; n > 0 && (list[n - 1] as number) > id; n--) list[n] = list[n - 1] as number;
+        list[n] = id;
       }
     }
   }
 }
 
-interface Contact {
-  /** Unit normal pushing the car out of the prop. */
-  nx: number;
-  nz: number;
-  depth: number;
+/**
+ * Integrates horizontal motion in `steps` shared sub-steps, each no longer than `maxSubstep` for
+ * the fastest car (so the count depends on every car: deterministic, but G2 must keep its car count
+ * fixed). After each one, each pair of cars (i < j, a fixed order) resolves its contact, then every
+ * car resolves its prop contacts: props can't move, so they have the last word and nothing passes
+ * through anything, even at top speed. A grounded car can't climb a ramp face taller than
+ * `maxStepUp`: the face acts as a wall. Finally push-outs are capped at `maxPush` per tick.
+ */
+function moveWithCollisions(cars: readonly CarState[], track: Track, steps: number): void {
+  for (let i = 0; i < steps; i++) {
+    for (const car of cars) {
+      const x0 = car.x;
+      const z0 = car.z;
+      // Velocity can change on impact, so recompute the step from the current velocity.
+      car.x += (car.vx * DT) / steps;
+      car.z += (car.vz * DT) / steps;
+      if (!car.airborne) {
+        const g = groundAt(track, car.x, car.z, ground);
+        if (g.ramp !== null && g.h - car.y > CAR_TUNING.maxStepUp) hitRampFace(car, g.ramp, x0, z0);
+      }
+    }
+    for (let a = 0; a < cars.length; a++) {
+      for (let b = a + 1; b < cars.length; b++) collideCars(cars[a] as CarState, cars[b] as CarState);
+    }
+    for (let k = 0; k < cars.length; k++) collideProps(cars[k] as CarState, k, track);
+  }
+  for (let k = 0; k < cars.length; k++) {
+    const car = cars[k] as CarState;
+    const x0 = start[k * 3] as number;
+    const z0 = start[k * 3 + 1] as number;
+    const moved = Math.hypot(car.x - x0, car.z - z0);
+    const limit = (start[k * 3 + 2] as number) + CAR_TUNING.maxPush;
+    if (moved > limit) {
+      car.x = x0 + ((car.x - x0) * limit) / moved;
+      car.z = z0 + ((car.z - z0) * limit) / moved;
+    }
+  }
 }
 
-/** Car box vs circle: closest point on the box to the circle centre. */
-function contactCircle(car: CarState, cx: number, cz: number, r: number): Contact | null {
+/** Two passes push car `k` out of the props it overlaps (and isn't above). */
+function collideProps(car: CarState, k: number, track: Track): void {
+  for (let pass = 0; pass < 2; pass++) {
+    for (const id of nearby[k] as number[]) {
+      const c = track.colliders[id] as Collider;
+      if (car.y >= c.top) continue;
+      const dx = c.x - car.x;
+      const dz = c.z - car.z;
+      const reach = CAR_BOUND + c.bound;
+      if (dx * dx + dz * dz <= reach * reach && touches(car, c)) resolveContact(car, hit.nx, hit.nz, hit.depth);
+    }
+  }
+}
+
+/** The car moved from (x0, z0) into a ramp face: the lip if it came from beyond the ramp, otherwise
+ * the side it came from. Like a prop, the face takes back the part of the move into it (the car
+ * can still slide along) and bounces the car off. */
+function hitRampFace(car: CarState, r: Ramp, x0: number, z0: number): void {
+  const side = (x0 - r.x) * -r.fz + (z0 - r.z) * r.fx > 0 ? 1 : -1;
+  const beyond = (x0 - r.x) * r.fx + (z0 - r.z) * r.fz > 0;
+  const nx = beyond ? r.fx : -r.fz * side;
+  const nz = beyond ? r.fz : r.fx * side;
+  resolveContact(car, nx, nz, Math.max(0, -((car.x - x0) * nx + (car.z - z0) * nz)));
+}
+
+/** Car–car contact: the same oriented-box test as hay bales, with the other car as the box. Cars
+ * whose heights don't overlap (one flying over the other) pass. Like any box contact it resolves
+ * along the shallower axis: when the cars overlap less in height than sideways (one coming down on
+ * the other), the upper car is lifted onto the other's roof instead of being shoved sideways. */
+function collideCars(a: CarState, b: CarState): void {
+  const dy = a.y - b.y;
+  if (Math.abs(dy) >= CAR_HEIGHT) return;
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  if (dx * dx + dz * dz > 4 * CAR_BOUND * CAR_BOUND || !contactBox(a, b.x, b.z, b.heading, HALF_LENGTH, HALF_WIDTH)) return;
+  if (CAR_HEIGHT - Math.abs(dy) >= hit.depth) resolveContact(a, hit.nx, hit.nz, hit.depth, b);
+  else if (dy > 0) liftOnto(a, b);
+  else liftOnto(b, a);
+}
+
+function liftOnto(upper: CarState, lower: CarState): void {
+  upper.y = lower.y + CAR_HEIGHT;
+  upper.vy = Math.max(upper.vy, lower.vy);
+}
+
+/** Whether the car's footprint overlaps prop `c` (fills `hit` if so). */
+function touches(car: CarState, c: Collider): boolean {
+  return c.shape === 'circle'
+    ? contactCircle(car, c.x, c.z, c.r)
+    : contactBox(car, c.x, c.z, c.heading, c.halfLength, c.halfWidth);
+}
+
+/** The highest top the car is level with or above, of a prop centred under its footprint or a car
+ * it overlaps (0 if none). The car rests on it, like ground, instead of sinking in and being pushed
+ * out sideways; a prop only clipped by the car's edge pushes it off instead. `k` is the car's index
+ * in `cars`. */
+function restingTop(car: CarState, k: number, cars: readonly CarState[], track: Track): number {
+  const fx = Math.sin(car.heading);
+  const fz = -Math.cos(car.heading);
+  let top = 0;
+  for (const id of nearby[k] as number[]) {
+    const c = track.colliders[id] as Collider;
+    if (car.y < c.top || c.top <= top) continue;
+    const dx = c.x - car.x;
+    const dz = c.z - car.z;
+    if (Math.abs(dx * fx + dz * fz) <= HALF_LENGTH && Math.abs(dz * fx - dx * fz) <= HALF_WIDTH) top = c.top;
+  }
+  for (const other of cars) {
+    const roof = other.y + CAR_HEIGHT;
+    if (other !== car && car.y >= roof && roof > top && contactBox(car, other.x, other.z, other.heading, HALF_LENGTH, HALF_WIDTH)) top = roof;
+  }
+  return top;
+}
+
+/** The last contact found by contactCircle/contactBox: the unit normal pushing the car out of the
+ * prop (or other car) and the depth. Scratch, so collisions don't allocate. */
+const hit = { nx: 0, nz: 0, depth: 0 };
+
+/** Car box vs circle: closest point on the box to the circle centre. Fills `hit` on contact. */
+function contactCircle(car: CarState, cx: number, cz: number, r: number): boolean {
   const fx = Math.sin(car.heading);
   const fz = -Math.cos(car.heading);
   const rx = -fz;
@@ -324,15 +470,14 @@ function contactCircle(car: CarState, cx: number, cz: number, r: number): Contac
   const ex = lx - qx;
   const ey = ly - qy;
   const d2 = ex * ex + ey * ey;
-  if (d2 >= r * r) return null;
+  if (d2 >= r * r) return false;
   let nlx: number;
   let nly: number;
-  let depth: number;
   if (d2 > 1e-12) {
     const d = Math.sqrt(d2);
     nlx = ex / d;
     nly = ey / d;
-    depth = r - d;
+    hit.depth = r - d;
   } else {
     // Circle centre inside the box (only possible if something went very wrong): leave by the
     // nearest face.
@@ -341,66 +486,92 @@ function contactCircle(car: CarState, cx: number, cz: number, r: number): Contac
     if (penX < penY) {
       nlx = lx >= 0 ? 1 : -1;
       nly = 0;
-      depth = penX + r;
+      hit.depth = penX + r;
     } else {
       nlx = 0;
       nly = ly >= 0 ? 1 : -1;
-      depth = penY + r;
+      hit.depth = penY + r;
     }
   }
   // (nlx, nly) points from the car toward the circle; the car moves the other way.
-  return { nx: -(nlx * fx + nly * rx), nz: -(nlx * fz + nly * rz), depth };
+  hit.nx = -(nlx * fx + nly * rx);
+  hit.nz = -(nlx * fz + nly * rz);
+  return true;
 }
 
-/** Car box vs oriented box (separating axis test over the four face normals). */
-function contactBox(car: CarState, b: Extract<Collider, { shape: 'box' }>): Contact | null {
-  const af = [Math.sin(car.heading), -Math.cos(car.heading)] as const;
-  const ar = [-af[1], af[0]] as const;
-  const bf = [Math.sin(b.heading), -Math.cos(b.heading)] as const;
-  const br = [-bf[1], bf[0]] as const;
-  const dx = b.x - car.x;
-  const dz = b.z - car.z;
-  let best: Contact | null = null;
-  for (const axis of [af, ar, bf, br]) {
-    const ax = axis[0];
-    const az = axis[1];
-    const ra = HALF_LENGTH * Math.abs(af[0] * ax + af[1] * az) + HALF_WIDTH * Math.abs(ar[0] * ax + ar[1] * az);
-    const rb = b.halfLength * Math.abs(bf[0] * ax + bf[1] * az) + b.halfWidth * Math.abs(br[0] * ax + br[1] * az);
+/** Car box vs oriented box (a hay bale or another car): separating axis test over the four face
+ * normals. Fills `hit` on contact, with the normal pushing the car away from the box. */
+function contactBox(car: CarState, bx: number, bz: number, heading: number, halfLength: number, halfWidth: number): boolean {
+  const afx = Math.sin(car.heading);
+  const afz = -Math.cos(car.heading);
+  const bfx = Math.sin(heading);
+  const bfz = -Math.cos(heading);
+  const dx = bx - car.x;
+  const dz = bz - car.z;
+  hit.depth = Infinity;
+  for (let k = 0; k < 4; k++) {
+    // Axes: the car's forward and right, then the box's (right of forward (fx, fz) is (−fz, fx)).
+    const fx = k < 2 ? afx : bfx;
+    const fz = k < 2 ? afz : bfz;
+    const ax = k % 2 === 0 ? fx : -fz;
+    const az = k % 2 === 0 ? fz : fx;
+    const ra = HALF_LENGTH * Math.abs(afx * ax + afz * az) + HALF_WIDTH * Math.abs(-afz * ax + afx * az);
+    const rb = halfLength * Math.abs(bfx * ax + bfz * az) + halfWidth * Math.abs(-bfz * ax + bfx * az);
     const d = dx * ax + dz * az;
     const overlap = ra + rb - Math.abs(d);
-    if (overlap <= 0) return null;
-    if (best === null || overlap < best.depth) {
+    if (overlap <= 0) return false;
+    if (overlap < hit.depth) {
       const sign = d > 0 ? -1 : 1; // push the car away from the box centre
-      best = { nx: ax * sign, nz: az * sign, depth: overlap };
+      hit.nx = ax * sign;
+      hit.nz = az * sign;
+      hit.depth = overlap;
     }
   }
-  return best;
-}
-
-/** Pushes the car out along the normal, bounces the inward velocity a little and bleeds speed in
- * proportion to how hard it hit. Position changes only by the penetration depth (never a teleport). */
-function resolveContact(car: CarState, nx: number, nz: number, depth: number): void {
-  const T = CAR_TUNING;
-  car.x += nx * depth;
-  car.z += nz * depth;
-  const vn = car.vx * nx + car.vz * nz;
-  if (vn >= 0) return;
-  car.vx -= (1 + T.restitution) * vn * nx;
-  car.vz -= (1 + T.restitution) * vn * nz;
-  const keep = 1 - clamp(-vn * T.impactBleed, 0, T.impactBleedMax);
-  car.vx *= keep;
-  car.vz *= keep;
+  return true;
 }
 
 /**
- * Height handling. Grounded cars follow the ground (vy = velocity · slope). Each tick we predict
- * where a free-flying car would be; if that is above the ground (e.g. the ground fell away past a
- * ramp lip), the car becomes airborne with its current vertical speed and falls under gravity
- * until it touches down.
+ * Pushes the car out along the normal, bounces the closing velocity a little and bleeds speed in
+ * proportion to how hard it hit. Against another car (equal mass) each car takes half the push-out
+ * and half the impulse, in opposite directions. Positions change only by the penetration depth
+ * (never a teleport).
  */
-function updateVertical(car: CarState, track: Track): void {
+function resolveContact(car: CarState, nx: number, nz: number, depth: number, other?: CarState): void {
   const T = CAR_TUNING;
-  const g = groundAt(track, car.x, car.z);
+  const share = other ? 0.5 : 1;
+  car.x += nx * depth * share;
+  car.z += nz * depth * share;
+  if (other) {
+    other.x -= nx * depth * share;
+    other.z -= nz * depth * share;
+  }
+  const vn = (car.vx - (other?.vx ?? 0)) * nx + (car.vz - (other?.vz ?? 0)) * nz;
+  if (vn >= 0) return;
+  const j = (1 + T.restitution) * vn * share;
+  const keep = 1 - clamp(-vn * T.impactBleed, 0, T.impactBleedMax);
+  car.vx = (car.vx - j * nx) * keep;
+  car.vz = (car.vz - j * nz) * keep;
+  if (other) {
+    other.vx = (other.vx + j * nx) * keep;
+    other.vz = (other.vz + j * nz) * keep;
+  }
+}
+
+/**
+ * Height handling. Grounded cars follow the ground (vy = velocity · slope); a prop top or car roof
+ * the car is on counts as flat ground. Each tick we predict where a free-flying car would be; if
+ * that is above the ground (e.g. the ground fell away past a ramp lip), the car becomes airborne
+ * with its current vertical speed and falls under gravity until it touches down.
+ */
+function updateVertical(car: CarState, k: number, cars: readonly CarState[], track: Track): void {
+  const T = CAR_TUNING;
+  const g = groundAt(track, car.x, car.z, ground);
+  const top = restingTop(car, k, cars, track);
+  if (top > g.h) {
+    g.h = top;
+    g.gx = 0;
+    g.gz = 0;
+  }
   if (car.airborne) {
     car.vy -= T.gravity * DT;
     car.y += car.vy * DT;

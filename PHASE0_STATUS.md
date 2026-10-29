@@ -65,8 +65,7 @@ Findings (all run in the container, Chromium `--use-angle=swiftshader --enable-u
    faces away from the light enough to drop to ink, so ramp tops need care in M2. Outlines at
    `widthPx 2` read thin at 844 wide, so tune the width in M2.
 
-**Checkpoint: owner reviews the perf margin proposal** (finding 5) before G4 is built (Later).
-Nothing blocks M2.
+Perf margin accepted by the owner (see Owner decisions).
 
 ## Awaiting merge
 ### M2 · Playable core — PR #3 (branch `phase0/m2-core`)
@@ -127,19 +126,16 @@ then integrated:
 Verified in the container: typecheck, 269 tests (sim 163, UI 44, render 31, input 24, tokens 4,
 content 3), build, end-to-end in Chromium at 844×390 (touch) and 1440×900 with two cars.
 
-**Checkpoint: owner re-approves the reference frames.** M2 review fixes and M3 changed the look
-(props show base outlines now that the grass mesh is gone; the bot car is in shot). New candidates
-(turn tick 1100; ramp tick 450, because the car now reaches full pitch just before the lip there,
-while tick 442 is the foot of the slope) were sent to the owner with the M3 PR; the approved files
-are unchanged until then.
+**Checkpoint passed (2026-10-29):** owner re-approved the reference frames (the M2 review fixes
+and the bot car changed the look); the new shots replace the M2 ones.
 
 ## Next step
 After M3 is merged: **M4-thin · Thin harness + nightly dry runs** (G1, G2, G3, G8).
 
-## Open questions for the owner
-1. G4 perf margin: 15% with 7 runs per side (M1.5 finding 5)? A tighter margin needs more runs.
-2. Dust Bowl is nearly flat-out: the bot never slides. Drifting needs tighter corners;
-   a hairpin variant or a later track (B10/B11) could provide them.
+## Owner decisions
+1. G4 perf margin: 15% with 7 alternating runs per side (M1.5 finding 5). Accepted 2026-10-29.
+2. Dust Bowl stays nearly flat-out (the bot never slides); drifting comes from tighter later
+   tracks (B10/B11). Accepted 2026-10-29.
 
 ## Notes for later milestones
 - `playwright.config.ts` is not created until a milestone uses `@playwright/test` (the spike uses

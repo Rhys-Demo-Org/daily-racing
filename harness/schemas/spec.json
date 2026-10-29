@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Daily spec",
+  "description": "Ideate output. The harness renders it to journal/runs/<date>/spec.md, then locks and hashes it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["backlogId", "title", "summary", "acceptanceCriteria", "closestExisting"],
+  "properties": {
+    "backlogId": {
+      "description": "Tonight's backlog ID (e.g. B03) on backlog nights; null on maintenance and invention nights.",
+      "type": ["string", "null"],
+      "pattern": "^B[0-9]{2}$"
+    },
+    "title": { "description": "Short feature title.", "type": "string", "minLength": 3, "maxLength": 80 },
+    "summary": { "description": "What gets built, in two to four sentences.", "type": "string", "minLength": 10, "maxLength": 800 },
+    "acceptanceCriteria": {
+      "description": "AC1..ACn in order. Each is one testable behaviour that is new tonight; never restate existing behaviour. Empty only on maintenance nights.",
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^AC[1-9][0-9]?$" },
+          "text": { "type": "string", "minLength": 10, "maxLength": 400 }
+        }
+      }
+    },
+    "closestExisting": {
+      "description": "Invention nights (phase 2) only: the 3 closest existing items and one line on why tonight's idea differs. Empty otherwise.",
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item", "whyDifferent"],
+        "properties": {
+          "item": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "whyDifferent": { "type": "string", "minLength": 1, "maxLength": 300 }
+        }
+      }
+    }
+  }
+}

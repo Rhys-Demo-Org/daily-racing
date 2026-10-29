@@ -1,13 +1,13 @@
 // Allowlist forward proxy for agent containers (HANDOVER §8). HTTP CONNECT only; every decision
 // comes from `policy.ts` and is logged as one JSON line on stdout. Started by sandbox-net.sh:
-//   PROXY_ALLOW=api.anthropic.com node harness/proxy/server.ts   (listens on PROXY_PORT, default 3128)
+//   PROXY_ALLOW=api.anthropic.com node harness/proxy/server.ts   (listens on 3128)
 import { createServer } from 'node:http';
 import { connect, type Socket } from 'node:net';
 import { lookup } from 'node:dns/promises';
 import { decide, parseAllow, type Decision } from './policy.ts';
 
 const allow = parseAllow(process.env['PROXY_ALLOW'] ?? '');
-const port = Number(process.env['PROXY_PORT'] ?? 3128);
+const port = 3128;
 
 function log(d: Decision, client: string): void {
   const { allow: ok, ...rest } = d;

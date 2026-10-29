@@ -2,8 +2,8 @@
 # Runs one `claude -p --output-format json` call in a fresh sandbox container (HANDOVER §4.1, §8).
 #
 #   agent-run.sh --phase <ideate|build|retry> --workdir <dir> --prompt-file <file> --model <id>
-#     --max-turns <n> --timeout-min <m> --out <dir> [--json-schema <file>] [--tools <list>]
-#     [--date <YYYY-MM-DD>] [--maintenance] [--fake-claude <script>]
+#     --max-turns <n> --timeout-min <m> --out <dir> --date <YYYY-MM-DD> [--json-schema <file>]
+#     [--tools <list>] [--maintenance] [--fake-claude <script>]
 #
 # Writes <out>/result.json (claude's stdout, verbatim), <out>/stderr.log, <out>/meta.json.
 # Exit: 0 ok · 10 usage/rate limit or unrecognised error · 11 max turns · 12 wall-clock timeout ·
@@ -14,25 +14,20 @@
 # --maintenance). src/driver/ and tests/baselines/ are pre-created on the host and bound read-only
 # again inside those. So every other path, existing or not (a new vite.config.js, .npmrc,
 # .claude/settings.json…), is on a read-only mount and can't be written or created. .git is
-# masked, node_modules stays read-only, and build/test caches (node_modules/.vite*,
-# .vitest-cache, dist/, dev-dist/) are tmpfs, so pnpm test/typecheck/build work unchanged.
+# masked, node_modules is the shared cached install (deps in common.sh) mounted read-only, and
+# build/test caches (node_modules/.vite*, .vitest-cache, dist/, dev-dist/) are tmpfs, so pnpm
+# test/typecheck/build work unchanged.
 #
-# --date         today's journal folder (default: today in TZ_NAME)
+# --date         today's journal folder
 # --maintenance  Sunday maintenance: CLAUDE.md is writable too
 # --fake-claude  TEST ONLY (self-test-sandbox.sh): mounts <script> as `claude` and passes a random
 #                dummy token instead of TOKEN_FILE, so the sandbox can be exercised without a token.
 set -euo pipefail
 
-root="$(cd "$(dirname "$0")/../.." && pwd)"
-[[ -f "$root/harness/config.env" ]] && source "$root/harness/config.env"
-: "${TOKEN_FILE:=$HOME/.daily-racer/oauth-token}" "${TZ_NAME:=Europe/London}" "${MAX_BUDGET_USD:=}"
-image="daily-racer-toolchain:$(sha256sum "$root/harness/container/Dockerfile" | cut -c1-12)"
+source "$(dirname "$0")/../lib/common.sh"
 proxy_url=http://daily-racer-proxy:3128
 
-die() { echo "agent-run.sh: $*" >&2; exit 2; }
-
-phase='' workdir='' prompt='' model='' turns='' timeout_min='' out='' schema='' tools='' fake='' maintenance=0
-date="$(TZ="$TZ_NAME" date +%F)"
+phase='' workdir='' prompt='' model='' turns='' timeout_min='' out='' schema='' tools='' fake='' maintenance=0 date=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --phase) phase="$2" ;; --workdir) workdir="$2" ;; --prompt-file) prompt="$2" ;;
@@ -54,7 +49,7 @@ limit_ms="$(awk "BEGIN { print int($timeout_min * 60000) }")"
 [[ "$date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || die "--date must be YYYY-MM-DD"
 [[ -z "$schema" || -f "$schema" ]] || die "--json-schema file not found: $schema"
 [[ -z "$fake" || -x "$fake" ]] || die "--fake-claude script must be executable: $fake"
-docker image inspect "$image" >/dev/null 2>&1 || die "image $image missing; run harness/container/build.sh"
+need_image
 
 if [[ -n "$fake" ]]; then
   token="fake-token-$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
@@ -81,10 +76,10 @@ bind rw tests; bind ro tests/baselines
 bind rw "journal/runs/$date"
 (( maintenance )) && bind rw CLAUDE.md file
 if [[ -d "$w/.git" ]]; then mounts+=(--tmpfs /work/.git:ro); elif [[ -e "$w/.git" ]]; then mounts+=(-v /dev/null:/work/.git:ro); fi
-caches=(dist dev-dist)
-[[ -d "$w/node_modules" ]] && caches+=(node_modules/.vite node_modules/.vite-temp node_modules/.vitest-cache)
-for c in "${caches[@]}"; do
-  real_dir "$c"
+real_dir dist; real_dir dev-dist; real_dir node_modules
+nm="$(deps "$w")"
+mounts+=(-v "$nm:/work/node_modules:ro")
+for c in dist dev-dist node_modules/.vite node_modules/.vite-temp node_modules/.vitest-cache; do
   mounts+=(--tmpfs "/work/$c:uid=$(id -u),gid=$(id -g)")
 done
 
@@ -110,20 +105,18 @@ entry='[ -f /.dockerenv ] && [ -f /run/daily-racer-sandbox ] && [ ! -w /work ] |
   { echo "agent-run: not inside the agent sandbox, refusing" >&2; exit 2; }
 exec claude "$@" < /run/prompt.md'
 
-"$root/harness/scripts/sandbox-net.sh" up || die "sandbox network/proxy failed to start"
+"$HARNESS_ROOT/harness/scripts/sandbox-net.sh" up || die "sandbox network/proxy failed to start"
 
 start=$(date +%s%N)
 # Backgrounded + wait so a TERM to this script runs the cleanup trap (kills the container) at once.
 # The token reaches docker through its environment (-e NAME without a value): never argv or disk.
-CLAUDE_CODE_OAUTH_TOKEN="$token" timeout -k 15 "${timeout_min}m" docker run --rm --init --name "$name" \
-  --network daily-racer-sandbox --user "$(id -u):$(id -g)" \
-  --read-only --cap-drop ALL --security-opt no-new-privileges --memory 8g --pids-limit 4096 \
-  --tmpfs /tmp:exec,mode=1777 --tmpfs "/home/agent:uid=$(id -u),gid=$(id -g),mode=0700" \
-  -e HOME=/home/agent -e CLAUDE_CODE_OAUTH_TOKEN \
+CLAUDE_CODE_OAUTH_TOKEN="$token" timeout -k 15 "${timeout_min}m" docker run "${DOCKER_BASE[@]}" --init --name "$name" \
+  --network daily-racer-sandbox --read-only --memory 8g --pids-limit 4096 \
+  --tmpfs "/home/agent:uid=$(id -u),gid=$(id -g),mode=0700" -e HOME=/home/agent -e CLAUDE_CODE_OAUTH_TOKEN \
   -e HTTPS_PROXY="$proxy_url" -e HTTP_PROXY="$proxy_url" -e https_proxy="$proxy_url" -e http_proxy="$proxy_url" \
   -e NO_PROXY= -e no_proxy= -e CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 -e DISABLE_AUTOUPDATER=1 \
   -e pnpm_config_verify_deps_before_run=false \
-  "${mounts[@]}" -w /work "$image" bash -c "$entry" bash "${args[@]}" \
+  "${mounts[@]}" -w /work "$IMAGE" bash -c "$entry" bash "${args[@]}" \
   > "$out/result.json" 2> "$out/stderr.log" &
 wait $! && rc=0 || rc=$?
 unset token
@@ -136,8 +129,7 @@ fi
 docker rm -f "$name" >/dev/null 2>&1 || true
 
 code=0
-docker run --rm --network none --read-only --user "$(id -u):$(id -g)" --cap-drop ALL \
-  -v "$root:/repo:ro" -v "$out:/out" "$image" \
+docker run "${DOCKER_BASE[@]}" --network none --read-only -v "$HARNESS_ROOT:/repo:ro" -v "$out:/out" "$IMAGE" \
   node /repo/harness/lib/classify.ts /out "$rc" "$phase" "$model" "$wall_ms" "${timed_out[@]}" >/dev/null || code=$?
 [[ "$code" =~ ^(0|10|11|12)$ ]] || die "classifier failed (exit $code)"
 exit "$code"

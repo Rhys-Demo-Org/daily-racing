@@ -1,8 +1,9 @@
 // Classifies one `claude -p --output-format json` call and writes its meta.json (agent-run.sh).
 //   node harness/lib/classify.ts <out-dir> <claude-exit> <phase> <model> <wall-ms> [--timed-out]
 // Reads <out-dir>/result.json, writes <out-dir>/meta.json, exits with agent-run.sh's exit code.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readJson } from './journal.ts';
 
 export type AgentClass = 'ok' | 'usage-limit' | 'max-turns' | 'error';
 
@@ -16,7 +17,7 @@ const LIMIT = /usage limit|rate limit|rate_limit|\b429\b|overloaded/i;
 type Result = Record<string, unknown>;
 
 /** The final `type: "result"` object (a bare object, or the last one in an array of messages). */
-export function resultObject(json: unknown): Result | undefined {
+function resultObject(json: unknown): Result | undefined {
   const items = Array.isArray(json) ? json : [json];
   const isResult = (v: unknown): v is Result =>
     typeof v === 'object' && v !== null && (v as Result)['type'] === 'result';
@@ -32,21 +33,9 @@ export function classify(resultJson: unknown, exitCode: number): AgentClass {
   return LIMIT.test(JSON.stringify(r)) ? 'usage-limit' : 'error';
 }
 
-function parse(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
-  }
-}
-
 if (import.meta.main) {
   const [outDir = '', exitArg = '', phase = '', model = '', wallArg = ''] = process.argv.slice(2);
-  let text = '';
-  try {
-    text = readFileSync(join(outDir, 'result.json'), 'utf8');
-  } catch { /* missing output classifies as an error */ }
-  const json = parse(text);
+  const json = readJson<unknown>(join(outDir, 'result.json')); // null when missing or malformed: an error
   const cls = process.argv.includes('--timed-out') ? 'timeout' : classify(json, Number(exitArg));
   const r = resultObject(json);
   const meta = {

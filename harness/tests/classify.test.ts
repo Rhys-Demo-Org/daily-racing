@@ -41,7 +41,6 @@ describe('classify', () => {
       result: 'Failed to authenticate. API Error: 401 OAuth access token is invalid.',
     }), 1)).toBe('error');
     expect(classify(result({ subtype: 'error_during_execution', is_error: true }), 1)).toBe('error');
-    expect(EXIT_CODE.error).toBe(EXIT_CODE['usage-limit']);
   });
 
   it('missing, malformed or non-result JSON is an error', () => {

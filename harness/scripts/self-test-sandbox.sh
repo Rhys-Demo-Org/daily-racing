@@ -3,7 +3,7 @@
 #
 #   harness/scripts/self-test-sandbox.sh
 #
-# On the host it copies the repo (with node_modules, without .git) to a scratch workdir and runs
+# On the host it copies the repo (without .git or node_modules) to a scratch workdir and runs
 # agent-run.sh on it with `--fake-claude` pointing at THIS script, so the checks below run inside
 # a real agent container (same mounts, network, env as a nightly call). Inside, it checks the
 # network (proxy allowlist, IP literals, metadata, private IPs, plain http, direct egress, DNS,
@@ -67,21 +67,16 @@ if [[ -f /run/daily-racer-sandbox ]]; then
 fi
 
 # ---- on the host ----
-root="$(cd "$(dirname "$0")/../.." && pwd)"
-[[ -f "$root/harness/config.env" ]] && source "$root/harness/config.env"
-: "${DAILY_HOME:=$HOME/.daily-racer}" "${TOKEN_FILE:=$DAILY_HOME/oauth-token}"
-[[ -d "$root/node_modules" ]] || { echo "self-test-sandbox.sh: run pnpm install first" >&2; exit 2; }
+source "$(dirname "$0")/../lib/common.sh"
 self="$(realpath "$0")"
-run="$root/harness/scripts/agent-run.sh"
-mkdir -p "$DAILY_HOME"
-tmp="$(mktemp -d "$DAILY_HOME/selftest.XXXXXX")"
+run="$HARNESS_ROOT/harness/scripts/agent-run.sh"
+tmp="$(scratch "$DAILY_HOME" selftest)"
 trap 'rm -rf "$tmp"' EXIT
 date=2099-01-01
 work="$tmp/work"
 mkdir -p "$work"
-tar -C "$root" --exclude=./.git --exclude=./node_modules --exclude=./dist --exclude=./dev-dist -c . | tar -C "$work" -x
-cp -al "$root/node_modules" "$work/node_modules" 2>/dev/null || cp -a "$root/node_modules" "$work/node_modules"
-echo "gitdir: $root/.git/worktrees/secret" > "$work/.git" # like a real worktree's pointer file
+tar -C "$HARNESS_ROOT" --exclude=./.git --exclude=./node_modules --exclude=./dist --exclude=./dev-dist --exclude=./test-results -c . | tar -C "$work" -x
+echo "gitdir: $HARNESS_ROOT/.git/worktrees/secret" > "$work/.git" # like a real worktree's pointer file
 echo "selftest $date $(hostname -I)" > "$tmp/prompt"
 echo sleep > "$tmp/sleep"
 common=(--workdir "$work" --model fake --max-turns 1 --date "$date" --fake-claude "$self")
@@ -103,7 +98,7 @@ host_check 0 'no agent container left running' "$([[ -z "$leftover" ]]; echo $?)
 
 if [[ ! -e "$TOKEN_FILE" ]]; then
   rc=0; "$run" --phase build --prompt-file "$tmp/prompt" --timeout-min 1 --out "$tmp/notoken" \
-    --workdir "$work" --model fake --max-turns 1 2>/dev/null || rc=$?
+    --workdir "$work" --model fake --max-turns 1 --date "$date" 2>/dev/null || rc=$?
   host_check 2 'missing TOKEN_FILE refuses to run' "$rc"
 fi
 (( fails == 0 )) && echo "sandbox self-test: all checks passed" || echo "sandbox self-test: $fails host checks failed"

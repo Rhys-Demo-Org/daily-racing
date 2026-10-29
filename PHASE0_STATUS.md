@@ -103,27 +103,31 @@ then integrated:
 ### M3 · Bot opponent — branch `phase0/m3-bot` (stacked on #3)
 - `src/sim/bot.ts`: `createBot(world, carIndex)` → `bot.input(world)`, the same `CarInput` as the
   player. Centreline follower with a seeded racing offset and pace; corner speed planned from
-  curvature along its own line, braking zones, shorter look-ahead in tight corners, slows before
-  ramps so it lands before the next braking zone; passes the nearest car ahead, but not in tight
-  corners or on a ramp approach; stuck recovery by reversing on opposite lock.
-- Car–car collisions (oriented boxes, split push-out). Cars rest on prop tops and car roofs; a car
-  jammed between props goes back to its tick-start position; push-outs are capped at travel + 0.2
-  units per tick, so no tick moves a car more than 0.625 units (G2's teleport limit; worst seen 0.617).
-- Track rules in `validateTrack`: ramp slope ≤ `MAX_RAMP_SLOPE` (0.32) and 25 units of straight
-  track after every lip. Sectors are `max(8, ceil(length / 40))` (Dust Bowl: 26).
+  curvature along its own line, shorter look-ahead in tight corners; passes the nearest car ahead,
+  but not in tight corners or on a ramp approach; stuck recovery by reversing on opposite lock.
+- Car–car collisions (oriented boxes, split push-out). Cars rest on prop tops and car roofs;
+  push-outs are capped at travel + 0.2 units per tick, so no tick moves a car more than 0.625 units
+  (G2's teleport limit; worst seen 0.617).
+- Track rules in `validateTrack`: ramp slope ≤ `MAX_RAMP_SLOPE` (0.32), height ≤ `MAX_RAMP_HEIGHT`
+  (2) and 25 units of straight track after every lip, so every full-speed jump lands on the
+  straight and the bot needs no lip-speed planning. Sectors are `max(8, ceil(length / 40))`
+  (Dust Bowl: 26).
 - Sim speed: grid broadphase and allocation-light contacts, ~1 µs/tick per car (was ~3),
   proven bit-identical on 48 long runs before the behaviour changes.
 - Game: car 1 is the bot (KOSKI #7, mustard/navy); HUD shows POS x/2 and both cars on the minimap.
   `src/ui/race-ui.ts` owns the countdown, GO!, finish panel and HUD sync; one scene is kept and
   reused on restart, disposed on a track change.
 - Tests: bots finish every registered track (5 seeds, lap-time bounds, never stuck, no teleport),
-  hairpin and ramp-before-corner tracks, stuck recovery, positions, car contact, push-out bounds,
-  broadphase identity, race UI flow.
+  hairpin and ramp-before-corner tracks, stuck recovery, positions, car contact, push-out bounds
+  (and that a car landing between props can always drive away), broadphase identity, race UI flow.
 - Reviewed: spec audit (displacement, bot robustness, ramp rules) + code review (speed, LOC,
   duplication); every finding fixed. Re-checked with the auditor's own scripts: worst step 0.617,
-  all 90 races of its sweep (6 tracks × 1/2/4 cars × 5 seeds) pass.
+  all 90 races of its sweep (6 tracks × 1/2/4 cars × 5 seeds) pass. A second review of the fixes
+  found a "jammed car returns to its tick-start position" rule that could freeze a car for good
+  after landing on a tyre row (19 of 2,880 landings); it was removed, along with bot code that
+  never changed a race (braking zones, lip-speed cap). The approved frames' inputs are unchanged.
 
-Verified in the container: typecheck, 269 tests (sim 163, UI 44, render 31, input 24, tokens 4,
+Verified in the container: typecheck, 272 tests (sim 166, UI 44, render 31, input 24, tokens 4,
 content 3), build, end-to-end in Chromium at 844×390 (touch) and 1440×900 with two cars.
 
 **Checkpoint passed (2026-10-29):** owner re-approved the reference frames (the M2 review fixes

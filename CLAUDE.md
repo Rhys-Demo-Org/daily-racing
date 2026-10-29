@@ -71,7 +71,7 @@ spikes           Phase 0 throwaway experiments (deleted at handover)
 - **Registration by file convention:** tracks, cars and screens register by being in their folder
   (`import.meta.glob`), never via a hand-edited index. Every file in a content folder must be
   registered. Tracks are JSON data and must pass `validateTrack` (`src/sim/track.ts`: e.g. ramp
-  slope ≤ `MAX_RAMP_SLOPE`, 25 units of straight track after a lip); bots must finish every
+  slope ≤ `MAX_RAMP_SLOPE`, height ≤ `MAX_RAMP_HEIGHT`, 25 units of straight track after a lip); bots must finish every
   registered track (`tests/sim/bot.test.ts`).
 - **Fonts:** self-hosted woff2 in `public/fonts/` (`fonts.css`), Barlow Condensed 800/900/900i and
   Atkinson Hyperlegible 400/700, Latin + Latin Extended only.

@@ -1,0 +1,12 @@
+Expect: G8
+Also: -
+
+diff --git a/src/driver/index.ts b/src/driver/index.ts
+index 3229200..98a50ac 100644
+--- a/src/driver/index.ts
++++ b/src/driver/index.ts
+@@ -52,3 +52,4 @@ export function installDriver(game: Game): RacerDriver {
+   window.__racer = driver;
+   return driver;
+ }
++// driver edit

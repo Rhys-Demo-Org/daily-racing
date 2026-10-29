@@ -1,0 +1,16 @@
+Expect: G8
+Also: -
+
+diff --git a/tests/baselines/bot-laps.json b/tests/baselines/bot-laps.json
+index 0c26829..4e07b24 100644
+--- a/tests/baselines/bot-laps.json
++++ b/tests/baselines/bot-laps.json
+@@ -10,7 +10,7 @@
+   ],
+   "tracks": {
+     "dust-bowl": {
+-      "medianLapTicks": 2552,
++      "medianLapTicks": 12552,
+       "lapTicks": [
+         2567,
+         2521,

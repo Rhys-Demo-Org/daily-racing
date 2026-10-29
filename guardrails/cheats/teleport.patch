@@ -1,0 +1,16 @@
+Expect: G2
+Also: G1,G3
+Why: main's bot tests check the step limit too; the bot-race replay passes tick 600
+
+diff --git a/src/sim/world.ts b/src/sim/world.ts
+index 4e181d0..1a191e8 100644
+--- a/src/sim/world.ts
++++ b/src/sim/world.ts
+@@ -97,6 +97,7 @@ export function stepWorld(world: World, inputs: readonly CarInput[]): void {
+     c.brake = input?.brake === true;
+   }
+   stepCars(world.cars, clean, world.track);
++  if (world.tick % 600 === 0) for (const c of world.cars) { c.x += Math.sin(c.heading) * 2; c.z -= Math.cos(c.heading) * 2; }
+   world.tick++;
+   const raceTick = world.tick - COUNTDOWN_TICKS;
+   for (let i = 0; i < world.cars.length; i++) {

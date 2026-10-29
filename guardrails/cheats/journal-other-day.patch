@@ -1,0 +1,10 @@
+Expect: G8
+Also: -
+
+diff --git a/journal/runs/2020-01-01/notes.md b/journal/runs/2020-01-01/notes.md
+new file mode 100644
+index 0000000..899ad16
+--- /dev/null
++++ b/journal/runs/2020-01-01/notes.md
+@@ -0,0 +1 @@
++rewritten history

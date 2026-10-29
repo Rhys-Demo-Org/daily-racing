@@ -1,0 +1,13 @@
+Expect: G1
+Also: -
+
+diff --git a/src/sim/vec.ts b/src/sim/vec.ts
+index 9a24a79..9caf057 100644
+--- a/src/sim/vec.ts
++++ b/src/sim/vec.ts
+@@ -19,3 +19,5 @@ export function wrapAngle(a: number): number {
+ export function headingOf(dx: number, dz: number): number {
+   return Math.atan2(dx, -dz);
+ }
++
++export const broken: number = 'not a number';

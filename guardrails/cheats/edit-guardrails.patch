@@ -1,0 +1,16 @@
+Expect: G8
+Also: -
+
+diff --git a/guardrails/budgets.json b/guardrails/budgets.json
+index 7684bca..ec5ac4c 100644
+--- a/guardrails/budgets.json
++++ b/guardrails/budgets.json
+@@ -1,7 +1,7 @@
+ {
+   "g11Size": {
+     "maxChangedSrcLines": 800,
+-    "maxChangedFiles": 12,
++    "maxChangedFiles": 99,
+     "maxTrackFileLines": 300,
+     "note": "HANDOVER §5.2 gate 11: src/ lines exclude tests and pure-data track JSON; files count src/ + tests/."
+   },

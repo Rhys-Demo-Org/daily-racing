@@ -1,0 +1,13 @@
+Expect: G1
+Also: G8
+Why: editing a test from main is also a protected-path change
+
+diff --git a/tests/sim/rng-vec.test.ts b/tests/sim/rng-vec.test.ts
+index 697f509..699e349 100644
+--- a/tests/sim/rng-vec.test.ts
++++ b/tests/sim/rng-vec.test.ts
+@@ -81,3 +81,4 @@ describe('vec', () => {
+     expect(clamp(2, 0, 3)).toBe(2);
+   });
+ });
++// weakened

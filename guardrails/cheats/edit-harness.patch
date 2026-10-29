@@ -1,0 +1,12 @@
+Expect: G8
+Also: -
+
+diff --git a/harness/scripts/in-container.sh b/harness/scripts/in-container.sh
+index e1bf40f..dac0ab9 100755
+--- a/harness/scripts/in-container.sh
++++ b/harness/scripts/in-container.sh
+@@ -46,3 +46,4 @@ exec docker run --rm "${tty_flags[@]}" "${cpu_flags[@]}" \
+   -v daily-racer-pnpm-store:/pnpm-store \
+   -w /repo \
+   "$image" "$@"
++# harmless-looking edit

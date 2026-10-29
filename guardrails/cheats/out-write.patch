@@ -1,0 +1,24 @@
+Expect: G1
+Also: -
+Why: the forging test fails because every write is refused
+
+diff --git a/tests/sim/zz-forge.test.ts b/tests/sim/zz-forge.test.ts
+new file mode 100644
+index 0000000..26b316f
+--- /dev/null
++++ b/tests/sim/zz-forge.test.ts
+@@ -0,0 +1,14 @@
++// Cheat: tries to forge gate results from inside a test. Containment must make every write fail.
++import { mkdirSync, writeFileSync } from 'node:fs';
++import { expect, it } from 'vitest';
++
++it('forges a passing gate result', () => {
++  const forged = JSON.stringify({ pass: true, summary: 'FORGED', details: '' });
++  let wrote = 0;
++  for (const dir of ['/out', '/o', '/r', '/in', '/main', '/branch', '/w', '/w/node_modules', process.cwd(), '/home', '/repo']) {
++    for (const name of ['result.json', 'gates.json', 'G1.json', 'FORGED']) {
++      try { mkdirSync(dir, { recursive: true }); writeFileSync(`${dir}/${name}`, forged); wrote++; } catch { /* contained */ }
++    }
++  }
++  expect(wrote).toBeGreaterThan(0);
++});

@@ -1,0 +1,15 @@
+Expect: G8
+Also: -
+
+diff --git a/package.json b/package.json
+index b1c181a..4ff8db4 100644
+--- a/package.json
++++ b/package.json
+@@ -9,6 +9,7 @@
+   },
+   "scripts": {
+     "dev": "vite",
++    "postinstall": "node -e 1",
+     "build": "vite build",
+     "preview": "vite preview",
+     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",

@@ -1,0 +1,15 @@
+Expect: G1
+Also: -
+
+diff --git a/src/sim/vec.ts b/src/sim/vec.ts
+index 9a24a79..df0c8ae 100644
+--- a/src/sim/vec.ts
++++ b/src/sim/vec.ts
+@@ -1,6 +1,7 @@
+ // Small 2D (XZ-plane) math helpers. Plain numbers in, plain numbers out.
+ // Conventions (see types.ts): +x east, +z south; heading 0 = north (−z), clockwise positive.
+ 
++// @ts-ignore
+ /** Clamps v into [lo, hi]. */
+ export function clamp(v: number, lo: number, hi: number): number {
+   return v < lo ? lo : v > hi ? hi : v;

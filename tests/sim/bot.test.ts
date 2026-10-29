@@ -1,24 +1,28 @@
 // The bot (src/sim/bot.ts) is both the race opponent and the driver of the bot-lap gate, so it must
 // finish every registered track, never get stuck and never teleport, alone or racing another car.
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { TrackData } from '../../src/sim/types.ts';
 import { BOT_TUNING, createBot } from '../../src/sim/bot.ts';
-import { CAR_LENGTH, SURFACES, createCar, forwardSpeed } from '../../src/sim/car.ts';
+import { CAR_LENGTH, SURFACES, createCar } from '../../src/sim/car.ts';
 import { HAY_BALE_WIDTH, sampleAt } from '../../src/sim/track.ts';
 import type { World } from '../../src/sim/world.ts';
 import { createWorld, stepWorld } from '../../src/sim/world.ts';
-import { MAX_TICK_DISPLACEMENT, dustBowl, runBotRace, watch } from './helpers.ts';
+import {
+  MAX_TICK_DISPLACEMENT,
+  TRACKS,
+  baleHairpinTrack,
+  dustBowl,
+  hairpinTrack,
+  rampCornerTrack,
+  runBotRace,
+  watch,
+} from './helpers.ts';
 
-const TRACK_DIR = join(import.meta.dirname, '../../src/content/tracks');
-const TRACKS = readdirSync(TRACK_DIR)
-  .filter((f) => f.endsWith('.json'))
-  .map((f) => JSON.parse(readFileSync(join(TRACK_DIR, f), 'utf8')) as TrackData);
+const SEEDS = [1, 2, 3, 42, 1234];
 
 describe('bots on every registered track', () => {
   for (const track of TRACKS) {
-    for (const seed of [1, 2, 3, 42, 1234]) {
+    for (const seed of SEEDS) {
       it(`${track.id}: two bots finish every lap inside the lap-time bounds, never stuck, no teleports (seed ${seed})`, () => {
         const { world, seen, lapSeconds, finished } = runBotRace(track, seed, 2);
         // A lap at top speed along the centreline; the bot's line and pace make real laps a bit slower.
@@ -39,42 +43,52 @@ describe('bots on every registered track', () => {
 });
 
 describe('bot on Dust Bowl', () => {
-  for (const seed of [1, 7, 42, 2024, 99991]) {
-    it(`laps alone in about 40 s, on the dirt and clear of every prop (seed ${seed})`, () => {
-      const { seen, lapSeconds, finished } = runBotRace(dustBowl, seed);
+  const rows: [cars: number, seed: number][] = [[1, 1], [1, 7], [1, 42], [1, 2024], [1, 99991], [4, 5]];
+  for (const [cars, seed] of rows) {
+    it(`${cars} car(s), seed ${seed}: all finish, never stuck, no teleports${cars === 1 ? '; laps in about 40 s on the dirt, clear of every prop' : ''}`, () => {
+      const { seen, lapSeconds, finished } = runBotRace(dustBowl, seed, cars);
       expect(finished).toBe(true);
+      expect(seen.maxSlowTicks).toBeLessThan(BOT_TUNING.stuckTicks);
+      expect(seen.maxStep).toBeLessThan(MAX_TICK_DISPLACEMENT);
+      if (cars > 1) return;
       for (const lap of lapSeconds[0]!) {
         expect(lap).toBeGreaterThanOrEqual(38);
         expect(lap).toBeLessThanOrEqual(45);
       }
       expect(seen.grassTicks).toBe(0);
       expect(seen.propTicks).toBe(0);
-      expect(seen.maxStep).toBeLessThan(MAX_TICK_DISPLACEMENT);
     });
   }
 
-  it('a full grid of four bots all finish without getting stuck or teleporting', () => {
-    const { seen, finished } = runBotRace(dustBowl, 5, 4);
-    expect(finished).toBe(true);
-    expect(seen.maxSlowTicks).toBeLessThan(BOT_TUNING.stuckTicks);
-    expect(seen.maxStep).toBeLessThan(MAX_TICK_DISPLACEMENT);
+  it('bots vary with the seed and the car, and the same seed gives the same race', () => {
+    const firstLaps = (seed: number, cars: number): number[] => runBotRace(dustBowl, seed, cars).lapSeconds.map((l) => l[0]!);
+    expect(new Set([1, 2, 3].map((seed) => firstLaps(seed, 1)[0])).size).toBe(3);
+    const [a, b] = firstLaps(1, 2);
+    expect(a).not.toBe(b);
+    expect(firstLaps(1, 2)).toEqual([a, b]);
   });
+});
 
-  it('bots vary with the seed and car index, and the same seed gives the same bot', () => {
-    const world = (seed: number): World => createWorld(dustBowl, { seed, carCount: 2 });
-    const look = (seed: number, car: number): string => {
-      const bot = createBot(world(seed), car);
-      return `${bot.offset} ${bot.pace}`;
-    };
-    expect(look(1, 1)).toBe(look(1, 1));
-    expect(new Set([look(1, 0), look(1, 1), look(2, 0), look(2, 1)]).size).toBe(4);
-    for (const seed of [1, 2, 3, 42, 1234]) {
-      const bot = createBot(world(seed), 1);
-      expect(Math.abs(bot.offset)).toBeLessThanOrEqual(BOT_TUNING.lineSpread);
-      expect(bot.pace).toBeGreaterThanOrEqual(BOT_TUNING.paceMin);
-      expect(bot.pace).toBeLessThanOrEqual(BOT_TUNING.paceMax);
+describe('bots on hard corners', () => {
+  for (const seed of SEEDS) {
+    it(`a tight hairpin: on the dirt all lap, within 20% of the ideal lap time (seed ${seed})`, () => {
+      const { world, seen, lapSeconds, finished } = runBotRace(hairpinTrack(), seed);
+      expect(finished).toBe(true);
+      expect(seen.grassTicks).toBe(0);
+      expect(lapSeconds[0]![0]).toBeLessThan((world.track.length / SURFACES.dirt.topSpeed) * 1.2);
+    });
+
+    for (const [name, track] of [['a ramp just before a corner lined with tyres', rampCornerTrack()], ['a hairpin with bales on the inside', baleHairpinTrack()]] as const) {
+      it(`${name}: one or two bots finish without ever needing to recover (seed ${seed})`, () => {
+        for (const cars of [1, 2]) {
+          const { seen, finished } = runBotRace(track, seed, cars);
+          expect(finished).toBe(true);
+          expect(seen.reversals).toBe(0);
+          expect(seen.maxStep).toBeLessThan(MAX_TICK_DISPLACEMENT);
+        }
+      });
     }
-  });
+  }
 });
 
 describe('stuck recovery', () => {
@@ -88,13 +102,11 @@ describe('stuck recovery', () => {
     world.cars[0] = createCar(world.track, x, z, heading);
     const bot = createBot(world, 0);
     const seen = watch(world);
-    let reversed = false;
     for (let t = 0; t < 60 * 90 && world.racers[0]!.lapsCompleted < 1; t++) {
       stepWorld(world, [bot.input(world)]);
       seen.update(world);
-      reversed ||= forwardSpeed(world.cars[0]!) < -2;
     }
-    return { reversed, laps: world.racers[0]!.lapsCompleted, seen };
+    return { reversed: seen.reversals > 0, laps: world.racers[0]!.lapsCompleted, seen };
   }
 
   it('a bot facing a wall of hay bales backs off and completes a lap', () => {

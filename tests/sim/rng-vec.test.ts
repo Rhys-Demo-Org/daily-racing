@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createRng, nextFloat, nextInt, nextRange } from '../../src/sim/rng.ts';
-import { clamp, distance, dot, forward, headingOf, length, lerp, right, wrapAngle } from '../../src/sim/vec.ts';
+import { clamp, headingOf, wrapAngle } from '../../src/sim/vec.ts';
 
 describe('rng (mulberry32)', () => {
   it('matches the reference mulberry32 sequence for seed 1', () => {
@@ -60,23 +60,11 @@ describe('rng (mulberry32)', () => {
 });
 
 describe('vec', () => {
-  it('follows the heading convention: 0 = north (−z), π/2 = east (+x)', () => {
-    const n = forward(0);
-    expect(n.x).toBeCloseTo(0, 12);
-    expect(n.z).toBeCloseTo(-1, 12);
-    const e = forward(Math.PI / 2);
-    expect(e.x).toBeCloseTo(1, 12);
-    expect(e.z).toBeCloseTo(0, 12);
-    // Right of north is east; right of east is south (+z).
-    expect(right(0).x).toBeCloseTo(1, 12);
-    expect(right(Math.PI / 2).z).toBeCloseTo(1, 12);
-  });
-
-  it('headingOf inverts forward', () => {
-    for (const h of [-3, -1.2, 0, 0.4, 1.5707, 2.9]) {
-      const f = forward(h);
-      expect(headingOf(f.x, f.z)).toBeCloseTo(h, 12);
-    }
+  it('headingOf follows the heading convention: 0 = north (−z), π/2 = east (+x), clockwise', () => {
+    expect(headingOf(0, -1)).toBe(0);
+    expect(headingOf(1, 0)).toBeCloseTo(Math.PI / 2, 12);
+    expect(headingOf(0, 1)).toBeCloseTo(Math.PI, 12);
+    for (const h of [-3, -1.2, 0, 0.4, 1.5707, 2.9]) expect(headingOf(Math.sin(h), -Math.cos(h))).toBeCloseTo(h, 12);
   });
 
   it('wrapAngle maps into (−π, π]', () => {
@@ -91,9 +79,5 @@ describe('vec', () => {
     expect(clamp(5, 0, 3)).toBe(3);
     expect(clamp(-1, 0, 3)).toBe(0);
     expect(clamp(2, 0, 3)).toBe(2);
-    expect(lerp(2, 4, 0.25)).toBe(2.5);
-    expect(dot(1, 2, 3, 4)).toBe(11);
-    expect(length(3, 4)).toBe(5);
-    expect(distance(1, 1, 4, 5)).toBe(5);
   });
 });

@@ -1,40 +1,39 @@
 // Race positions: validated race distance and how raceView ranks cars, including two bots racing.
 import { describe, expect, it } from 'vitest';
-import { createRacer, positions, raceDistance, updateRacer } from '../../src/sim/race.ts';
-import { createWorld, raceView, stepWorld } from '../../src/sim/world.ts';
-import { MAX_TICK_DISPLACEMENT, botsFor, dustBowl, watch } from './helpers.ts';
+import { createRacer, lapGap, positions, raceDistance, updateRacer } from '../../src/sim/race.ts';
+import type { World } from '../../src/sim/world.ts';
+import { raceView } from '../../src/sim/world.ts';
+import { MAX_TICK_DISPLACEMENT, dustBowl, runBotRace } from './helpers.ts';
 
 const L = 1000;
 
 describe('two bots racing', () => {
   it('both finish, and raceView positions swap exactly when one overtakes the other', () => {
-    const world = createWorld(dustBowl, { seed: 7, carCount: 2 });
-    const bots = botsFor(world);
-    // Seed 7 gives car 1 (starting behind) the clearly faster bot, so it has to get past car 0.
-    expect(bots[1]!.pace).toBeGreaterThan(bots[0]!.pace + 0.03);
-    const seen = watch(world);
-    const length = world.track.length;
-    // Distance driven along the track, tracked independently of race.ts (the grid is behind the line).
-    const driven = world.cars.map((c) => c.pos.s - length);
+    // Seed 7 gives car 1 (starting behind) the faster bot, so it has to get past car 0.
+    // Distance driven along the track, tracked independently of race.ts (the grid is behind the
+    // line). The first ticks are the countdown, when nothing moves, so the first call reads the grid.
+    let before: number[] | null = null;
+    let driven: number[] = [];
+    let leader = -1;
     let swaps = 0;
-    let leader = raceView(world).racers.findIndex((r) => r.position === 1);
-    for (let t = 0; t < 60 * 240 && world.racers.some((r) => r.finishTick === null); t++) {
-      const before = world.cars.map((c) => c.pos.s);
-      stepWorld(world, bots.map((b) => b.input(world)));
-      seen.update(world);
-      world.cars.forEach((c, i) => {
-        driven[i]! += ((c.pos.s - before[i]! + 1.5 * length) % length) - length / 2;
+    const { world, seen, finished } = runBotRace(dustBowl, 7, 2, (w: World) => {
+      const length = w.track.length;
+      before ??= w.cars.map((c) => c.pos.s);
+      if (driven.length === 0) driven = before.map((s) => s - length);
+      w.cars.forEach((c, i) => {
+        driven[i]! += lapGap(before![i]!, c.pos.s, length);
       });
-      const view = raceView(world);
+      before = w.cars.map((c) => c.pos.s);
+      const view = raceView(w);
       expect(view.racers.map((r) => r.position).sort()).toEqual([1, 2]);
       if (view.racers.every((r) => r.finishTick === null) && Math.abs(driven[0]! - driven[1]!) > 1) {
         expect(view.racers[0]!.position).toBe(driven[0]! > driven[1]! ? 1 : 2);
       }
       const now = view.racers.findIndex((r) => r.position === 1);
-      if (now !== leader) swaps++;
+      if (leader >= 0 && now !== leader) swaps++;
       leader = now;
-    }
-    expect(world.racers.every((r) => r.finishTick !== null)).toBe(true);
+    });
+    expect(finished).toBe(true);
     expect(swaps).toBeGreaterThan(0);
     // The faster bot won.
     expect(raceView(world).racers.map((r) => r.position)).toEqual([2, 1]);

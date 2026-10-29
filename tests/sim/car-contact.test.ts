@@ -7,20 +7,23 @@ import { CAR_LENGTH, CAR_WIDTH, SURFACES, createCar, forwardSpeed, stepCars } fr
 import { createRng, nextFloat } from '../../src/sim/rng.ts';
 import { buildTrack, validateTrack } from '../../src/sim/track.ts';
 import { createWorld, stepWorld } from '../../src/sim/world.ts';
-import { GAS, MAX_TICK_DISPLACEMENT, NO_INPUT, boxCorners, fingerprint, polygonOverlap, stripTrack } from './helpers.ts';
+import {
+  GAS,
+  MAX_TICK_DISPLACEMENT,
+  NO_INPUT,
+  REVERSE,
+  boxCorners,
+  fingerprint,
+  movingCar,
+  polygonOverlap,
+  stripTrack,
+} from './helpers.ts';
 
 const track = buildTrack(validateTrack(stripTrack()));
 const TOP = SURFACES.dirt.topSpeed;
 const EAST = Math.PI / 2;
 const WEST = -Math.PI / 2;
-
-/** A car on the strip at (x, z) facing `heading`, already moving forward at `speed`. */
-function car(x: number, z: number, heading: number, speed: number): CarState {
-  const c = createCar(track, x, z, heading);
-  c.vx = Math.sin(heading) * speed;
-  c.vz = -Math.cos(heading) * speed;
-  return c;
-}
+const car = (x: number, z: number, heading: number, speed: number): CarState => movingCar(track, x, z, heading, speed);
 
 /** Overlap depth of the two footprints, grown by `grow` on every side (0 when apart). */
 function overlap(a: CarState, b: CarState, grow = 0): number {
@@ -45,6 +48,19 @@ function crash(a: CarState, b: CarState, ticks: number, inputs: CarInput[], each
 }
 
 describe('car–car collisions', () => {
+  it('splits the push-out half and half between the two cars', () => {
+    // Parked side by side, overlapping by 0.2: each moves 0.1 straight apart, and neither gains speed.
+    const a = car(0, 0, EAST, 0);
+    const b = car(0, CAR_WIDTH - 0.2, EAST, 0);
+    stepCars([a, b], [NO_INPUT, NO_INPUT], track);
+    expect(a.z).toBeCloseTo(-0.1, 12);
+    expect(b.z).toBeCloseTo(CAR_WIDTH - 0.1, 12);
+    for (const c of [a, b]) {
+      expect(c.x).toBeCloseTo(0, 12);
+      expect(Math.hypot(c.vx, c.vz)).toBe(0);
+    }
+  });
+
   it('a head-on hit at top speed separates the cars and stops them dead', () => {
     const a = car(-20, 0, EAST, TOP);
     const b = car(20, 0, WEST, TOP);
@@ -73,7 +89,7 @@ describe('car–car collisions', () => {
           // b drives west at a head on, or faces east and reverses into it.
           const a = car(-20, 0, EAST, speed);
           const b = reversing ? car(20, lateral, EAST, -speed) : car(20, lateral, WEST, speed);
-          const bInput = reversing ? { steer: 0, throttle: false, brake: true } : GAS;
+          const bInput = reversing ? REVERSE : GAS;
           const inOrder = (): void => {
             expect(a.x, `speed ${speed} lateral ${lateral} reversing ${reversing}`).toBeLessThan(b.x);
           };

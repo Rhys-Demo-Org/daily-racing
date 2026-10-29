@@ -19,6 +19,16 @@ export const HAY_BALE_LENGTH = 2;
 export const HAY_BALE_WIDTH = 1.2;
 /** Height of every prop collider; a car flying higher than this passes over it. */
 export const PROP_COLLIDER_TOP = 1.1;
+/**
+ * Steepest ramp allowed (height / length). Grounded cars climb at most `maxStepUp` per tick, so a
+ * slope must rise less than that at top speed (0.3 / (25 / 60) = 0.72), and render keeps ramp tops
+ * at their base colour only up to sqrt(1 / TOP_FACE_MIN_Y² − 1) ≈ 0.329.
+ */
+export const MAX_RAMP_SLOPE = 0.32;
+/** Every ramp needs this much track after its lip within RAMP_RUNOUT_DRIFT of the line a car
+ * leaves the lip on, so a jump lands on the track rather than in a corner's run-off. */
+const RAMP_RUNOUT = 25;
+const RAMP_RUNOUT_DRIFT = 1.5;
 
 export interface CircleCollider {
   shape: 'circle';
@@ -44,6 +54,26 @@ export interface BoxCollider {
 
 export type Collider = CircleCollider | BoxCollider;
 
+/** Uniform grid over the colliders, so the broadphase only looks at props near a car. */
+export interface ColliderGrid {
+  /** Cell side in units, the corner of cell (0, 0), and the size in cells. */
+  cell: number;
+  x0: number;
+  z0: number;
+  cols: number;
+  rows: number;
+  /** cells[col * rows + row]: ascending indices into `colliders` of the colliders centred in it. */
+  cells: number[][];
+  /** Largest collider bound. */
+  maxBound: number;
+}
+
+/** A placed ramp plus its unit forward vector (heading 0 = −z), precomputed for the hot path. */
+export interface Ramp extends RampInstance {
+  fx: number;
+  fz: number;
+}
+
 /** Fully built track. Treat as immutable once built. */
 export interface Track {
   data: TrackData;
@@ -60,9 +90,10 @@ export interface Track {
   zs: Float64Array;
   /** Heading of segment i. */
   headings: Float64Array;
-  ramps: RampInstance[];
+  ramps: Ramp[];
   props: PropInstance[];
   colliders: Collider[];
+  grid: ColliderGrid;
   layout: TrackLayout;
 }
 
@@ -78,6 +109,8 @@ export interface TrackPos {
   distance: number;
 }
 
+/** Side of a broadphase grid cell, in units. */
+const GRID_CELL = 16;
 const PROP_KINDS: readonly PropKind[] = ['hay-bale', 'tyre-stack', 'cone-tree'];
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -156,7 +189,20 @@ export function validateTrack(data: unknown): TrackData {
     if (at < 0 || at >= 1) fail(id, `${where}.at must be in [0, 1)`);
     if (length <= 0) fail(id, `${where}.length must be positive`);
     if (height <= 0) fail(id, `${where}.height must be positive`);
+    if (height / length > MAX_RAMP_SLOPE) fail(id, `${where} is too steep: height / length must be at most ${MAX_RAMP_SLOPE}`);
     return { at, length, height };
+  });
+  const line = buildCentreline(centreline);
+  ramps.forEach((r, i) => {
+    const lip = sampleAt(line, r.at * line.length);
+    const fx = Math.sin(lip.heading);
+    const fz = -Math.cos(lip.heading);
+    for (let d = 1; d <= RAMP_RUNOUT; d++) {
+      const p = sampleAt(line, r.at * line.length + d);
+      if (Math.abs((p.x - lip.x) * -fz + (p.z - lip.z) * fx) > RAMP_RUNOUT_DRIFT) {
+        fail(id, `ramps[${i}] needs ${RAMP_RUNOUT} units of straight track after its lip`);
+      }
+    }
   });
 
   const propRows = list(id, data, 'propRows').map((r, i) => {
@@ -229,8 +275,9 @@ function catmullRom(
   return mix(b1, b2, t1, t2);
 }
 
-/** Closed spline through the control points, resampled to (almost) exactly 1-unit spacing. */
-function resampleCentreline(points: [number, number][]): { xs: Float64Array; zs: Float64Array; length: number } {
+/** Closed spline through the control points, resampled to (almost) exactly 1-unit spacing, with
+ * each segment's heading. */
+function buildCentreline(points: [number, number][]): CentrelineLike {
   const n = points.length;
   const pt = (i: number): [number, number] => points[((i % n) + n) % n] as [number, number];
   const dense: [number, number][] = [];
@@ -265,11 +312,13 @@ function resampleCentreline(points: [number, number][]): { xs: Float64Array; zs:
   }
   // The resampled polygon is a hair shorter than the curve; use its own perimeter so s is exact.
   let perimeter = 0;
+  const headings = new Float64Array(count);
   for (let i = 0; i < count; i++) {
     const k = (i + 1) % count;
     perimeter += Math.hypot((xs[k] as number) - (xs[i] as number), (zs[k] as number) - (zs[i] as number));
+    headings[i] = headingOf((xs[k] as number) - (xs[i] as number), (zs[k] as number) - (zs[i] as number));
   }
-  return { xs, zs, length: perimeter };
+  return { xs, zs, headings, count, length: perimeter, spacing: perimeter / count };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -277,20 +326,16 @@ function resampleCentreline(points: [number, number][]): { xs: Float64Array; zs:
 
 /** Builds the full geometry for a (validated) track. Deterministic: same data, same result. */
 export function buildTrack(data: TrackData): Track {
-  const { xs, zs, length } = resampleCentreline(data.centreline);
-  const count = xs.length;
-  const headings = new Float64Array(count);
-  for (let i = 0; i < count; i++) {
-    const k = (i + 1) % count;
-    headings[i] = headingOf((xs[k] as number) - (xs[i] as number), (zs[k] as number) - (zs[i] as number));
-  }
+  const line = buildCentreline(data.centreline);
+  const { xs, zs, headings, count, length } = line;
   const halfWidth = data.width / 2;
-  const partial = { data, width: data.width, halfWidth, length, count, spacing: length / count, xs, zs, headings };
+  const partial = { ...line, data, width: data.width, halfWidth };
 
-  const ramps: RampInstance[] = data.ramps.map((r) => {
-    const p = sampleAtRaw(partial, r.at * length);
+  const layoutRamps: RampInstance[] = data.ramps.map((r) => {
+    const p = sampleAt(partial, r.at * length);
     return { x: p.x, z: p.z, heading: p.heading, length: r.length, width: data.width, height: r.height };
   });
+  const ramps: Ramp[] = layoutRamps.map((r) => ({ ...r, fx: Math.sin(r.heading), fz: -Math.cos(r.heading) }));
 
   const props: PropInstance[] = [];
   for (const row of data.propRows) {
@@ -299,7 +344,7 @@ export function buildTrack(data: TrackData): Track {
     const sideSign = row.side === 'right' ? 1 : -1;
     const off = (halfWidth + row.offset) * sideSign;
     for (let i = 0; i < n; i++) {
-      const p = sampleAtRaw(partial, row.from * length + i * row.spacing);
+      const p = sampleAt(partial, row.from * length + i * row.spacing);
       props.push({
         kind: row.kind,
         x: p.x + Math.cos(p.heading) * off,
@@ -317,10 +362,33 @@ export function buildTrack(data: TrackData): Track {
     width: data.width,
     centre,
     startHeading: headings[0] as number,
-    ramps: ramps.map((r) => ({ ...r })),
+    ramps: layoutRamps,
     props: props.map((p) => ({ ...p })),
   };
-  return { ...partial, ramps, props, colliders, layout };
+  return { ...partial, ramps, props, colliders, grid: buildGrid(colliders), layout };
+}
+
+function buildGrid(colliders: readonly Collider[]): ColliderGrid {
+  let x0 = Infinity;
+  let z0 = Infinity;
+  let x1 = -Infinity;
+  let z1 = -Infinity;
+  let maxBound = 0;
+  for (const c of colliders) {
+    x0 = Math.min(x0, c.x);
+    z0 = Math.min(z0, c.z);
+    x1 = Math.max(x1, c.x);
+    z1 = Math.max(z1, c.z);
+    maxBound = Math.max(maxBound, c.bound);
+  }
+  // No colliders: 0 × 0 cells (and the infinite corner never yields a cell index either).
+  const cols = Math.max(0, Math.floor((x1 - x0) / GRID_CELL) + 1);
+  const rows = Math.max(0, Math.floor((z1 - z0) / GRID_CELL) + 1);
+  const cells = Array.from({ length: cols * rows }, (): number[] => []);
+  colliders.forEach((c, id) => {
+    (cells[Math.floor((c.x - x0) / GRID_CELL) * rows + Math.floor((c.z - z0) / GRID_CELL)] as number[]).push(id);
+  });
+  return { cell: GRID_CELL, x0, z0, cols, rows, cells, maxBound };
 }
 
 function colliderFor(p: PropInstance): Collider {
@@ -352,7 +420,8 @@ export function trackLayout(track: TrackData): TrackLayout {
 
 type CentrelineLike = Pick<Track, 'xs' | 'zs' | 'headings' | 'count' | 'length' | 'spacing'>;
 
-function sampleAtRaw(t: CentrelineLike, s: number): { x: number; z: number; heading: number } {
+/** Point and driving heading on the centreline at arc length s (wraps around the lap). */
+export function sampleAt(t: CentrelineLike, s: number): { x: number; z: number; heading: number } {
   const wrapped = ((s % t.length) + t.length) % t.length;
   const f = wrapped / t.spacing;
   const i = Math.min(t.count - 1, Math.floor(f));
@@ -363,38 +432,49 @@ function sampleAtRaw(t: CentrelineLike, s: number): { x: number; z: number; head
   return { x, z, heading: t.headings[i] as number };
 }
 
-/** Point and driving heading on the centreline at arc length s (wraps around the lap). */
-export function sampleAt(track: Track, s: number): { x: number; z: number; heading: number } {
-  return sampleAtRaw(track, s);
+/** Written by `closest`: the segment vector, and the closest point and its fraction along the
+ * segment. Module scratch (fields store numbers in place), so the nearest searches don't allocate. */
+const seg = { dx: 0, dz: 0, px: 0, pz: 0, u: 0 };
+
+/** Squared distance from (x, z) to segment i (0 ≤ i < count); fills `seg`. */
+function closest(t: Track, i: number, x: number, z: number): number {
+  const k = (i + 1) % t.count;
+  const ax = t.xs[i] as number;
+  const az = t.zs[i] as number;
+  const dx = (t.xs[k] as number) - ax;
+  const dz = (t.zs[k] as number) - az;
+  const u = clamp(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz), 0, 1);
+  seg.dx = dx;
+  seg.dz = dz;
+  seg.u = u;
+  seg.px = ax + dx * u;
+  seg.pz = az + dz * u;
+  return (x - seg.px) * (x - seg.px) + (z - seg.pz) * (z - seg.pz);
 }
 
 /** Projects (x, z) onto one segment of the centreline. */
-export function projectOnSegment(track: Track, seg: number, x: number, z: number): TrackPos {
-  const i = ((seg % track.count) + track.count) % track.count;
-  const k = (i + 1) % track.count;
-  const ax = track.xs[i] as number;
-  const az = track.zs[i] as number;
-  const dx = (track.xs[k] as number) - ax;
-  const dz = (track.zs[k] as number) - az;
-  const len2 = dx * dx + dz * dz;
-  const u = clamp(((x - ax) * dx + (z - az) * dz) / len2, 0, 1);
-  const px = ax + dx * u;
-  const pz = az + dz * u;
-  const len = Math.sqrt(len2);
-  // Right of the driving direction is (−dz, dx) / len (see vec.ts `right`).
-  const lateral = ((x - px) * -dz + (z - pz) * dx) / len;
-  const s = (i + u) * track.spacing;
+export function projectOnSegment(track: Track, segment: number, x: number, z: number): TrackPos {
+  const i = ((segment % track.count) + track.count) % track.count;
+  closest(track, i, x, z);
+  const { dx, dz, px, pz } = seg;
+  // Right of the driving direction is (−dz, dx) / len.
+  const lateral = ((x - px) * -dz + (z - pz) * dx) / Math.sqrt(dx * dx + dz * dz);
+  const s = (i + seg.u) * track.spacing;
   return { seg: i, s: s >= track.length ? s - track.length : s, lateral, distance: Math.hypot(x - px, z - pz) };
 }
 
 /** Exhaustive nearest-centreline search. Use only when there is no previous position to start from. */
 export function nearestGlobal(track: Track, x: number, z: number): TrackPos {
-  let best = projectOnSegment(track, 0, x, z);
+  let best = 0;
+  let bestD2 = closest(track, 0, x, z);
   for (let i = 1; i < track.count; i++) {
-    const p = projectOnSegment(track, i, x, z);
-    if (p.distance < best.distance) best = p;
+    const d2 = closest(track, i, x, z);
+    if (d2 < bestD2) {
+      best = i;
+      bestD2 = d2;
+    }
   }
-  return best;
+  return projectOnSegment(track, best, x, z);
 }
 
 /** Half-width (in segments) of the window the local search scans around its centre. */
@@ -409,22 +489,25 @@ const LOCAL_MAX_STEPS = 16;
  * the other leg just because that leg is geometrically closer.
  */
 export function nearestLocal(track: Track, x: number, z: number, hintSeg: number): TrackPos {
-  let centre = hintSeg;
-  let best = projectOnSegment(track, centre, x, z);
+  const n = track.count;
+  let best = ((hintSeg % n) + n) % n;
+  let bestD = Math.sqrt(closest(track, best, x, z));
   for (let step = 0; step < LOCAL_MAX_STEPS; step++) {
+    const centre = best;
     let bestOffset = 0;
     for (let o = -LOCAL_WINDOW; o <= LOCAL_WINDOW; o++) {
       if (o === 0) continue;
-      const p = projectOnSegment(track, centre + o, x, z);
-      if (p.distance < best.distance - 1e-12) {
-        best = p;
+      const i = (((centre + o) % n) + n) % n;
+      const d = Math.sqrt(closest(track, i, x, z));
+      if (d < bestD - 1e-12) {
+        best = i;
+        bestD = d;
         bestOffset = o;
       }
     }
     if (Math.abs(bestOffset) < LOCAL_WINDOW) break;
-    centre = best.seg;
   }
-  return best;
+  return projectOnSegment(track, best, x, z);
 }
 
 /** Distance beyond the track edge after which tracking may re-acquire elsewhere (see below). */
@@ -445,37 +528,45 @@ export function trackPosition(track: Track, x: number, z: number, prev: TrackPos
 }
 
 /**
- * Surface under (x, z). `pos` is the car's tracked (local) position; if it says grass we also do a
- * global check, so a car that rejoins the track somewhere unexpected is still on dirt.
+ * Surface under (x, z). `pos` is the car's position from trackPosition (or nearestGlobal). If it
+ * says grass we also check globally, so a car that rejoins the track somewhere unexpected is still
+ * on dirt. Beyond the re-acquire margin trackPosition has already made that check.
  */
 export function surfaceAt(track: Track, pos: TrackPos, x: number, z: number): Surface {
   if (Math.abs(pos.lateral) <= track.halfWidth) return 'dirt';
+  if (pos.distance > track.halfWidth + REACQUIRE_MARGIN) return 'grass';
   return nearestGlobal(track, x, z).distance <= track.halfWidth ? 'dirt' : 'grass';
 }
 
-/** Ground height and its gradient (dh/dx, dh/dz) at (x, z), and the ramp there if any. Flat ground
- * is 0; ramps are wedges. */
-export function groundAt(track: Track, x: number, z: number): { h: number; gx: number; gz: number; ramp: RampInstance | null } {
-  let h = 0;
-  let gx = 0;
-  let gz = 0;
-  let ramp: RampInstance | null = null;
+export interface Ground {
+  h: number;
+  /** Gradient dh/dx, dh/dz. */
+  gx: number;
+  gz: number;
+  ramp: Ramp | null;
+}
+
+/** Ground height, gradient and ramp (if any) at (x, z), written to `out` (the hot path passes a
+ * reused object). Flat ground is 0; ramps are wedges. */
+export function groundAt(track: Track, x: number, z: number, out: Ground = { h: 0, gx: 0, gz: 0, ramp: null }): Ground {
+  out.h = 0;
+  out.gx = 0;
+  out.gz = 0;
+  out.ramp = null;
   for (const r of track.ramps) {
-    const fx = Math.sin(r.heading);
-    const fz = -Math.cos(r.heading);
     const rx = x - r.x;
     const rz = z - r.z;
-    const along = rx * fx + rz * fz; // 0 at the lip, −length at the foot
-    const lat = rx * -fz + rz * fx;
+    const along = rx * r.fx + rz * r.fz; // 0 at the lip, −length at the foot
+    const lat = rx * -r.fz + rz * r.fx;
     if (along > 0 || along < -r.length || Math.abs(lat) > r.width / 2) continue;
     const rh = r.height * (1 + along / r.length);
-    if (rh > h) {
-      h = rh;
-      ramp = r;
+    if (rh > out.h) {
       const slope = r.height / r.length;
-      gx = fx * slope;
-      gz = fz * slope;
+      out.h = rh;
+      out.gx = r.fx * slope;
+      out.gz = r.fz * slope;
+      out.ramp = r;
     }
   }
-  return { h, gx, gz, ramp };
+  return out;
 }

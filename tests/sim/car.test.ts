@@ -1,22 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { CarInput, PropKind, TrackData } from '../../src/sim/types.ts';
 import type { CarState } from '../../src/sim/car.ts';
-import { CAR_LENGTH, DT, SURFACES, carView, createCar, forwardSpeed, stepCar } from '../../src/sim/car.ts';
+import { CAR_LENGTH, CAR_TUNING, DT, SURFACES, carView, forwardSpeed, stepCar } from '../../src/sim/car.ts';
 import type { Track } from '../../src/sim/track.ts';
-import { buildTrack, validateTrack } from '../../src/sim/track.ts';
-import { GAS, NO_INPUT, boxCorners, carCorners, circleOverlap, polygonOverlap, stripTrack } from './helpers.ts';
+import { PROP_COLLIDER_TOP, buildTrack, validateTrack } from '../../src/sim/track.ts';
+import { GAS, NO_INPUT, REVERSE, boxCorners, carCorners, circleOverlap, movingCar, polygonOverlap, stripTrack } from './helpers.ts';
 
 const EAST = Math.PI / 2;
 
 function build(data: TrackData): Track {
   return buildTrack(validateTrack(data));
-}
-
-/** A car on the strip at (x, z) facing east, already moving at `speed`. */
-function carAt(track: Track, x: number, z: number, speed = 0): CarState {
-  const car = createCar(track, x, z, EAST);
-  car.vx = speed;
-  return car;
 }
 
 function run(car: CarState, track: Track, ticks: number, input: CarInput | ((c: CarState) => CarInput)): void {
@@ -34,7 +27,7 @@ describe('acceleration and speed', () => {
   });
 
   it('accelerates punchily to top speed on dirt', () => {
-    const car = carAt(track, -250, 0);
+    const car = movingCar(track, -250, 0, EAST);
     let ticksTo20 = -1;
     for (let i = 0; i < 5 * 60; i++) {
       stepCar(car, GAS, track);
@@ -49,17 +42,17 @@ describe('acceleration and speed', () => {
   });
 
   it('coasts down without throttle', () => {
-    const car = carAt(track, -250, 0, 20);
+    const car = movingCar(track, -250, 0, EAST, 20);
     run(car, track, 60, NO_INPUT);
     expect(forwardSpeed(car)).toBeLessThan(18);
     expect(forwardSpeed(car)).toBeGreaterThan(10);
   });
 
   it('brakes to a stop, then reverses when brake is held', () => {
-    const car = carAt(track, -250, 0, 20);
+    const car = movingCar(track, -250, 0, EAST, 20);
     let stopTick = -1;
     for (let i = 0; i < 4 * 60; i++) {
-      stepCar(car, { steer: 0, throttle: false, brake: true }, track);
+      stepCar(car, REVERSE, track);
       if (stopTick < 0 && forwardSpeed(car) <= 0.5) stopTick = i + 1;
     }
     expect(stopTick).toBeGreaterThan(0);
@@ -73,12 +66,12 @@ describe('acceleration and speed', () => {
   });
 
   it('cannot turn at a standstill; steering authority grows with speed', () => {
-    const still = carAt(track, -250, 0);
+    const still = movingCar(track, -250, 0, EAST);
     run(still, track, 30, { steer: 1, throttle: false, brake: false });
     expect(still.heading).toBe(EAST);
 
     const turnIn = (speed: number): number => {
-      const c = carAt(track, -250, 0, speed);
+      const c = movingCar(track, -250, 0, EAST, speed);
       stepCar(c, { steer: 1, throttle: false, brake: false }, track);
       return c.heading - EAST;
     };
@@ -93,7 +86,7 @@ describe('grip and drift', () => {
   const track = build(stripTrack({ width: 200 }));
 
   it('grips without sliding when turning at low speed', () => {
-    const car = carAt(track, -250, 0, 6);
+    const car = movingCar(track, -250, 0, EAST, 6);
     let maxSlip = 0;
     run(car, track, 90, (c) => {
       maxSlip = Math.max(maxSlip, c.slip);
@@ -103,7 +96,7 @@ describe('grip and drift', () => {
   });
 
   it('hard steering at speed breaks traction into a slide that can be caught', () => {
-    const car = carAt(track, -250, 0, DIRT_TOP);
+    const car = movingCar(track, -250, 0, EAST, DIRT_TOP);
     let maxSlip = 0;
     let slid = false;
     run(car, track, 45, (c) => {
@@ -122,7 +115,7 @@ describe('grip and drift', () => {
   });
 
   it('a held slide does not spin the car round endlessly', () => {
-    const car = carAt(track, -250, 0, DIRT_TOP);
+    const car = movingCar(track, -250, 0, EAST, DIRT_TOP);
     let maxAngle = 0;
     run(car, track, 120, (c) => {
       const fx = Math.sin(c.heading);
@@ -140,8 +133,8 @@ describe('surfaces', () => {
   const track = build(stripTrack());
 
   it('grass has a lower top speed than dirt', () => {
-    const dirt = carAt(track, -250, 0);
-    const grass = carAt(track, -250, 30);
+    const dirt = movingCar(track, -250, 0, EAST);
+    const grass = movingCar(track, -250, 30, EAST);
     expect(grass.surface).toBe('grass');
     run(dirt, track, 5 * 60, GAS);
     run(grass, track, 5 * 60, GAS);
@@ -151,7 +144,7 @@ describe('surfaces', () => {
   });
 
   it('running onto grass at speed slows the car', () => {
-    const car = carAt(track, -250, 30, DIRT_TOP);
+    const car = movingCar(track, -250, 30, EAST, DIRT_TOP);
     run(car, track, 60, GAS);
     expect(forwardSpeed(car)).toBeLessThan(SURFACES.grass.topSpeed + 2);
   });
@@ -159,8 +152,8 @@ describe('surfaces', () => {
   it('grass has more drag and less grip', () => {
     expect(SURFACES.grass.coastDecel).toBeGreaterThan(SURFACES.dirt.coastDecel);
     expect(SURFACES.grass.grip).toBeLessThan(SURFACES.dirt.grip);
-    const dirt = carAt(track, -250, 0, 14);
-    const grass = carAt(track, -250, 30, 14);
+    const dirt = movingCar(track, -250, 0, EAST, 14);
+    const grass = movingCar(track, -250, 30, EAST, 14);
     run(dirt, track, 30, NO_INPUT);
     run(grass, track, 30, NO_INPUT);
     expect(forwardSpeed(grass)).toBeLessThan(forwardSpeed(dirt) - 1);
@@ -172,7 +165,7 @@ describe('ramp jump', () => {
   const track = build(stripTrack({ ramps: [{ at: 0, length: 6, height: 1.2 }] }));
 
   it('follows the slope, launches off the lip, flies ballistically and lands', () => {
-    const car = carAt(track, -30, 0, DIRT_TOP);
+    const car = movingCar(track, -30, 0, EAST, DIRT_TOP);
     let maxY = 0;
     let firstAir = -1;
     let landedAt: number | null = null;
@@ -207,7 +200,7 @@ describe('ramp jump', () => {
   });
 
   it('rolling slowly off the lip just drops down', () => {
-    const car = carAt(track, -1, 0, 4);
+    const car = movingCar(track, -1, 0, EAST, 4);
     let maxY = 0;
     let airTicks = 0;
     run(car, track, 240, (c) => {
@@ -225,12 +218,16 @@ describe('ramp jump', () => {
 describe('prop collisions', () => {
   const tyreAt = (x: number, z: number): TrackData => stripTrack({ props: [{ kind: 'tyre-stack', x, z }] });
 
-  it('pushes an overlapping car out', () => {
+  it('pushes an overlapping car out a little at a time, never in a jump', () => {
     const track = build(tyreAt(0, 0));
-    // Car front at x = −0.4 + 2.1 = 1.7 reaches 0.9 into the stack (front face vs stack edge at −0.8).
-    const car = carAt(track, -2.0, 0);
+    // Car front at x = −2.0 + 2.1 = 0.1 reaches 0.9 into the stack (front face vs stack edge at −0.8).
+    const car = movingCar(track, -2.0, 0, EAST);
     expect(circleOverlap(car.x, car.z, car.heading, 0, 0, 0.8)).toBeGreaterThan(0.5);
-    stepCar(car, NO_INPUT, track);
+    for (let i = 0; i < 5; i++) {
+      const x = car.x;
+      stepCar(car, NO_INPUT, track);
+      expect(x - car.x).toBeLessThanOrEqual(CAR_TUNING.maxPush + 1e-12);
+    }
     expect(circleOverlap(car.x, car.z, car.heading, 0, 0, 0.8)).toBeLessThan(1e-9);
     expect(car.x).toBeLessThan(-2.0);
     expect(car.x).toBeGreaterThan(-3.0);
@@ -238,7 +235,7 @@ describe('prop collisions', () => {
 
   it('a head-on hit stops the car at the prop and bleeds speed', () => {
     const track = build(tyreAt(0, 0));
-    const car = carAt(track, -30, 0, DIRT_TOP);
+    const car = movingCar(track, -30, 0, EAST, DIRT_TOP);
     let hitSpeed = 0;
     let after = Infinity;
     let hit = false;
@@ -260,7 +257,7 @@ describe('prop collisions', () => {
 
   it('a glancing hit deflects the car and keeps most of its speed', () => {
     const track = build(tyreAt(0, 0));
-    const car = carAt(track, -30, -1.6, DIRT_TOP);
+    const car = movingCar(track, -30, -1.6, EAST, DIRT_TOP);
     run(car, track, 120, GAS);
     expect(car.x).toBeGreaterThan(10);
     expect(car.z).toBeLessThan(-1.6);
@@ -285,7 +282,7 @@ describe('prop collisions', () => {
           for (const data of variants) {
             const track = build(data);
             const c = track.colliders[0]!;
-            const car = carAt(track, -20, lateral, speed);
+            const car = movingCar(track, -20, lateral, EAST, speed);
             for (let i = 0; i < 90; i++) {
               stepCar(car, GAS, track);
               const depth =
@@ -306,11 +303,26 @@ describe('prop collisions', () => {
 
   it('flies over props when high enough', () => {
     const track = build(tyreAt(0, 0));
-    const high = carAt(track, -10, 0, 20);
+    const high = movingCar(track, -10, 0, EAST, 20);
     high.airborne = true;
     high.y = 3;
     high.vy = 12;
     run(high, track, 40, NO_INPUT);
     expect(high.x).toBeGreaterThan(2);
+  });
+
+  it('coming down onto a prop, lands on its top, can drive, and drops off the far side', () => {
+    const track = build(stripTrack({ props: [{ kind: 'hay-bale', x: 0, z: 0 }] }));
+    const car = movingCar(track, -2, 0, EAST, 3);
+    car.airborne = true;
+    car.y = 1.5;
+    let rested = 0;
+    run(car, track, 120, (c) => {
+      if (c.y === PROP_COLLIDER_TOP && !c.airborne) rested++;
+      return GAS;
+    });
+    expect(rested).toBeGreaterThan(5);
+    expect(car.y).toBe(0);
+    expect(car.x).toBeGreaterThan(CAR_LENGTH);
   });
 });

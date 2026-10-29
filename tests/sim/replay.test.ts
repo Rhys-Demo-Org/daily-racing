@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CarInput, CarView } from '../../src/sim/types.ts';
+import type { CarInput } from '../../src/sim/types.ts';
 import {
   base64ToBytes,
   bytesToBase64,
@@ -12,8 +12,9 @@ import {
   runReplay,
 } from '../../src/sim/replay.ts';
 import { createRng, nextFloat } from '../../src/sim/rng.ts';
-import { carViews, createWorld, stepWorld } from '../../src/sim/world.ts';
-import { botsFor, dustBowl } from './helpers.ts';
+import type { World } from '../../src/sim/world.ts';
+import { carViews, createWorld, raceView, stepWorld } from '../../src/sim/world.ts';
+import { botsFor, dustBowl, fingerprint } from './helpers.ts';
 
 describe('base64', () => {
   it('matches standard base64', () => {
@@ -88,8 +89,8 @@ describe('replay format v1 (frozen)', () => {
 });
 
 describe('replay round trip', () => {
-  /** Records a 3-car race of bots with un-quantised, noisy inputs. */
-  function record(ticks: number): { frames: CarInput[][]; end: CarView[] } {
+  /** Records a 3-car race of bots with un-quantised, noisy inputs: wobbly steering, brake taps, lifts. */
+  function record(ticks: number): { frames: CarInput[][]; live: World } {
     const world = createWorld(dustBowl, { seed: 77, carCount: 3 });
     const bots = botsFor(world);
     const noise = createRng(5);
@@ -106,10 +107,11 @@ describe('replay round trip', () => {
       frames.push(frame);
       stepWorld(world, frame);
     }
-    return { frames, end: carViews(world) };
+    return { frames, live: world };
   }
 
-  const { frames, end } = record(3000);
+  const { frames, live } = record(6000);
+  const end = carViews(live);
 
   it('encode then decode gives the same inputs (steer quantised to int8)', () => {
     const replay = decodeReplay(encodeReplay(createReplay('dust-bowl', 77, 3, frames)));
@@ -127,17 +129,20 @@ describe('replay round trip', () => {
     expect(encodeInputs(decoded, 3)).toBe(replay.inputs);
   });
 
-  it('replaying reproduces the exact end state', () => {
+  it('replaying (same seed, same quantised inputs) reproduces the exact state after thousands of ticks', () => {
     const replay = decodeReplay(encodeReplay(createReplay('dust-bowl', 77, 3, frames)));
+    const world = createWorld(dustBowl, { seed: 77, carCount: 3 });
+    for (const frame of replayInputs(replay)) stepWorld(world, frame);
+    expect(fingerprint(world)).toBe(fingerprint(live));
+    expect(raceView(world)).toEqual(raceView(live));
     const replayed = runReplay(dustBowl, replay);
     expect(replayed).toEqual(end);
     replayed.forEach((car, i) => {
-      const live = end[i]!;
       for (const key of ['x', 'y', 'z', 'heading', 'speed', 'slip'] as const) {
-        expect(Object.is(car[key], live[key])).toBe(true);
+        expect(Object.is(car[key], end[i]![key])).toBe(true);
       }
     });
-    // The recording covers real driving, not a car sitting on the grid.
-    expect(end[0]!.x).not.toBeCloseTo(carViews(createWorld(dustBowl, { seed: 77, carCount: 3 }))[0]!.x, 0);
+    // The recording covers real racing, not cars sitting on the grid.
+    expect(raceView(live).racers.some((r) => r.lapsCompleted >= 1)).toBe(true);
   });
 });

@@ -4,5 +4,5 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node", "vite/client"]
   },
-  "include": ["tests", "guardrails/scripts", "guardrails/generated", "harness", "vite.config.ts", "vitest.config.ts"]
+  "include": ["tests", "spikes", "guardrails/scripts", "guardrails/generated", "harness", "vite.config.ts", "vitest.config.ts"]
 }

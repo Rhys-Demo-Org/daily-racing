@@ -13,7 +13,7 @@ import {
 } from '../../src/sim/replay.ts';
 import { createRng, nextFloat } from '../../src/sim/rng.ts';
 import { carViews, createWorld, stepWorld } from '../../src/sim/world.ts';
-import { autopilot, dustBowl } from './helpers.ts';
+import { botsFor, dustBowl } from './helpers.ts';
 
 describe('base64', () => {
   it('matches standard base64', () => {
@@ -88,14 +88,15 @@ describe('replay format v1 (frozen)', () => {
 });
 
 describe('replay round trip', () => {
-  /** Records a 3-car race with un-quantised, noisy inputs. */
+  /** Records a 3-car race of bots with un-quantised, noisy inputs. */
   function record(ticks: number): { frames: CarInput[][]; end: CarView[] } {
     const world = createWorld(dustBowl, { seed: 77, carCount: 3 });
+    const bots = botsFor(world);
     const noise = createRng(5);
     const frames: CarInput[][] = [];
     for (let t = 0; t < ticks; t++) {
-      const frame = world.cars.map((_, i) => {
-        const a = autopilot(world, i);
+      const frame = bots.map((bot) => {
+        const a = bot.input(world);
         return {
           steer: Math.max(-1, Math.min(1, a.steer + (nextFloat(noise) - 0.5) * 0.37)),
           throttle: a.throttle && nextFloat(noise) < 0.95,

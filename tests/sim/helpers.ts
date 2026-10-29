@@ -1,10 +1,12 @@
-// Test-only helpers for the simulation suites. The real bot is a later milestone (src/sim/bot.ts);
-// this autopilot is deliberately simple and lives in tests.
-import type { CarInput, CarView, TrackData } from '../../src/sim/types.ts';
+// Test-only helpers for the simulation suites.
+import type { CarInput, TrackData } from '../../src/sim/types.ts';
+import type { Bot } from '../../src/sim/bot.ts';
+import { createBot } from '../../src/sim/bot.ts';
 import type { World } from '../../src/sim/world.ts';
-import { carViews, createWorld, raceView, stepWorld } from '../../src/sim/world.ts';
+import { createWorld, stepWorld } from '../../src/sim/world.ts';
+import type { CarState } from '../../src/sim/car.ts';
 import { CAR_LENGTH, CAR_TUNING, CAR_WIDTH, DT, SURFACES, forwardSpeed } from '../../src/sim/car.ts';
-import { sampleAt } from '../../src/sim/track.ts';
+import { COUNTDOWN_TICKS } from '../../src/sim/race.ts';
 import { clamp, headingOf, wrapAngle } from '../../src/sim/vec.ts';
 import dustBowlJson from '../../src/content/tracks/dust-bowl.json' with { type: 'json' };
 
@@ -13,71 +15,98 @@ export const dustBowl = dustBowlJson as TrackData;
 export const NO_INPUT: CarInput = { steer: 0, throttle: false, brake: false };
 export const GAS: CarInput = { steer: 0, throttle: true, brake: false };
 
-/** Sideways acceleration the autopilot plans corners with (a bit under dirt grip). */
-const PLAN_LATERAL = 20;
-
-/**
- * Centreline follower: steers toward a look-ahead point on the centreline and lifts or brakes
- * when the curvature ahead calls for a lower speed.
- */
-export function autopilot(world: World, carIndex = 0): CarInput {
-  const car = world.cars[carIndex];
-  if (car === undefined) return NO_INPUT;
-  const track = world.track;
-  const speed = forwardSpeed(car);
-  const look = 7 + Math.abs(speed) * 0.4;
-  const target = sampleAt(track, car.pos.s + look);
-  const desired = headingOf(target.x - car.x, target.z - car.z);
-  const steer = clamp(wrapAngle(desired - car.heading) * 2.5, -1, 1);
-
-  let maxCurvature = 0;
-  const horizon = 10 + Math.abs(speed) * 1.2;
-  for (let d = 0; d < horizon; d += 2) {
-    const a = sampleAt(track, car.pos.s + d);
-    const b = sampleAt(track, car.pos.s + d + 4);
-    maxCurvature = Math.max(maxCurvature, Math.abs(wrapAngle(b.heading - a.heading)) / 4);
-  }
-  const targetSpeed = maxCurvature > 1e-6 ? Math.sqrt(PLAN_LATERAL / maxCurvature) : Infinity;
-  return { steer, throttle: speed < targetSpeed, brake: speed > targetSpeed + 4 };
-}
-
 /** Largest displacement a car may make in one tick without it counting as a teleport. */
 export const MAX_TICK_DISPLACEMENT = SURFACES.dirt.topSpeed * DT * 1.5;
 
-export interface AutopilotRace {
-  world: World;
-  /** Lap times in seconds for car 0. */
-  lapSeconds: number[];
-  finished: boolean;
-  /** Largest horizontal per-tick displacement of any car. */
-  maxStep: number;
-  ticks: number;
+/** Every number in the world, as exact bit patterns, so -0/+0 and last-bit differences show up. */
+export function fingerprint(world: World): string {
+  const bits = (v: number): string => {
+    const f = new Float64Array([v]);
+    return Array.from(new Uint32Array(f.buffer), (u) => u.toString(16)).join(':');
+  };
+  return JSON.stringify({ cars: world.cars, racers: world.racers, tick: world.tick, rng: world.rng }, (_, v) =>
+    typeof v === 'number' ? bits(v) : v,
+  );
 }
 
-/** Runs a full race with every car on autopilot, until car 0 finishes or `maxTicks` pass. */
-export function runAutopilotRace(track: TrackData, seed: number, carCount = 1, maxTicks = 60 * 200): AutopilotRace {
+/** One bot per car of the world. */
+export function botsFor(world: World): Bot[] {
+  return world.cars.map((_, i) => createBot(world, i));
+}
+
+/** What every car did, gathered by calling `update` after each stepWorld. */
+export interface Watch {
+  /** Largest horizontal per-tick displacement of any car. */
+  maxStep: number;
+  /** Longest run of racing ticks an unfinished car spent slower than 1 unit/s. */
+  maxSlowTicks: number;
+  /** Ticks (summed over cars) a car's centre was on grass. */
+  grassTicks: number;
+  /** Ticks (summed over cars) a car's footprint was within 0.01 of a prop. */
+  propTicks: number;
+  update(world: World): void;
+}
+
+export function watch(world: World): Watch {
+  let prev = world.cars.map((c) => ({ x: c.x, z: c.z }));
+  const slow = world.cars.map(() => 0);
+  const w: Watch = {
+    maxStep: 0,
+    maxSlowTicks: 0,
+    grassTicks: 0,
+    propTicks: 0,
+    update(world) {
+      world.cars.forEach((car, i) => {
+        const p = prev[i]!;
+        w.maxStep = Math.max(w.maxStep, Math.hypot(car.x - p.x, car.z - p.z));
+        const crawling = world.tick > COUNTDOWN_TICKS && world.racers[i]!.finishTick === null && Math.abs(forwardSpeed(car)) < 1;
+        slow[i] = crawling ? slow[i]! + 1 : 0;
+        w.maxSlowTicks = Math.max(w.maxSlowTicks, slow[i]!);
+        if (car.surface === 'grass') w.grassTicks++;
+        if (touchesProp(world, car)) w.propTicks++;
+      });
+      prev = world.cars.map((c) => ({ x: c.x, z: c.z }));
+    },
+  };
+  return w;
+}
+
+/** True when the car's footprint is within 0.01 of any prop collider. Independent of car.ts. */
+function touchesProp(world: World, car: CarState): boolean {
+  const corners = carCorners(car.x, car.z, car.heading);
+  return world.track.colliders.some((c) => {
+    if ((c.x - car.x) ** 2 + (c.z - car.z) ** 2 > 25) return false;
+    return c.shape === 'circle'
+      ? circleOverlap(car.x, car.z, car.heading, c.x, c.z, c.r + 0.01) > 0
+      : polygonOverlap(corners, boxCorners(c.x, c.z, c.heading, c.halfLength + 0.01, c.halfWidth + 0.01)) > 0;
+  });
+}
+
+export interface BotRace {
+  world: World;
+  bots: Bot[];
+  seen: Watch;
+  /** Lap times in seconds, per car. */
+  lapSeconds: number[][];
+  /** Every car finished. */
+  finished: boolean;
+}
+
+/** Runs a race with every car driven by its bot, until all cars finish or `maxTicks` pass. */
+export function runBotRace(track: TrackData, seed: number, carCount = 1, maxTicks = 60 * 240): BotRace {
   const world = createWorld(track, { seed, carCount });
-  let prev: CarView[] = carViews(world);
-  let maxStep = 0;
-  let ticks = 0;
-  while (ticks < maxTicks && raceView(world).phase !== 'finished') {
-    const inputs = world.cars.map((_, i) => autopilot(world, i));
-    stepWorld(world, inputs);
-    ticks++;
-    const now = carViews(world);
-    now.forEach((c, i) => {
-      const p = prev[i] as CarView;
-      maxStep = Math.max(maxStep, Math.hypot(c.x - p.x, c.z - p.z));
-    });
-    prev = now;
+  const bots = botsFor(world);
+  const seen = watch(world);
+  for (let t = 0; t < maxTicks && world.racers.some((r) => r.finishTick === null); t++) {
+    stepWorld(world, bots.map((b) => b.input(world)));
+    seen.update(world);
   }
-  const racer = raceView(world).racers[0];
   return {
     world,
-    lapSeconds: (racer?.lapTicks ?? []).map((t) => t * DT),
-    finished: racer?.finishTick !== null && racer?.finishTick !== undefined,
-    maxStep,
-    ticks,
+    bots,
+    seen,
+    lapSeconds: world.racers.map((r) => r.lapTicks.map((t) => t * DT)),
+    finished: world.racers.every((r) => r.finishTick !== null),
   };
 }
 

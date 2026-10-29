@@ -65,14 +65,14 @@ export function updateRacer(r: RacerState, s: number, lapLength: number, raceTic
 
 /**
  * Validated race distance used for ranking: laps done plus progress through the sectors passed
- * in order this lap. Progress inside the current sector is capped at the sector's length, so a
- * car that skipped sectors does not gain from it.
+ * in order this lap. Progress only counts inside the last sector entered in order, so a car that
+ * skipped ahead, or reversed back out of it (over the line, say), gains nothing.
  */
 export function raceDistance(r: RacerState, s: number, lapLength: number): number {
   if (!r.started) return s - lapLength; // on the grid, behind the line
   const sectorLength = lapLength / SECTORS;
   const last = (r.expected + SECTORS - 1) % SECTORS; // last sector entered in order
-  const within = Math.min(sectorLength, Math.max(0, s - last * sectorLength));
+  const within = sectorOf(s, lapLength) === last ? s - last * sectorLength : 0;
   return r.lapsCompleted * lapLength + last * sectorLength + within;
 }
 

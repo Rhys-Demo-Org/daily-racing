@@ -61,8 +61,9 @@ describe('journal', () => {
     expect(gateFeedback(join(dir, 'bad.json'))).toMatch(/no valid gates.json/);
   });
 
-  it('sums numstat lines', () => {
+  it('sums numstat lines; binary files count as files with no lines', () => {
     expect(diffSize('')).toEqual({ files: 0, added: 0, deleted: 0 });
+    expect(diffSize('3\t1\ta.ts\n-\t-\tb.bin\n0\t7\tc.ts\n')).toEqual({ files: 3, added: 3, deleted: 8 });
   });
 
   it('reports phases against the deadline and a gate table per attempt', () => {

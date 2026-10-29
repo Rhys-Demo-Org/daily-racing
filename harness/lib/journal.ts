@@ -7,8 +7,8 @@ import { join } from 'node:path';
 import { zonedParts } from './time.ts';
 
 type Json = Record<string, unknown>;
-type GateResult = { id: string; name?: string; pass: boolean; durationMs?: number; summary?: string; details?: string };
-type Gates = { pass: boolean; durationMs?: number; gates: GateResult[] };
+type GateRow = { id: string; name?: string; pass: boolean; durationMs?: number; summary?: string; details?: string };
+type Gates = { pass: boolean; durationMs?: number; gates: GateRow[] };
 /** One agent phase: agent-run's meta.json plus the harness's own timing. */
 type Phase = { name: string; phase: string; attempt: number; meta: Json | null; harness: Json | null };
 
@@ -43,7 +43,7 @@ export function readPhases(runDir: string): Phase[] {
 }
 
 /** Gate runs in attempt order. `gates` is null for a missing or malformed gates.json. */
-export function readGateRuns(runDir: string): { attempt: number; gates: Gates | null }[] {
+function readGateRuns(runDir: string): { attempt: number; gates: Gates | null }[] {
   if (!existsSync(runDir)) return [];
   return readdirSync(runDir).flatMap((f) => {
     const m = /^gates-(\d+)\.json$/.exec(f);

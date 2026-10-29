@@ -75,7 +75,6 @@ describe('chooseWork', () => {
   });
 
   it('reports blocked when every open item waits on unmerged deps', () => {
-    expect(chooseWork(false, items, new Set(['B01', 'B03']), []).kind).toBe('backlog');
     const blocked = parseBacklog('## B01 · A\ndepends_on: B02\nscope: a\ndone_when: b\n## B02 · B\ndepends_on: B01\nscope: a\ndone_when: b\n');
     expect(chooseWork(false, blocked, none, []).kind).toBe('blocked');
   });

@@ -1,8 +1,8 @@
 // The locked spec (HANDOVER §6.2 step 2): validates ideate's structured output against tonight's
-// work, renders spec.md, makes it read-only and hashes it; later phases verify the hash.
+// work, renders spec.md, makes it read-only and hashes it; daily.sh verifies the hash later.
 
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
+import { hashFile } from '../../guardrails/gates/lib.ts';
 
 /** Kind of night: a backlog item, a Sunday maintenance day, or phase 2 invention. */
 export type SpecMode = 'backlog' | 'maintenance' | 'invent';
@@ -62,18 +62,8 @@ export function renderSpec(s: Spec, date: string, mode: SpecMode): string {
   return lines.join('\n');
 }
 
-/** SHA-256 hex of a string or buffer. */
-export const sha256 = (data: string | Buffer): string => createHash('sha256').update(data).digest('hex');
-
-/** Writes `text` to `path`, makes it read-only (a-w) and returns its SHA-256. Refuses to overwrite. */
+/** Writes `text` to `path` read-only (0444) and returns its SHA-256. Refuses to overwrite. */
 export function lockSpec(path: string, text: string): string {
-  if (existsSync(path)) throw new Error(`spec: ${path} already exists`);
-  writeFileSync(path, text, { mode: 0o444 });
-  chmodSync(path, 0o444);
-  return sha256(text);
-}
-
-/** True if the file at `path` still hashes to `sha`. */
-export function verifySpec(path: string, sha: string): boolean {
-  return existsSync(path) && sha256(readFileSync(path)) === sha;
+  writeFileSync(path, text, { mode: 0o444, flag: 'wx' });
+  return hashFile(path)!;
 }

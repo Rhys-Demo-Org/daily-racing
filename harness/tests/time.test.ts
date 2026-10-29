@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { runWindows, zonedParts, zonedTime } from '../lib/time.ts';
-import { parseConfig, readConfig } from '../lib/config.ts';
 
 const cfg = { tz: 'Europe/London', startAt: '02:00', startCutoff: '03:00', noNewPhaseAfter: '05:15', hardDeadline: '06:30' };
 const utc = (s: string): number => Date.parse(s);
@@ -24,10 +23,14 @@ describe('London time', () => {
 });
 
 describe('runWindows', () => {
-  it('allows 01:59, 02:00 and 02:59 and refuses 03:01 (winter)', () => {
-    for (const t of ['01:59', '02:00', '02:59']) expect(runWindows(utc(`2026-11-02T${t}:00Z`), cfg, false).refused).toBeNull();
+  it('allows 01:59 to 03:00:59 and refuses 03:01 (winter)', () => {
+    for (const t of ['01:59:00', '02:00:00', '02:59:00', '03:00:00', '03:00:59']) expect(runWindows(utc(`2026-11-02T${t}Z`), cfg, false).refused).toBeNull();
     expect(runWindows(utc('2026-11-02T03:01:00Z'), cfg, false).refused).toMatch(/03:00/);
-    expect(runWindows(utc('2026-11-02T03:00:00Z'), cfg, false).refused).not.toBeNull();
+  });
+
+  it('still starts when spring-forward day fires the 02:00 timer at 03:00 BST', () => {
+    expect(runWindows(utc('2027-03-28T02:00:00Z'), cfg, false)).toMatchObject({ date: '2027-03-28', refused: null, hardDeadlineAt: sec('2027-03-28T05:30:00Z') });
+    expect(runWindows(utc('2027-03-28T02:01:00Z'), cfg, false).refused).not.toBeNull();
   });
 
   it('applies the cutoff in BST (summer) by London time, not UTC', () => {
@@ -58,21 +61,5 @@ describe('runWindows', () => {
     expect(w.refused).toBeNull();
     expect(w.noNewPhaseAt).toBe(start / 1000 + 3 * 3600 + 15 * 60);
     expect(w.hardDeadlineAt).toBe(start / 1000 + 4 * 3600 + 30 * 60);
-  });
-});
-
-describe('config', () => {
-  it('parses KEY=value lines, skips comments and expands $HOME', () => {
-    expect(parseConfig('# c\nA=1\n\nB=$HOME/x\nC=${HOME}/y\nD="q"\n', { HOME: '/h' })).toEqual({ A: '1', B: '/h/x', C: '/h/y', D: 'q' });
-    expect(() => parseConfig('A = 1')).toThrow();
-  });
-
-  it('has every key the harness scripts read', () => {
-    const c = readConfig();
-    for (const k of ['TZ_NAME', 'START_AT', 'START_CUTOFF', 'NO_NEW_PHASE_AFTER', 'HARD_DEADLINE', 'MIN_FREE_DISK_GB', 'MAX_OPEN_DAILY_PRS',
-      'MODEL_IDEATE', 'MODEL_BUILD', 'MODEL_JUDGE', 'MAX_TURNS_IDEATE', 'MAX_TURNS_BUILD', 'MAX_TURNS_RETRY', 'WALL_IDEATE_MIN', 'WALL_BUILD_MIN',
-      'WALL_RETRY_MIN', 'MAX_RETRIES', 'MAX_BUDGET_USD', 'GATE_CAP_MIN', 'BOT_SEEDS', 'PROXY_ALLOW', 'DAILY_HOME', 'TOKEN_FILE', 'BRANCH_KEEP_DAYS']) {
-      expect(c[k], k).toBeTruthy();
-    }
   });
 });

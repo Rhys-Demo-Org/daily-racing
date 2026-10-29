@@ -1,8 +1,9 @@
-import { chmodSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { extractSpec, lockSpec, renderSpec, sha256, validateSpec, verifySpec } from '../lib/spec.ts';
+import { extractSpec, lockSpec, renderSpec, validateSpec } from '../lib/spec.ts';
 
 const good = {
   backlogId: 'B01',
@@ -40,17 +41,11 @@ describe('spec', () => {
     expect(renderSpec({ ...good, backlogId: null, acceptanceCriteria: [] }, '2026-11-01', 'maintenance')).toMatch(/^# Maintenance · /);
   });
 
-  it('locks the file read-only, hashes it and detects tampering', () => {
+  it('locks the file read-only, hashes it and never overwrites', () => {
     dir = mkdtempSync(join(tmpdir(), 'spec-'));
     const path = join(dir, 'spec.md');
-    const sha = lockSpec(path, '# spec\n');
-    expect(sha).toBe(sha256('# spec\n'));
+    expect(lockSpec(path, '# spec\n')).toBe(createHash('sha256').update('# spec\n').digest('hex'));
     expect(statSync(path).mode & 0o222).toBe(0);
-    expect(verifySpec(path, sha)).toBe(true);
     expect(() => lockSpec(path, 'again')).toThrow(/exists/);
-    chmodSync(path, 0o644);
-    writeFileSync(path, '# spec\nAC9: free pass\n');
-    expect(verifySpec(path, sha)).toBe(false);
-    expect(verifySpec(join(dir, 'missing.md'), sha)).toBe(false);
   });
 });

@@ -1,11 +1,13 @@
 # Nightly dry run of the Daily AI Racer harness (HANDOVER §6.1). Started by daily-racer.timer.
 #
 # A system unit with User= rather than a user unit: it runs whether or not the owner is logged in
-# without enabling linger, its logs land in the system journal (`journalctl -u daily-racer`), and
-# only root can edit or disable it, so nothing the harness runs as the owner can change its own
-# schedule. The owner's user must be in the `docker` group.
+# without enabling linger, and its logs land in the system journal (`journalctl -u daily-racer`).
+# The owner's user must be in the `docker` group, which is root-equivalent, so this is no barrier
+# against the owner's own processes; the containment that matters is that builder code never gets
+# the docker socket (agent and gate containers run without it).
 #
-# Install (SETUP.md): replace __USER__ and __REPO__ (absolute path of the owner's checkout).
+# Install (SETUP.md): replace __USER__ and __REPO__ (the dedicated harness checkout of main,
+# ~/.daily-racer/harness, that the owner updates; never the work clone).
 [Unit]
 Description=Daily AI Racer nightly dry run
 Wants=network-online.target

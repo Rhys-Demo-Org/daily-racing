@@ -1,12 +1,14 @@
 # Fires the nightly run at 02:00 London. Persistent=false: the VM runs in UTC and a missed run
-# must never fire at boot in the daytime (daily.sh also refuses to start after 03:00 London).
+# must never fire at boot in the daytime (daily.sh also refuses to start after 03:00 London; 03:00
+# itself still starts, in case spring-forward day fires it an hour late). AccuracySec=1s keeps
+# that late firing inside the 03:00 minute.
 [Unit]
 Description=Daily AI Racer nightly run at 02:00 Europe/London
 
 [Timer]
 OnCalendar=*-*-* 02:00:00 Europe/London
 Persistent=false
-AccuracySec=1min
+AccuracySec=1s
 Unit=daily-racer.service
 
 [Install]

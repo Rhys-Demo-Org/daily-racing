@@ -11,10 +11,12 @@ import {
   DT,
   TICK_HZ,
   carViews,
+  createBot,
   createWorld,
   raceView,
   stepWorld,
   trackLayout,
+  type Bot,
   type CarInput,
   type CarView,
   type RaceView,
@@ -36,6 +38,8 @@ const MINIMAP_STRIDE = 8;
 const NO_INPUT: CarInput = { steer: 0, throttle: false, brake: false };
 /** GO! is cleared this many ticks after the start, in sim time, so staged frames are deterministic. */
 const GO_HIDE_TICKS = TICK_HZ;
+/** The bot opponent (car 1): KOSKI #7 from the mockups, mustard with a navy stripe. */
+const BOT_LIVERY: CarLivery = { body: 'mustard', stripe: 'navy', number: 7, player: false };
 
 export type GameMode = 'menu' | 'race';
 
@@ -67,6 +71,7 @@ interface Race {
   layout: TrackLayout;
   scene: RaceScene;
   world: World;
+  bot: Bot;
   seed: number;
   prev: CarView[];
   curr: CarView[];
@@ -188,9 +193,9 @@ export function createGame(root: HTMLElement): Game {
   }
 
   function tick(r: Race, carInput: CarInput): void {
-    // After the finish the player's car coasts; the panel takes over the controls.
+    // After the finish the player's car coasts; the panel takes over the controls. The bot drives on.
     const phase = raceView(r.world).phase;
-    stepWorld(r.world, [phase === 'finished' ? NO_INPUT : carInput]);
+    stepWorld(r.world, [phase === 'finished' ? NO_INPUT : carInput, r.bot.input(r.world)]);
     r.prev = r.curr;
     r.curr = carViews(r.world);
   }
@@ -233,7 +238,7 @@ export function createGame(root: HTMLElement): Game {
       const track = getTrack(options.trackId ?? menuTrack.id);
       menuTrack = track;
       const seed = options.seed ?? nextSeed++;
-      const liveries = [playerLivery(1)];
+      const liveries = [playerLivery(1), BOT_LIVERY];
       const { layout, scene } = sceneFor(track, liveries);
       const world = createWorld(track, { seed, carCount: liveries.length });
       const views = carViews(world);
@@ -242,6 +247,7 @@ export function createGame(root: HTMLElement): Game {
         layout,
         scene,
         world,
+        bot: createBot(world, 1),
         seed,
         prev: views,
         curr: views,

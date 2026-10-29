@@ -453,11 +453,13 @@ export function surfaceAt(track: Track, pos: TrackPos, x: number, z: number): Su
   return nearestGlobal(track, x, z).distance <= track.halfWidth ? 'dirt' : 'grass';
 }
 
-/** Ground height and its gradient (dh/dx, dh/dz) at (x, z). Flat ground is 0; ramps are wedges. */
-export function groundAt(track: Track, x: number, z: number): { h: number; gx: number; gz: number } {
+/** Ground height and its gradient (dh/dx, dh/dz) at (x, z), and the ramp there if any. Flat ground
+ * is 0; ramps are wedges. */
+export function groundAt(track: Track, x: number, z: number): { h: number; gx: number; gz: number; ramp: RampInstance | null } {
   let h = 0;
   let gx = 0;
   let gz = 0;
+  let ramp: RampInstance | null = null;
   for (const r of track.ramps) {
     const fx = Math.sin(r.heading);
     const fz = -Math.cos(r.heading);
@@ -469,10 +471,11 @@ export function groundAt(track: Track, x: number, z: number): { h: number; gx: n
     const rh = r.height * (1 + along / r.length);
     if (rh > h) {
       h = rh;
+      ramp = r;
       const slope = r.height / r.length;
       gx = fx * slope;
       gz = fz * slope;
     }
   }
-  return { h, gx, gz };
+  return { h, gx, gz, ramp };
 }

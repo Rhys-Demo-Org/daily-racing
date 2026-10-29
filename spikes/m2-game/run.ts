@@ -64,6 +64,11 @@ for (const [w, h, touch] of [[844, 390, true], [1440, 900, false]] as const) {
   const staged = await state(page);
   check(`${tag} staged race is racing`, staged.race?.phase === 'racing', staged.race?.phase ?? 'none');
   check(`${tag} staged car moved`, (staged.cars[0]?.speed ?? 0) > 10, (staged.cars[0]?.speed ?? 0).toFixed(1));
+  // M3: one bot opponent (car 1) drives itself; the HUD shows POS x/2 and two minimap dots.
+  check(`${tag} bot drives`, staged.cars.length === 2 && (staged.cars[1]?.speed ?? 0) > 10, (staged.cars[1]?.speed ?? 0).toFixed(1));
+  const pos = (await page.locator('.ui-hud-pos__value').first().textContent()) ?? '';
+  check(`${tag} HUD shows POS x/2`, /^[12]\/2$/.test(pos), pos);
+  check(`${tag} minimap shows 2 cars`, (await page.locator('.ui-hud-map__car').count()) === 2);
 
   // Real-time keyboard drive.
   await page.evaluate(() => (window as unknown as { __racer: { startRace: (o: unknown) => void; resume: () => void } }).__racer.resume());

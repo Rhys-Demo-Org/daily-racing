@@ -1,7 +1,7 @@
 // The world: track, cars and race state, advanced one fixed tick at a time.
 import type { CarInput, CarView, RaceView, TrackData } from './types.ts';
 import type { CarState } from './car.ts';
-import { carView, createCar, stepCar } from './car.ts';
+import { carView, createCar, stepCars } from './car.ts';
 import type { RacerState } from './race.ts';
 import {
   COUNTDOWN_TICKS,
@@ -89,9 +89,7 @@ export function stepWorld(world: World, inputs: readonly CarInput[]): void {
     world.tick++;
     return;
   }
-  for (let i = 0; i < world.cars.length; i++) {
-    stepCar(world.cars[i] as CarState, sanitiseInput(inputs[i]), world.track);
-  }
+  stepCars(world.cars, world.cars.map((_, i) => sanitiseInput(inputs[i])), world.track);
   world.tick++;
   const raceTick = world.tick - COUNTDOWN_TICKS;
   for (let i = 0; i < world.cars.length; i++) {

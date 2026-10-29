@@ -33,11 +33,9 @@ on Sundays (maintenance). Everything else is protected and only the owner change
   between the last two ticks, and the UI receives view models (`src/ui/types.ts`), never the sim.
 - `src/sim/types.ts` is the contract between layers; import the sim only via `src/sim/index.ts`.
 - The sim computes all track geometry (`trackLayout`); render only draws it.
-- Opponents are bots (`src/sim/bot.ts`): each returns the same `CarInput` as the player every tick,
-  so a race is reproducible from the seed and the player's inputs alone.
-- Opponents are `createBot(world, i)` (`src/sim/bot.ts`): they emit the same `CarInput` as the player,
-  so the bot also drives the gates' bot laps. `validateTrack` rejects tracks the bot can't race
-  (ramps steeper than `MAX_RAMP_SLOPE`, no straight run-out after a lip).
+- Opponents are `createBot(world, i)` (`src/sim/bot.ts`): each returns the same `CarInput` as the
+  player every tick, so a race is reproducible from the seed and the player's inputs, and the bot
+  also drives the gates' bot laps.
 - `src/ui/race-ui.ts` turns each frame's `RaceView` into HUD, countdown and finish-panel updates.
 - `src/driver/` installs `window.__racer` (start a race with a seed, freeze real time, step/play
   inputs, read state) for gates. It is protected; never special-case it in game code.

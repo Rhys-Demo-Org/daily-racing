@@ -5,6 +5,7 @@ import { TOP_FACE_MIN_Y } from '../../src/render/materials/index.ts';
 import {
   HAY_BALE_LENGTH,
   HAY_BALE_WIDTH,
+  MAX_RAMP_HEIGHT,
   MAX_RAMP_SLOPE,
   TREE_TRUNK_RADIUS,
   TYRE_STACK_RADIUS,
@@ -43,6 +44,7 @@ describe('validateTrack', () => {
     ['ramp past the lap', (t) => (t['ramps'] = [{ at: 1.2, length: 5, height: 1 }]), /ramps\[0\]\.at/],
     ['ramp without height', (t) => (t['ramps'] = [{ at: 0.2, length: 5 }]), /ramps\[0\]\.height/],
     ['ramp too steep (5 long, 2 high)', (t) => (t['ramps'] = [{ at: 0.09, length: 5, height: 2 }]), /ramps\[0\] is too steep/],
+    ['ramp too high (2.1 high, slope 0.3)', (t) => (t['ramps'] = [{ at: 0.09, length: 7, height: 2.1 }]), /ramps\[0\]\.height must be at most 2/],
     ['ramp whose lip is in a corner', (t) => (t['ramps'] = [{ at: 0.3, length: 5, height: 1 }]), /ramps\[0\] needs 25 units of straight track/],
     ['unknown prop kind', (t) => (t['props'] = [{ kind: 'rock', x: 0, z: 0 }]), /props\[0\]\.kind/],
     ['prop x as string', (t) => (t['props'] = [{ kind: 'cone-tree', x: '1', z: 0 }]), /props\[0\]\.x/],
@@ -72,7 +74,8 @@ describe('validateTrack', () => {
     expect(() => validateTrack('dust-bowl')).toThrow(/expected an object/);
   });
 
-  it('accepts a ramp at the steepest slope whose lip is one run-out before a corner', () => {
+  it('accepts a ramp at the steepest slope and greatest height whose lip is one run-out before a corner', () => {
+    expect(rampCornerTrack().ramps[0]).toMatchObject({ height: MAX_RAMP_HEIGHT, length: MAX_RAMP_HEIGHT / MAX_RAMP_SLOPE });
     expect(() => validateTrack(rampCornerTrack())).not.toThrow();
     const later = rampCornerTrack();
     later.ramps[0]!.at += 0.01;
@@ -84,6 +87,13 @@ describe('validateTrack', () => {
     expect(MAX_RAMP_SLOPE).toBeLessThan(CAR_TUNING.maxStepUp / (SURFACES.dirt.topSpeed * DT));
     // Render keeps an upward face at its base colour while its normal's y >= TOP_FACE_MIN_Y.
     expect(MAX_RAMP_SLOPE).toBeLessThanOrEqual(Math.sqrt(1 / TOP_FACE_MIN_Y ** 2 - 1));
+  });
+
+  it('caps ramp height so a full-speed jump off the steepest, highest ramp lands inside the 25-unit run-out', () => {
+    const v = SURFACES.dirt.topSpeed;
+    const vy = v * MAX_RAMP_SLOPE;
+    const g = CAR_TUNING.gravity;
+    expect((v * (vy + Math.sqrt(vy * vy + 2 * g * MAX_RAMP_HEIGHT))) / g).toBeLessThan(25);
   });
 
   it('names the track in the error', () => {

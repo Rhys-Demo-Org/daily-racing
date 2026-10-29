@@ -3,9 +3,9 @@
 import { describe, expect, it } from 'vitest';
 import type { CarInput } from '../../src/sim/types.ts';
 import type { CarState } from '../../src/sim/car.ts';
-import { CAR_TUNING, stepCar } from '../../src/sim/car.ts';
+import { CAR_TUNING } from '../../src/sim/car.ts';
 import { buildTrack, validateTrack } from '../../src/sim/track.ts';
-import { GAS, REVERSE, movingCar, stripTrack } from './helpers.ts';
+import { GAS, REVERSE, movingCar, stepCar, stripTrack } from './helpers.ts';
 
 // Lip at (0, 0) facing east; the slope rises over x ∈ [−6, 0], z ∈ [−4.2, 4.2].
 const track = buildTrack(validateTrack(stripTrack({ ramps: [{ at: 0, length: 6, height: 1.2 }] })));

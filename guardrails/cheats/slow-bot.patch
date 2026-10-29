@@ -1,0 +1,17 @@
+Expect: G2
+Also: G1,G3
+Why: halving top speed also breaks main's car/bot tests and every replay
+
+diff --git a/src/sim/car.ts b/src/sim/car.ts
+index 38290fa..1513cdf 100644
+--- a/src/sim/car.ts
++++ b/src/sim/car.ts
+@@ -32,7 +32,7 @@ export interface SurfaceTuning {
+ }
+ 
+ export const SURFACES: Readonly<Record<Surface, SurfaceTuning>> = {
+-  dirt: { topSpeed: 25, accel: 30, grip: 24, coastDecel: 4, coastDrag: 0.1 },
++  dirt: { topSpeed: 12.5, accel: 30, grip: 24, coastDecel: 4, coastDrag: 0.1 },
+   grass: { topSpeed: 15, accel: 20, grip: 14, coastDecel: 8, coastDrag: 0.25 },
+ };
+ 

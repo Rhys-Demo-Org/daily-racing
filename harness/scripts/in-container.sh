@@ -9,40 +9,23 @@
 #
 # Runs as the host user with a throwaway HOME, so nothing persists between calls except the
 # shared pnpm store volume (content-addressed, so a poisoned entry fails integrity checks).
+# stdin is always attached (-i); a TTY only when there is one.
 set -euo pipefail
+source "$(dirname "$0")/../lib/common.sh"
 
-root="$(cd "$(dirname "$0")/../.." && pwd)"
-dockerfile="$root/harness/container/Dockerfile"
-image="daily-racer-toolchain:$(sha256sum "$dockerfile" | cut -c1-12)"
-
-network=none
-mount_mode=rw
-cpu_flags=()
+network=none mount_mode=rw cpu_flags=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --net) network=bridge; shift ;;
     --ro) mount_mode=ro; shift ;;
     --cpuset) cpu_flags=(--cpuset-cpus "$2"); shift 2 ;;
     --) shift; break ;;
-    *) echo "in-container.sh: unknown option $1" >&2; exit 2 ;;
+    *) die "unknown option $1" ;;
   esac
 done
-[[ $# -gt 0 ]] || { echo "usage: in-container.sh [--net] [--ro] [--cpuset <cpus>] -- <command> [args...]" >&2; exit 2; }
-
-if ! docker image inspect "$image" >/dev/null 2>&1; then
-  echo "in-container.sh: image $image missing; run harness/container/build.sh" >&2
-  exit 2
-fi
-
+[[ $# -gt 0 ]] || die "usage: in-container.sh [--net] [--ro] [--cpuset <cpus>] -- <command> [args...]"
+need_image
 tty_flags=()
-[[ -t 0 && -t 1 ]] && tty_flags=(-it)
-
-exec docker run --rm "${tty_flags[@]}" "${cpu_flags[@]}" \
-  --network "$network" \
-  --user "$(id -u):$(id -g)" \
-  --tmpfs /tmp:exec \
-  -e HOME=/tmp/home \
-  -v "$root:/repo:$mount_mode" \
-  -v daily-racer-pnpm-store:/pnpm-store \
-  -w /repo \
-  "$image" "$@"
+[[ -t 0 && -t 1 ]] && tty_flags=(-t)
+exec docker run "${DOCKER_BASE[@]}" -i "${tty_flags[@]}" "${cpu_flags[@]}" --network "$network" \
+  -v "$HARNESS_ROOT:/repo:$mount_mode" -v daily-racer-pnpm-store:/pnpm-store -w /repo "$IMAGE" "$@"

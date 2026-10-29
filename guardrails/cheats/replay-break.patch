@@ -1,0 +1,17 @@
+Expect: G3
+Also: G1
+Why: main's unit tests may pin landing behaviour too
+
+diff --git a/src/sim/car.ts b/src/sim/car.ts
+index 38290fa..226b9e9 100644
+--- a/src/sim/car.ts
++++ b/src/sim/car.ts
+@@ -65,7 +65,7 @@ export const CAR_TUNING = {
+   /** Gravity for jumps, units/s². Stronger than real so jumps feel snappy. */
+   gravity: 22,
+   /** Fraction of horizontal speed kept on landing. */
+-  landingKeep: 0.96,
++  landingKeep: 0.95,
+   /** Collision response: bounce off the contact normal, and lose this share of speed per unit/s of
+    * impact speed (capped). */
+   restitution: 0.2,

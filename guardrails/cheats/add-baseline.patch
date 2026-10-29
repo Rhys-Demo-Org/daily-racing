@@ -1,0 +1,10 @@
+Expect: G8
+Also: -
+
+diff --git a/tests/baselines/new-track.json b/tests/baselines/new-track.json
+new file mode 100644
+index 0000000..0967ef4
+--- /dev/null
++++ b/tests/baselines/new-track.json
+@@ -0,0 +1 @@
++{}

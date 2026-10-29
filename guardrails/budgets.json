@@ -1,0 +1,13 @@
+{
+  "g11Size": {
+    "maxChangedSrcLines": 800,
+    "maxChangedFiles": 12,
+    "maxTrackFileLines": 300,
+    "note": "HANDOVER §5.2 gate 11: src/ lines exclude tests and pure-data track JSON; files count src/ + tests/."
+  },
+  "g4Perf": {
+    "maxFrameTimeRegression": 0.15,
+    "runsPerSide": 7,
+    "note": "Owner decision 1 (PHASE0_STATUS.md). Triangle, draw-call and bundle limits are set when G4 is built."
+  }
+}

@@ -1,0 +1,8 @@
+Expect: G2
+Also: G1
+Why: main's tests load dust-bowl from the tracks folder
+
+diff --git a/src/content/tracks/dust-bowl.json b/src/content/dust-bowl.json
+similarity index 100%
+rename from src/content/tracks/dust-bowl.json
+rename to src/content/dust-bowl.json

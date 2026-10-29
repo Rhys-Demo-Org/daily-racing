@@ -11,3 +11,6 @@ playwright-report/
 journal/IDEAS.md
 journal/CHANGELOG.md
 journal/metrics.csv
+
+# Agent worktrees (local only)
+.claude/worktrees/

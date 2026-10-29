@@ -28,6 +28,14 @@ Allowlist (plan deviation 2): `src/**` except `src/driver/**`; **new** files und
 (not `tests/baselines/`, which the harness writes); `journal/runs/<today>/**`; and `CLAUDE.md`
 on Sundays (maintenance). Everything else is protected and only the owner changes it.
 
+## How the game fits together
+- `src/game.ts` owns the loop: the sim steps in fixed 60 Hz ticks, render draws cars interpolated
+  between the last two ticks, and the UI receives view models (`src/ui/types.ts`), never the sim.
+- `src/sim/types.ts` is the contract between layers; import the sim only via `src/sim/index.ts`.
+- The sim computes all track geometry (`trackLayout`); render only draws it.
+- `src/driver/` installs `window.__racer` (start a race with a seed, freeze real time, step/play
+  inputs, read state) for gates. It is protected; never special-case it in game code.
+
 ## Layout
 ```
 src/sim          deterministic simulation; no Three.js, DOM, or global/time/random access
@@ -52,13 +60,13 @@ spikes           Phase 0 throwaway experiments (deleted at handover)
 - **Tokens:** `guardrails/design/tokens.json` is the single source. `pnpm gen:tokens` regenerates
   `guardrails/palette.json` and `guardrails/generated/tokens.{ts,css}`; `pnpm check:tokens` fails
   if they are stale. A mesh colour is a palette **index** (0–9, `PALETTE` order); the shader steps
-  down `LADDER_INDEX` for shading, so off-palette colours can't be produced. *(planned, M2)*
+  down `LADDER_INDEX` for shading, so off-palette colours can't be produced.
 - **Simulation:** fixed 60 Hz step, seeded RNG passed explicitly, fully decoupled from rendering so
   it runs headless in Node. New physics behaviour is opt-in per track, car or surface so existing
-  replays never change. *(planned, M2)*
+  replays never change.
 - **Registration by file convention:** tracks, cars and screens register by being in their folder
   (`import.meta.glob`), never via a hand-edited index. Every file in a content folder must be
-  registered. Tracks are JSON data. *(planned, M2)*
+  registered. Tracks are JSON data.
 - **Fonts:** self-hosted woff2 in `public/fonts/` (`fonts.css`), Barlow Condensed 800/900/900i and
   Atkinson Hyperlegible 400/700, Latin + Latin Extended only.
 

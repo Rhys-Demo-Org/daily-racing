@@ -1,11 +1,9 @@
-// Entry point. Milestone 2 replaces this with the game; for now it only proves tokens and fonts load.
+// Entry point: tokens and base styles, the game, and the gate driver.
 import '@tokens/css';
 import './ui/base.css';
+import { installDriver } from './driver/index.ts';
+import { createGame } from './game.ts';
 
 const app = document.getElementById('app');
-if (app) {
-  const title = document.createElement('h1');
-  title.className = 'placeholder-title';
-  title.textContent = 'Daily AI Racer';
-  app.append(title);
-}
+if (!app) throw new Error('#app missing from index.html');
+installDriver(createGame(app));

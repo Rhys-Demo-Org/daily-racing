@@ -1,0 +1,65 @@
+{
+  "id": "dust-bowl",
+  "name": "Dust Bowl",
+  "laps": 3,
+  "width": 8.4,
+  "centreline": [
+    [-63, 78],
+    [0, 78],
+    [63, 78],
+    [125, 78],
+    [183, 55],
+    [207, 0],
+    [183, -55],
+    [125, -78],
+    [63, -78],
+    [0, -56],
+    [-63, -78],
+    [-125, -78],
+    [-183, -55],
+    [-207, 0],
+    [-183, 55],
+    [-125, 78]
+  ],
+  "ramps": [
+    {
+      "at": 0.09,
+      "length": 5,
+      "height": 1.0
+    }
+  ],
+  "propRows": [
+    { "kind": "hay-bale", "side": "left", "from": 0.02, "to": 0.07, "spacing": 2.1, "offset": 2 },
+    { "kind": "hay-bale", "side": "left", "from": 0.52, "to": 0.6, "spacing": 2.1, "offset": 2 },
+    { "kind": "tyre-stack", "side": "right", "from": 0.22, "to": 0.42, "spacing": 3.5, "offset": 1.5 },
+    { "kind": "tyre-stack", "side": "left", "from": 0.25, "to": 0.39, "spacing": 4, "offset": 1.5 },
+    { "kind": "tyre-stack", "side": "right", "from": 0.72, "to": 0.92, "spacing": 3.5, "offset": 1.5 },
+    { "kind": "tyre-stack", "side": "left", "from": 0.75, "to": 0.89, "spacing": 4, "offset": 1.5 },
+    { "kind": "cone-tree", "side": "right", "from": 0.46, "to": 0.66, "spacing": 18, "offset": 8 },
+    { "kind": "cone-tree", "side": "right", "from": 0.0, "to": 0.16, "spacing": 20, "offset": 9 },
+    { "kind": "hay-bale", "side": "left", "from": 0.15, "to": 0.19, "spacing": 2.1, "offset": 2 },
+    { "kind": "cone-tree", "side": "right", "from": 0.22, "to": 0.42, "spacing": 9, "offset": 7 },
+    { "kind": "cone-tree", "side": "right", "from": 0.72, "to": 0.92, "spacing": 9, "offset": 7 },
+    { "kind": "cone-tree", "side": "right", "from": 0.66, "to": 0.72, "spacing": 14, "offset": 8 },
+    { "kind": "cone-tree", "side": "right", "from": 0.92, "to": 1.0, "spacing": 18, "offset": 9 },
+    { "kind": "cone-tree", "side": "left", "from": 0.11, "to": 0.2, "spacing": 12, "offset": 10 },
+    { "kind": "cone-tree", "side": "left", "from": 0.44, "to": 0.5, "spacing": 12, "offset": 9 },
+    { "kind": "cone-tree", "side": "left", "from": 0.62, "to": 0.72, "spacing": 12, "offset": 9 },
+    { "kind": "cone-tree", "side": "right", "from": 0.0, "to": 0.16, "spacing": 26, "offset": 22 },
+    { "kind": "cone-tree", "side": "right", "from": 0.46, "to": 0.66, "spacing": 26, "offset": 22 }
+  ],
+  "props": [
+    { "kind": "cone-tree", "x": -90, "z": 4 },
+    { "kind": "cone-tree", "x": -27, "z": 25 },
+    { "kind": "cone-tree", "x": 36, "z": -13 },
+    { "kind": "cone-tree", "x": 94, "z": 27 },
+    { "kind": "cone-tree", "x": -54, "z": -34 },
+    { "kind": "cone-tree", "x": 132, "z": -16 },
+    { "kind": "cone-tree", "x": 4, "z": 38 },
+    { "kind": "cone-tree", "x": -143, "z": -11 },
+    { "kind": "cone-tree", "x": -168, "z": 108 },
+    { "kind": "cone-tree", "x": 240, "z": -67 },
+    { "kind": "cone-tree", "x": -240, "z": -49 },
+    { "kind": "cone-tree", "x": 168, "z": -114 }
+  ]
+}

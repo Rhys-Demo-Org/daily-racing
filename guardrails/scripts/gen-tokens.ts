@@ -11,7 +11,7 @@
 // These generated files are the only places colour literals may appear outside guardrails/design/.
 // Runs under plain Node 24 (native type stripping), so it uses erasable TypeScript only.
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -183,13 +183,7 @@ function main(): void {
   for (const [rel, content] of Object.entries(generate())) {
     const path = join(root, rel);
     if (check) {
-      let current: string | undefined;
-      try {
-        current = readFileSync(path, 'utf8');
-      } catch {
-        current = undefined;
-      }
-      if (current !== content) stale.push(rel);
+      if (!existsSync(path) || readFileSync(path, 'utf8') !== content) stale.push(rel);
     } else {
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, content);

@@ -29,7 +29,8 @@ Built:
 Verified (in `node:24.22.1-bookworm-slim` + pnpm 12.16.1): `pnpm install --frozen-lockfile
 --ignore-scripts`, `pnpm typecheck`, `pnpm check:tokens`, `pnpm test` (4/4), `pnpm build`.
 
-**Checkpoint: owner approves `guardrails/BACKLOG.md`** and the UI_RULES §9 commit in the M1 PR.
+**Checkpoint passed (2026-10-29):** owner approved `guardrails/BACKLOG.md` (including the B11 lock
+rule and leaving out the S6 settings button) and the UI_RULES §9 commit. PR #1 awaits merge.
 
 ## Next step
 After the M1 PR merges: **M1.5 spike**. Build the pinned container image
@@ -42,10 +43,6 @@ under `--network none`, `node --permission`, perf A/B variance over 20 runs).
 1. **Node 24.22.2 Docker image doesn't exist yet** (Docker Hub has up to `24.22.1`; nodejs.org has
    24.22.2). M1 used `node:24.22.1` only to generate the lockfile. M1.5 installs Node 24.22.2 into
    the Playwright image itself, so this only matters if that install fails; fallback is 24.22.1.
-2. **Backlog B11 lock rule** (Pine Ridge unlocks after finishing a race on Hay Loop) is my
-   proposal; the S6 mockup shows a lock but no rule.
-3. **S6 settings button** is left out of the backlog because no settings screen is designed.
-   Add a design and a backlog item if you want one.
 
 ## Notes for later milestones
 - PWA icons: `guardrails/build/pwa-icons.ts` (draws palette shapes with `pngjs`) lands in M2; the

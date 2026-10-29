@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Agent sandbox network (HANDOVER §8): an --internal Docker network with no route out (in
 # "isolated" gateway mode, so the host has no address on it and host services such as sshd are
-# unreachable too), and the
-# allowlist proxy (harness/proxy/server.ts) attached to it and to an egress bridge. Agent
-# containers join the internal network and reach the internet only via HTTPS_PROXY=$PROXY_URL.
+# unreachable too), and the allowlist proxy (harness/proxy/server.ts) attached to it and to an
+# egress bridge. Agent containers join the internal network and reach the internet only via
+# HTTPS_PROXY.
 #
 #   harness/scripts/sandbox-net.sh up|down|status
 #
@@ -13,15 +13,12 @@
 # its own after `down` or a reboot: nothing listens between nights.
 set -euo pipefail
 
-root="$(cd "$(dirname "$0")/../.." && pwd)"
-[[ -f "$root/harness/config.env" ]] && source "$root/harness/config.env"
-: "${PROXY_ALLOW:=api.anthropic.com}"
-image="daily-racer-toolchain:$(sha256sum "$root/harness/container/Dockerfile" | cut -c1-12)"
+source "$(dirname "$0")/../lib/common.sh"
 internal=daily-racer-sandbox
 egress=daily-racer-egress
 proxy=daily-racer-proxy
 
-hash="$(cat "$root"/harness/proxy/*.ts <(echo "$PROXY_ALLOW $image") | sha256sum | cut -c1-16)"
+hash="$(cat "$HARNESS_ROOT"/harness/proxy/*.ts <(echo "$PROXY_ALLOW $IMAGE") | sha256sum | cut -c1-16)"
 isolated() {
   [[ "$(docker network inspect -f '{{.Internal}} {{index .Options "com.docker.network.bridge.gateway_mode_ipv4"}}' \
     "$internal" 2>/dev/null)" == "true isolated" ]]
@@ -38,13 +35,10 @@ case "${1:-}" in
     docker network inspect "$egress" >/dev/null 2>&1 || docker network create "$egress" >/dev/null
     [[ "$(running_hash)" == "$hash" ]] && exit 0
     docker rm -f "$proxy" >/dev/null 2>&1 || true
-    docker run -d --name "$proxy" --label "daily-racer.proxy=$hash" \
-      --network "$egress" --network "$internal" \
-      --restart on-failure:5 --read-only --tmpfs /tmp \
-      --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges \
-      --memory 256m --pids-limit 64 \
-      -e PROXY_ALLOW="$PROXY_ALLOW" -v "$root/harness/proxy:/proxy:ro" \
-      "$image" node /proxy/server.ts >/dev/null
+    # The base flags minus --rm, which conflicts with --restart.
+    docker run -d "${DOCKER_BASE[@]:1}" --name "$proxy" --label "daily-racer.proxy=$hash" \
+      --network "$egress" --network "$internal" --restart on-failure:5 --read-only --memory 256m --pids-limit 64 \
+      -e PROXY_ALLOW="$PROXY_ALLOW" -v "$HARNESS_ROOT/harness/proxy:/proxy:ro" "$IMAGE" node /proxy/server.ts >/dev/null
     # Wait until it listens (first log line), so the first agent call doesn't race it.
     for _ in $(seq 50); do docker logs "$proxy" 2>&1 | grep -q listening && exit 0; sleep 0.1; done
     echo "sandbox-net.sh: proxy did not start" >&2; docker logs "$proxy" >&2; exit 1 ;;

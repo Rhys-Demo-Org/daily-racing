@@ -84,5 +84,5 @@ in this repo should start with [`CLAUDE.md`](CLAUDE.md).
 
 ## Licence
 
-No licence has been chosen yet; all rights reserved. Fonts are under the SIL Open Font Licence
+[MIT](LICENSE). Fonts are under the SIL Open Font Licence
 ([`public/fonts/OFL.txt`](public/fonts/OFL.txt)).

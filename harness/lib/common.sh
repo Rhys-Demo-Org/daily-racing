@@ -18,6 +18,11 @@ scratch() { mkdir -p "$1" && mktemp -d "$1/${2:-tmp}.XXXXXX"; } # scratch <paren
 DOCKER_BASE=(--rm --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges
   --tmpfs /tmp:exec,size=2g -e HOME=/tmp/home)
 
+# Live mode (plans/live-prs.md): owner/name of <clone>'s GitHub origin, and gh with the PAT in
+# GH_TOKEN for that one command (never argv). DAILY_GH is a test hook (daily-e2e.sh's stub gh).
+repo_slug() { git -C "$1" remote get-url origin | sed -E 's#^(https://github\.com/|git@github\.com:)##; s#(\.git)?/?$##'; }
+gh_() { GH_TOKEN="$(tr -d '[:space:]' <"$GITHUB_TOKEN_FILE")" "${DAILY_GH:-gh}" "$@"; }
+
 # deps <tree>: prints a node_modules installed (frozen lockfile, no scripts) for <tree>'s
 # package.json + pnpm-lock.yaml + .npmrc, cached under $DAILY_HOME/cache per those and $IMAGE.
 deps() {

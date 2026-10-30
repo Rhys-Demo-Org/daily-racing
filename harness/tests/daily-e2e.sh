@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# End-to-end test of harness/daily.sh --dry-run with stub agent-run/run-gates (harness/tests/stubs)
-# and a fake clock, against a temp origin + clone under a temp HOME. Runs on the host because
+# End-to-end test of harness/daily.sh --dry-run and --live with stub agent-run/run-gates/gh
+# (harness/tests/stubs) and a fake clock, against a temp origin + clone under a temp HOME. Runs on the host because
 # daily.sh drives docker (the toolchain image must be built). Not part of `pnpm test`.
 #
 #   harness/tests/daily-e2e.sh            (~3-4 min; KEEP=1 keeps the temp dir)
@@ -9,17 +9,20 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 T="$(mktemp -d "${TMPDIR:-/tmp}/daily-e2e.XXXXXX")"
 export HOME="$T/home" DAILY_HOME="$T/home/.daily-racer" DAILY_TEST_CLOCK="$T/clock" STUB_LOG="$T/stub.log"
 export DAILY_SCRIPTS="$ROOT/harness/tests/stubs" TOKEN_FILE="$T/home/.daily-racer/oauth-token"
+export DAILY_GH="$ROOT/harness/tests/stubs/gh" GITHUB_TOKEN_FILE="$T/home/.daily-racer/github-token"
 D=$DAILY_HOME
 fails=0
 trap '[[ -n ${KEEP:-} ]] && echo "kept $T" || rm -rf "$T"' EXIT
 
 ok() { if eval "$2"; then echo "  ok   $1"; else echo "  FAIL $1   [$2]"; fails=$((fails + 1)); fi; }
 res() { jq -r "$1" "$D/runs/$2/result.json" 2>/dev/null; }
-# daily <iso-utc-time> [env...]: run one dry run at a fake time; output in $T/out, exit in $rc.
+# daily <iso-utc-time> [env...]: run one night ($MODE, default --dry-run) at a fake time; output in
+# $T/out, exit in $rc.
+MODE=--dry-run
 daily() {
   date -u -d "$1" +%s >"$DAILY_TEST_CLOCK"; shift
   : >"$STUB_LOG"
-  env "$@" "$ROOT/harness/daily.sh" --dry-run >"$T/out" 2>&1; rc=$?
+  env "$@" "$ROOT/harness/daily.sh" "$MODE" >"$T/out" 2>&1; rc=$?
 }
 
 mkdir -p "$HOME" "$D"
@@ -152,6 +155,43 @@ ok "the file reaches no commit; the journal does" '! git -C "$D/repo" log --name
 
 echo "report"
 ok "dry-run-report prints phases and gates" '"$ROOT/harness/scripts/dry-run-report.sh" 2026-11-03 >"$T/report" && grep -q "## Gates" "$T/report" && grep -q "retry-3" "$T/report" && grep -q "src/stub-build.ts" "$T/report"'
+
+echo "live: pass opens a ready PR (Wed 2026-11-18)"
+ghtok=github_pat_e2eFAKE0123456789abcdefghij
+install -m 600 /dev/null "$GITHUB_TOKEN_FILE"; echo "$ghtok" >"$GITHUB_TOKEN_FILE"
+MODE=--live
+ledger="$(cat "$D/dry-runs.json")"
+daily 2026-11-18T02:00:00Z STUB_PRS='[{"number":1,"state":"OPEN","labels":[{"name":"daily"},{"name":"backlog:B01"}]}]'
+R="$D/runs/2026-11-18"
+ok "pass, B01 skipped (open PR), dryRun false, ledger untouched" '[[ $(res .outcome 2026-11-18) == pass && $(res .backlogId 2026-11-18) == B02 && $(jq .dryRun "$R/meta.json") == false && $(cat "$D/dry-runs.json") == "$ledger" ]]'
+ok "pushed as one squashed commit on main with the branch's tree" '[[ $(git -C "$T/origin.git" rev-parse daily/2026-11-18^{tree}) == $(git -C "$D/repo" rev-parse daily/2026-11-18^{tree}) && $(git -C "$T/origin.git" rev-parse daily/2026-11-18~1) == $(jq -r .mainSha "$R/meta.json") ]]'
+ok "ready PR with daily + backlog labels" 'grep -q "^gh token=set pr create .*--head daily/2026-11-18 --title daily 2026-11-18: B02 · Stub feature --body-file .* --label daily --label backlog:B02$" "$STUB_LOG"'
+ok "PR body has the preview, spec and gates" 'grep -q "https://daily-2026-11-18.daily-racing.pages.dev" "$STUB_LOG.body" && grep -q "AC1" "$STUB_LOG.body" && grep -q "### Gates" "$STUB_LOG.body"'
+ok "the GitHub token is never in argv or the journal" '! grep -qF "$ghtok" "$STUB_LOG" && ! grep -rqF "$ghtok" "$R" && ! git -C "$D/repo" log -p daily/2026-11-18 | grep -qF "$ghtok"'
+
+echo "live: gate fail opens a draft labelled failed (Thu 2026-11-19)"
+daily 2026-11-19T02:00:00Z STUB_GATES=fail STUB_PRS='[{"number":1,"state":"MERGED","labels":[{"name":"backlog:B01"}]},{"number":2,"state":"CLOSED","labels":[{"name":"backlog:B02"}]}]'
+ok "B01 merged, B02 closed unmerged: picks B03" '[[ $(res .backlogId 2026-11-19) == B03 ]]'
+ok "draft PR labelled failed, pushed" 'grep -q "pr create .*\[fail\] .*--draft --label daily --label backlog:B03 --label failed$" "$STUB_LOG" && git -C "$T/origin.git" rev-parse -q --verify daily/2026-11-19 >/dev/null'
+
+echo "live: early abort pushes nothing (Fri 2026-11-20)"
+daily 2026-11-20T02:00:00Z STUB_EXIT_ideate=10
+ok "no push, no PR" '[[ $(res .outcome 2026-11-20) == abort ]] && ! git -C "$T/origin.git" rev-parse -q --verify daily/2026-11-20 >/dev/null && ! grep -q "pr create" "$STUB_LOG"'
+
+echo "live: a commit touching a protected path is never pushed (Sat 2026-11-21)"
+echo 'mkdir -p .github/workflows && echo "on: push" >.github/workflows/x.yml' >"$T/protected.sh"
+daily 2026-11-21T02:00:00Z STUB_BUILD="$T/protected.sh"
+ok "refused, nothing pushed" 'grep -q "^.github/workflows/x.yml: protected path" "$D/runs/2026-11-21/run.log" && grep -q "refused: the diff breaks the allowlist" "$D/runs/2026-11-21/run.log" && ! git -C "$T/origin.git" rev-parse -q --verify daily/2026-11-21 >/dev/null && ! grep -q "pr create" "$STUB_LOG"'
+
+echo "live: a secret-shaped string is never pushed (Mon 2026-11-23)"
+printf 'echo "export const k = %sghp_%s%s;" >src/k.ts\n' "'" "$(printf 'a%.0s' {1..36})" "'" >"$T/secret.sh"
+daily 2026-11-23T02:00:00Z STUB_BUILD="$T/secret.sh"
+ok "refused, nothing pushed" 'grep -q "refused: a secret-shaped string" "$D/runs/2026-11-23/run.log" && ! git -C "$T/origin.git" rev-parse -q --verify daily/2026-11-23 >/dev/null'
+
+echo "live: too many open daily PRs (Tue 2026-11-24)"
+seven="[$(for i in 1 2 3 4 5 6 7; do printf '{"number":%s,"state":"OPEN","labels":[]}%s' $i "$([[ $i == 7 ]] || echo ,)"; done)]"
+daily 2026-11-24T02:00:00Z STUB_PRS="$seven"
+ok "skipped before any run" '[[ $rc == 0 && ! -e $D/runs/2026-11-24 ]] && grep -q "7 daily PRs open" "$T/out"'
 
 echo
 (( fails == 0 )) && echo "daily-e2e: all passed" || echo "daily-e2e: $fails failed"

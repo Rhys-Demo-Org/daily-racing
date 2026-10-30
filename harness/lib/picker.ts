@@ -1,6 +1,7 @@
 // Chooses tonight's work (HANDOVER §6.2 step 2): Sunday maintenance, else the Phase 1 backlog item.
 // Parses guardrails/BACKLOG.md in its documented format. Dry runs merge nothing, so a ledger of
-// items already tried rotates through the unblocked ones instead of picking B01 every night.
+// items already tried rotates through the unblocked ones instead of picking B01 every night. Live
+// runs take their state from the repo's daily PRs instead (prState) and never rotate.
 
 /** One backlog entry. `text` is its full markdown block, handed to the ideate agent. */
 export type BacklogItem = { id: string; title: string; dependsOn: string[]; scope: string; doneWhen: string; text: string };
@@ -39,16 +40,36 @@ export function parseBacklog(md: string): BacklogItem[] {
   return items;
 }
 
+/** A daily PR as `gh pr list --json state,labels` reports it. */
+export type DailyPr = { state: string; labels: { name: string }[] };
+
+/**
+ * Backlog state from the daily PRs, by their `backlog:Bxx` label: a merged PR's item is done; an
+ * open or closed-unmerged PR's item counts as tried, so live runs never pick it again.
+ */
+export function prState(prs: readonly DailyPr[]): { merged: Set<string>; tried: string[] } {
+  const merged = new Set<string>();
+  const tried = new Set<string>();
+  for (const pr of prs) {
+    for (const { name } of pr.labels) {
+      const id = /^backlog:(B\d\d)$/.exec(name)?.[1];
+      if (id) (pr.state === 'MERGED' ? merged : tried).add(id);
+    }
+  }
+  return { merged, tried: [...tried].filter((id) => !merged.has(id)) };
+}
+
 /**
  * Sunday → maintenance. Every item merged → phase 2. Otherwise the first unblocked item (not
- * merged, every dependency merged) not yet in `tried`; when all have been tried, start over.
+ * merged, every dependency merged) not yet in `tried`; when all have been tried, start over
+ * (dry runs) or report blocked (`rotate` false, live runs).
  */
-export function chooseWork(sunday: boolean, items: BacklogItem[], merged: ReadonlySet<string>, tried: readonly string[]): Work {
+export function chooseWork(sunday: boolean, items: BacklogItem[], merged: ReadonlySet<string>, tried: readonly string[], rotate = true): Work {
   if (sunday) return { kind: 'maintenance' };
   if (items.every((i) => merged.has(i.id))) return { kind: 'phase2' };
   const open = items.filter((i) => !merged.has(i.id) && i.dependsOn.every((d) => merged.has(d)));
   const fresh = open.find((i) => !tried.includes(i.id));
-  const item = fresh ?? open[0];
+  const item = fresh ?? (rotate ? open[0] : undefined);
   if (!item) return { kind: 'blocked' };
   return { kind: 'backlog', item, tried: fresh ? [...tried, item.id] : [item.id] };
 }

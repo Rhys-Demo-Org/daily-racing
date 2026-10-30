@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Test stub for the GitHub CLI (daily-e2e.sh only, via DAILY_GH). Logs one line per call to
+# STUB_LOG, with whether GH_TOKEN was set (never its value). `pr list` prints $STUB_PRS (default
+# []); `pr create` copies its --body-file to $STUB_LOG.body.
+set -euo pipefail
+echo "gh token=$([[ -n ${GH_TOKEN:-} ]] && echo set || echo unset) $*" >>"${STUB_LOG:-/dev/null}"
+case "$1 $2" in
+  'pr list') echo "${STUB_PRS:-[]}" ;;
+  'pr create') while [[ $# -gt 0 ]]; do [[ $1 == --body-file ]] && cp "$2" "$STUB_LOG.body"; shift; done
+    echo "https://github.com/example/daily-racing/pull/1" ;;
+esac

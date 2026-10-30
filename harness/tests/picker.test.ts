@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { chooseWork, parseBacklog, type BacklogItem } from '../lib/picker.ts';
+import { chooseWork, parseBacklog, prState, type BacklogItem } from '../lib/picker.ts';
 
 const md = `# Backlog
 
@@ -82,5 +82,25 @@ describe('chooseWork', () => {
   it('returns phase 2 only when every item is merged', () => {
     expect(chooseWork(false, items, new Set(['B01', 'B02', 'B03']), []).kind).toBe('phase2');
     expect(chooseWork(false, items, new Set(['B01', 'B02']), []).kind).not.toBe('phase2');
+  });
+});
+
+describe('live runs (daily PRs as state)', () => {
+  const items: BacklogItem[] = parseBacklog(md);
+  const pr = (state: string, ...labels: string[]) => ({ state, labels: labels.map((name) => ({ name })) });
+
+  it('merged PRs are done; open and closed-unmerged PRs are tried', () => {
+    const s = prState([pr('MERGED', 'daily', 'backlog:B01'), pr('OPEN', 'backlog:B03'), pr('CLOSED', 'failed', 'backlog:B02'), pr('OPEN', 'daily')]);
+    expect([...s.merged]).toEqual(['B01']);
+    expect(s.tried.sort()).toEqual(['B02', 'B03']);
+  });
+
+  it('an item merged after an earlier failed PR counts as merged only', () => {
+    expect(prState([pr('CLOSED', 'backlog:B01'), pr('MERGED', 'backlog:B01')])).toEqual({ merged: new Set(['B01']), tried: [] });
+  });
+
+  it('never rotates back to a tried item', () => {
+    expect(ids(chooseWork(false, items, new Set(), ['B01'], false))).toBe('B03');
+    expect(chooseWork(false, items, new Set(), ['B01', 'B03'], false).kind).toBe('blocked');
   });
 });

@@ -1,0 +1,113 @@
+{
+  "date": "2026-10-30",
+  "dryRun": true,
+  "outcome": "pass",
+  "reason": null,
+  "abortReason": null,
+  "phase": 1,
+  "attempts": 1,
+  "models": {
+    "ideate": "claude-opus-5-5",
+    "build": "claude-opus-5-5",
+    "judge": "claude-opus-5-5"
+  },
+  "claudeCodeVersion": "2.1.304 (Claude Code)",
+  "ideaType": "backlog",
+  "backlogId": "B01",
+  "gates": {
+    "G1": true,
+    "G2": true,
+    "G3": true,
+    "G8": true
+  },
+  "gateRuns": [
+    {
+      "attempt": 1,
+      "pass": true,
+      "gates": {
+        "G1": true,
+        "G2": true,
+        "G3": true,
+        "G8": true
+      }
+    }
+  ],
+  "retries": 0,
+  "judgeScore": null,
+  "medianLapTimes": null,
+  "p95FrameTimeMs": null,
+  "triangleCount": null,
+  "bundleSizeBytes": null,
+  "diffSize": {
+    "files": 10,
+    "added": 462,
+    "deleted": 17
+  },
+  "usage": [
+    {
+      "phase": "ideate",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 52124,
+      "numTurns": 23,
+      "usage": {
+        "input_tokens": 18,
+        "cache_creation_input_tokens": 37322,
+        "cache_read_input_tokens": 198944,
+        "output_tokens": 5549,
+        "output_tokens_details": {
+          "thinking_tokens": 1631
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 37322,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.4494168
+    },
+    {
+      "phase": "build",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 211793,
+      "numTurns": 24,
+      "usage": {
+        "input_tokens": 42,
+        "cache_creation_input_tokens": 74660,
+        "cache_read_input_tokens": 1349486,
+        "output_tokens": 21827,
+        "output_tokens_details": {
+          "thinking_tokens": 7415
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 74660,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 1.3038851999999999
+    }
+  ],
+  "totalCostUsd": 1.75
+}

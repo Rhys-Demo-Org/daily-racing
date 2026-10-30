@@ -1,0 +1,10 @@
+35	2	src/game.ts
+16	0	src/ui/components.css
+1	1	src/ui/finish-panel.ts
+11	0	src/ui/hud.css
+17	5	src/ui/hud.ts
+8	6	src/ui/icons.ts
+54	0	src/ui/pause-screen.ts
+28	3	src/ui/race-ui.ts
+60	0	src/ui/screens.css
+232	0	tests/game/pause.test.ts

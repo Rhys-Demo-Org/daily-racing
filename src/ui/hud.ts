@@ -1,11 +1,12 @@
-// Race HUD (mockup S1–S2): POS + LAP + minimap top-left, TIME + BEST top-right.
+// Race HUD (mockup S1–S2): POS + LAP + minimap top-left, PAUSE + TIME + BEST top-right.
 // The game loop calls update() every frame. Each shown value is one persistent Text node or SVG
 // attribute, written only when its cached value changes; update() never reads the DOM or allocates.
 import { tokens } from '@tokens';
 import './components.css';
 import './hud.css';
-import { h, s } from './dom.ts';
+import { button, h, s } from './dom.ts';
 import { formatOptionalTime, formatTime } from './format.ts';
+import { icon } from './icons.ts';
 import type { HudState, MinimapState } from './types.ts';
 
 export interface Hud {
@@ -40,7 +41,12 @@ function field<T>(format: (v: T) => string): { node: Text; set(v: T): void } {
   };
 }
 
-export function createHud(root: HTMLElement): Hud {
+export interface HudOptions {
+  /** The PAUSE button was pressed (it toggles pause). */
+  onPause?: () => void;
+}
+
+export function createHud(root: HTMLElement, opts: HudOptions = {}): Hud {
   const pos = field<number>(String);
   const count = field<number>(String);
   const lap = field<number>(String);
@@ -52,6 +58,9 @@ export function createHud(root: HTMLElement): Hud {
   const edge = s('path', { class: 'ui-hud-map__edge' });
   const carsGroup = s('g');
   const map = s('svg', { viewBox: `0 0 ${MAP_W} ${MAP_H}`, role: 'img', 'aria-label': 'Track map' }, [edge, road, carsGroup]);
+
+  const pause = button('ui-button--icon ui-hud-pause', [icon('pause')], () => opts.onPause?.());
+  pause.setAttribute('aria-label', 'Pause');
 
   const element = h('div', 'ui-layer ui-hud', [
     h('div', 'ui-hud__tl', [
@@ -65,8 +74,11 @@ export function createHud(root: HTMLElement): Hud {
       h('div', 'ui-panel ui-panel--navy ui-hud-map', [map]),
     ]),
     h('div', 'ui-hud__tr', [
-      h('div', 'ui-panel ui-panel--navy ui-hud-panel ui-hud-time', [h('span', 'ui-label', ['Time']), h('span', 'ui-value', [time.node])]),
-      h('div', 'ui-panel ui-panel--mustard ui-hud-best', [h('span', 'ui-label', ['Best']), h('span', 'ui-hud-best__value', [best.node])]),
+      pause,
+      h('div', 'ui-hud__timer', [
+        h('div', 'ui-panel ui-panel--navy ui-hud-panel ui-hud-time', [h('span', 'ui-label', ['Time']), h('span', 'ui-value', [time.node])]),
+        h('div', 'ui-panel ui-panel--mustard ui-hud-best', [h('span', 'ui-label', ['Best']), h('span', 'ui-hud-best__value', [best.node])]),
+      ]),
     ]),
   ]);
   root.append(element);

@@ -26,7 +26,7 @@ export interface FinishPanel extends Omit<Overlay, 'show'> {
 let hatchIds = 0;
 
 /** Full-screen hatch of 3px ink lines every 9px at 45° (UI_RULES §7), as an SVG pattern. */
-function hatch(): SVGSVGElement {
+export function hatch(): SVGSVGElement {
   const id = `ui-hatch-${++hatchIds}`;
   const { lineWidth, pitch, angle } = tokens.hatch;
   return s('svg', { class: 'ui-hatch', 'aria-hidden': 'true' }, [

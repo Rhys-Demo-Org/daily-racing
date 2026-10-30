@@ -24,8 +24,19 @@
   right: var(--safe-right);
   top: var(--safe-top);
   display: flex;
+  align-items: flex-start;
+  gap: var(--space-s2);
+}
+/* TIME with the BEST chip tucked under it. */
+.ui-hud__timer {
+  display: flex;
   flex-direction: column;
   align-items: flex-end;
+}
+
+/* PAUSE beside TIME: the only HUD widget that takes pointer input. */
+.ui-hud-pause {
+  pointer-events: auto;
 }
 
 /* Mockup padding 2px 10px 6px is off-scale: 4px 8px. */

@@ -39,6 +39,8 @@ export interface GameState {
   seed: number;
   race: RaceView | null;
   cars: CarView[];
+  /** The player paused the race (PAUSE button or Esc); the real-time loop steps nothing. */
+  paused: boolean;
 }
 
 /** Control surface used by the start screen, the finish panel and src/driver (gates). */
@@ -94,7 +96,14 @@ export function createGame(root: HTMLElement): Game {
   root.append(canvas, raceLayer, menuLayer);
 
   const renderer = createRenderer(canvas);
-  const ui = createRaceUi(raceLayer, { onRaceAgain: () => game.startRace({ trackId: race?.track.id ?? menuTrack.id }) });
+  const restart = (): void => game.startRace({ trackId: race?.track.id ?? menuTrack.id });
+  const ui = createRaceUi(raceLayer, {
+    onRaceAgain: restart,
+    onPause: () => setPaused(!paused),
+    onResume: () => setPaused(false),
+    onRestart: restart,
+    onQuit: () => game.showMenu(),
+  });
   const input = createInput({ touchZones: () => ui.touch.zones(), touchListener: ui.touch.machine });
 
   let mode: GameMode = 'menu';
@@ -102,6 +111,7 @@ export function createGame(root: HTMLElement): Game {
   let menuTrack: TrackData = TRACKS[0] ?? getTrack('dust-bowl');
   let nextSeed = 1;
   let frozen = false;
+  let paused = false;
   let rafId = 0;
   let lastFrame = 0;
   let accumulator = 0;
@@ -132,6 +142,21 @@ export function createGame(root: HTMLElement): Game {
     menuLayer.hidden = next !== 'menu';
   }
 
+  /** Pause or resume a race in progress; a finished race (finish panel up) can't be paused. */
+  function setPaused(next: boolean): void {
+    if (next === paused || (next && (mode !== 'race' || !race || race.world.racers[0]?.finishTick != null))) return;
+    paused = next;
+    if (paused) {
+      input.reset();
+      ui.pause();
+    } else {
+      // Paused time is never caught up: the next frame starts a fresh step.
+      lastFrame = 0;
+      accumulator = 0;
+      ui.resume();
+    }
+  }
+
   function tick(r: Race, carInput: CarInput): void {
     // After the finish the player's car coasts; the panel takes over the controls. The bot drives on.
     const finished = r.world.racers[0]?.finishTick != null;
@@ -152,7 +177,7 @@ export function createGame(root: HTMLElement): Game {
     const dt = lastFrame === 0 ? DT : Math.min((now - lastFrame) / 1000, 0.25);
     lastFrame = now;
     const r = race;
-    if (mode !== 'race' || !r) return;
+    if (mode !== 'race' || !r || paused) return;
     accumulator += dt;
     let ticks = 0;
     while (accumulator >= DT && ticks < MAX_TICKS_PER_FRAME) {
@@ -176,6 +201,11 @@ export function createGame(root: HTMLElement): Game {
     rafId = 0;
   }
 
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Escape' || e.repeat || mode !== 'race') return;
+    e.preventDefault();
+    setPaused(!paused);
+  });
   window.addEventListener('resize', () => race?.scene.resize(window.innerWidth, window.innerHeight));
   // Coming back to a backgrounded tab is a resume: wake the touch controls (UI_RULES §6).
   document.addEventListener('visibilitychange', () => {
@@ -203,12 +233,14 @@ export function createGame(root: HTMLElement): Game {
         LIVERIES.map((l) => l.body),
       );
       input.reset();
+      paused = false;
       startScreen.hide();
       setMode('race');
       draw(race, 1, 0);
       startLoop();
     },
     showMenu() {
+      setPaused(false);
       setMode('menu');
       startScreen.show();
     },
@@ -219,6 +251,7 @@ export function createGame(root: HTMLElement): Game {
         seed: race?.world.seed ?? 0,
         race: race ? raceView(race.world) : null,
         cars: race ? race.curr.map((c) => ({ ...c })) : [],
+        paused,
       };
     },
     freeze() {

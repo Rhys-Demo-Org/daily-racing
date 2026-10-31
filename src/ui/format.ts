@@ -19,3 +19,16 @@ export function formatTime(ms: number): string {
 export function formatOptionalTime(ms: number | null): string {
   return ms === null ? NO_TIME : formatTime(ms);
 }
+
+/** A placing as caps ordinal: 1 → "1ST", 2 → "2ND", 11 → "11TH", 22 → "22ND". */
+export function ordinal(n: number): string {
+  const teen = n % 100 >= 11 && n % 100 <= 13;
+  const suffix = teen ? 'TH' : (['TH', 'ST', 'ND', 'RD'][n % 10] ?? 'TH');
+  return `${n}${suffix}`;
+}
+
+/** A gap behind the leader in ms: "+s.cc" under a minute, "+m:ss.cc" from a minute on. */
+export function formatGap(ms: number): string {
+  const time = formatTime(ms);
+  return `+${time.startsWith('0:') ? String(Number(time.slice(2, 4))) + time.slice(4) : time}`;
+}

@@ -3,7 +3,7 @@
 // The sim advances in fixed 60 Hz ticks (src/sim); rendering runs once per animation frame and draws
 // car positions interpolated between the last two ticks, so motion is smooth at any refresh rate.
 // The UI only ever sees views (src/ui/race-ui.ts), never the sim itself.
-import { TRACKS, getTrack } from './content/tracks.ts';
+import { TRACKS, getTrack, nextTrackId } from './content/tracks.ts';
 import { createInput } from './input/index.ts';
 import { createRaceScene, createRenderer, playerLivery, type CarLivery, type RaceScene } from './render/index.ts';
 import {
@@ -41,7 +41,7 @@ export interface GameState {
   cars: CarView[];
 }
 
-/** Control surface used by the start screen, the finish panel and src/driver (gates). */
+/** Control surface used by the start screen, the results screen and src/driver (gates). */
 export interface Game {
   startRace(options?: { trackId?: string; seed?: number }): void;
   showMenu(): void;
@@ -94,7 +94,10 @@ export function createGame(root: HTMLElement): Game {
   root.append(canvas, raceLayer, menuLayer);
 
   const renderer = createRenderer(canvas);
-  const ui = createRaceUi(raceLayer, { onRaceAgain: () => game.startRace({ trackId: race?.track.id ?? menuTrack.id }) });
+  const ui = createRaceUi(raceLayer, {
+    onRaceAgain: () => game.startRace({ trackId: race?.track.id ?? menuTrack.id }),
+    onNextRace: () => game.startRace({ trackId: nextTrackId(race?.track.id ?? menuTrack.id) }),
+  });
   const input = createInput({ touchZones: () => ui.touch.zones(), touchListener: ui.touch.machine });
 
   let mode: GameMode = 'menu';
@@ -201,6 +204,7 @@ export function createGame(root: HTMLElement): Game {
         track.laps,
         world.track.layout.centre.filter((_, i) => i % MINIMAP_STRIDE === 0),
         LIVERIES.map((l) => l.body),
+        { trackName: track.name, carNumbers: LIVERIES.map((l) => l.number) },
       );
       input.reset();
       startScreen.hide();

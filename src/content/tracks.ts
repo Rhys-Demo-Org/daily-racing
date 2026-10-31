@@ -24,3 +24,10 @@ export function getTrack(id: string): TrackData {
   if (!track) throw new Error(`Unknown track "${id}"`);
   return track;
 }
+
+/** The id of the track after `currentId` in `ids` (default: registry order), wrapping to the first. */
+export function nextTrackId(currentId: string, ids: readonly string[] = TRACKS.map((t) => t.id)): string {
+  const i = ids.indexOf(currentId);
+  if (i < 0) throw new Error(`Unknown track "${currentId}"`);
+  return ids[(i + 1) % ids.length] as string;
+}

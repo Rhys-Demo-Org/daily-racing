@@ -1,0 +1,145 @@
+/* Results screen (S5). Tokens only. Full-screen menu on a solid navy ground. */
+
+.ui-results {
+  flex-direction: column;
+  gap: var(--space-s4);
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  background: var(--color-navy);
+  color: var(--color-cream);
+}
+.ui-results__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-s2);
+}
+.ui-results__label {
+  margin: 0;
+  color: var(--color-mustard);
+}
+.ui-results__track {
+  font-size: var(--type-title-size);
+}
+/* Screen change: the stripes sweep in left→right, 40ms apart. */
+.ui-results .ui-stripe {
+  animation: ui-wipe-in var(--duration-wipe) var(--ease-sweep) both;
+}
+.ui-results .ui-stripe:nth-child(2) {
+  animation-delay: var(--duration-stagger);
+}
+.ui-results .ui-stripe:nth-child(3) {
+  animation-delay: calc(var(--duration-stagger) * 2);
+}
+
+.ui-results__main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-s5);
+}
+.ui-results__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-s3);
+}
+
+/* Placing roundel: rally-red, cream ordinal at hud-l; stamps once the rows are dealt. */
+.ui-results__roundel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--space-s7) * 2);
+  height: calc(var(--space-s7) * 2);
+  border: var(--outline-default) solid var(--color-ink);
+  border-radius: var(--radius-round);
+  box-shadow: var(--shadow-button);
+  background: var(--color-rally-red);
+  color: var(--color-cream);
+  font-size: var(--type-hud-l-size);
+  font-weight: var(--type-hud-l-weight);
+  font-variant-numeric: var(--font-numeric);
+  line-height: 1;
+  animation: ui-results-stamp var(--duration-stamp) var(--ease-stamp) both;
+  animation-delay: calc(var(--ui-deal-count, 0) * var(--duration-stagger) + var(--duration-slide));
+}
+.ui-results__best {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-s1) var(--space-s2);
+}
+
+/* Table: header labels on navy, rows are cream HUD panels (player in rally-red) dealt 40ms apart. */
+.ui-results__table {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s2);
+}
+.ui-results__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s2);
+}
+.ui-results__row {
+  display: grid;
+  grid-template-columns: var(--space-s6) calc(var(--space-s7) * 3) repeat(2, calc(var(--space-s7) * 2 + var(--space-s4)));
+  align-items: center;
+  gap: var(--space-s3);
+  padding: var(--space-s1) var(--space-s3);
+}
+.ui-results__body .ui-results__row {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-size: var(--type-hud-l-size);
+  font-weight: var(--type-hud-l-weight);
+  font-variant-numeric: var(--font-numeric);
+  line-height: 1;
+  animation: ui-results-deal var(--duration-slide) var(--ease-snap) both;
+  animation-delay: calc(var(--ui-deal-index, 0) * var(--duration-stagger));
+}
+.ui-results__body .ui-results__row--player {
+  background: var(--color-rally-red);
+  color: var(--color-cream);
+}
+.ui-results__header {
+  padding: calc(var(--space-s1) + var(--outline-default)) calc(var(--space-s3) + var(--outline-default));
+}
+
+.ui-results__actions {
+  display: flex;
+  gap: var(--space-s4);
+}
+
+@keyframes ui-results-deal {
+  from {
+    transform: translateY(calc(var(--ui-drop) * -1));
+    box-shadow: var(--ui-shadow-none);
+    visibility: hidden;
+  }
+  to {
+    transform: none;
+    box-shadow: var(--shadow-hud);
+    visibility: visible;
+  }
+}
+
+@keyframes ui-results-stamp {
+  from {
+    transform: translateY(calc(var(--ui-drop) * -1)) scale(1.25);
+    box-shadow: var(--ui-shadow-none);
+    visibility: hidden;
+  }
+  to {
+    transform: none;
+    box-shadow: var(--shadow-button);
+    visibility: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-results .ui-stripe,
+  .ui-results__roundel,
+  .ui-results__body .ui-results__row {
+    animation: none;
+  }
+}

@@ -6,7 +6,7 @@ describe('next track', () => {
     expect(nextTrackId('a', ['a', 'b', 'c'])).toBe('b');
     expect(nextTrackId('b', ['a', 'b', 'c'])).toBe('c');
     expect(nextTrackId('c', ['a', 'b', 'c'])).toBe('a');
-    expect(nextTrackId('dust-bowl')).toBe('dust-bowl');
+    expect(nextTrackId('solo', ['solo'])).toBe('solo');
     const ids = TRACKS.map((t) => t.id);
     expect(nextTrackId(ids[ids.length - 1] as string)).toBe(ids[0]);
     expect(() => nextTrackId('nope', ['a', 'b'])).toThrow();

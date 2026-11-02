@@ -22,7 +22,9 @@ const entries = (race: ReturnType<typeof build>): SceneEntry[] => sceneEntries(r
 const changed = (a: SceneEntry[], b: SceneEntry[]): string[] => a.filter((e, i) => e.hash !== b[i]?.hash).map((e) => e.path);
 const firstMesh = (race: ReturnType<typeof build>, group: string): Mesh => race.scene.getObjectByName(group)!.children[0] as Mesh;
 
-describe('scene hash (P2)', () => {
+// Each build of a full race scene takes a second or more, several per test: under load (P1/P2 measuring
+// in parallel with G1) they ran past vitest's 5 s default, so they get room.
+describe('scene hash (P2)', { timeout: 60_000 }, () => {
   it('is the same for two builds of the same scene, with stable paths', () => {
     const a = entries(build());
     const b = entries(build());

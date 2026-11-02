@@ -1,6 +1,8 @@
 // Records gate 3's starter replays into tests/baselines/replays/ (owner-only, via rebaseline.sh).
 // Only missing recordings are written: inputs are frozen once recorded, and rebaseline only
 // refreshes their expected end states. Each scenario checks that its event really happened.
+// They are driven on the frozen test-only Dust Bowl Classic (tests/fixtures/tracks), so reworking a
+// game track never invalidates them.
 //
 //   node guardrails/gates/record-replays.ts
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -12,7 +14,7 @@ import type { World } from '../../src/sim/index.ts';
 import { clamp, headingOf, wrapAngle } from '../../src/sim/vec.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const track = JSON.parse(readFileSync(join(root, 'src', 'content', 'tracks', 'dust-bowl.json'), 'utf8')) as TrackData;
+const track = JSON.parse(readFileSync(join(root, 'tests', 'fixtures', 'tracks', 'dust-bowl-classic.json'), 'utf8')) as TrackData;
 const GO = 180;
 
 /** Full throttle toward (x, z). */

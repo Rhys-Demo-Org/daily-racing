@@ -83,6 +83,8 @@ mkdir -p "$work/m/src" "$work/m/node_modules" "$work/main/node_modules" "$work/g
 cp -a "$work/main/src/driver" "$work/m/src/driver"
 cp "$work/main/tests/baselines/replays/"*.json "$work/g3in/replays/" 2>/dev/null || true
 cp "$work/main/src/content/tracks/"*.json "$work/g3in/tracks/"
+# Frozen test-only tracks that recorded replays may be bound to (ids never clash with registered ones).
+cp "$work/main/tests/fixtures/tracks/"*.json "$work/g3in/tracks/" 2>/dev/null || true
 chmod -R a-w "$work/main" "$work/branch" "$work/m" "$work/g3in"
 
 IMAGE="$(image_tag "$work/main/harness/container/Dockerfile")"

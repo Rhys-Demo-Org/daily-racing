@@ -1,0 +1,19 @@
+2026-11-02T02:00:01Z dry run 2026-11-02 (manual=0) main=f8303385b6ccf0ae783b9f9b65af418e5be3e7fa
+2026-11-02T02:00:02Z work: backlog B03 · AI liveries and driver roster
+2026-11-02T02:00:02Z phase ideate-1: start (max turns 15, wall 10m)
+2026-11-02T02:01:03Z phase ideate-1: exit 0
+2026-11-02T02:01:04Z spec locked: sha256 c8a696d5079059ce8047e6ca6ba3a6ec40bd272c9460e6a278d1637c7caf34e4
+2026-11-02T02:01:04Z phase build-1: start (max turns 60, wall 75m)
+2026-11-02T02:03:08Z phase build-1: exit 0
+2026-11-02T02:03:08Z gates attempt 1 on 18562762dee191f62f68ede21cf603d200803855
+# Gates: PASS
+
+Branch `18562762dee1` vs main `f8303385b6cc`, 5.7 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 5.5 s | typecheck, build ok; 382/382 tests passed (main 375) |
+| G2 Bot laps | pass | 1.5 s | dust-bowl 42.53 s (+0.0%); worst step 0.406 |
+| G3 Physics replays | pass | 1.1 s | 5 replays reproduce main's end states (±0.000001) |
+| G8 Protected files | pass | 0.6 s | only allowed paths changed; manifest and tokens match |
+2026-11-02T02:03:14Z outcome: pass

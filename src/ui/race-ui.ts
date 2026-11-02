@@ -19,6 +19,8 @@ export interface RaceInfo {
   trackName?: string;
   /** Livery numbers, index-aligned with the cars (default: 1, 2, 3…). */
   carNumbers?: readonly number[];
+  /** Driver names, index-aligned with the cars (default: YOU for car 0, CPU for the rest), e.g. KOSKI. */
+  driverNames?: readonly string[];
 }
 
 export interface RaceUi {
@@ -113,7 +115,8 @@ export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
         } else {
           finishShown = true;
           const carNumbers = race.carNumbers ?? view.racers.map((_, i) => i + 1);
-          results.show({ laps: state.laps, trackName: race.trackName ?? '', carNumbers, bestLapMs: state.bestLapMs }, view.racers);
+          const driverNames = race.driverNames ?? [];
+          results.show({ laps: state.laps, trackName: race.trackName ?? '', carNumbers, driverNames, bestLapMs: state.bestLapMs }, view.racers);
         }
       }
     },

@@ -22,6 +22,20 @@
           "suggestedFix": { "type": "string", "minLength": 5, "maxLength": 1000 }
         }
       }
+    },
+    "checked": {
+      "description": "Optional: what you checked and how, findings or not, so an empty list of findings is auditable.",
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "how"],
+        "properties": {
+          "target": { "description": "The item, file, function, selector or hunk you checked.", "type": "string", "minLength": 2, "maxLength": 200 },
+          "how": { "description": "How: the Grep and what it found, the trace, the gate or test that runs it.", "type": "string", "minLength": 5, "maxLength": 400 }
+        }
+      }
     }
   }
 }

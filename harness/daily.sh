@@ -597,7 +597,8 @@ if soft_time review; then
   for r in R1 R2 R3 R4 R5; do
     model=$MODEL_REVIEW effort=() focus="$here/prompts/review-${r,,}.md"
     [[ $r != R2 ]] || { model=$MODEL_REVIEW_R2; [[ -z $EFFORT_REVIEW_R2 ]] || effort=(--effort "$EFFORT_REVIEW_R2"); }
-    [[ $MODE != maintenance || $r != R1 ]] || focus="$here/prompts/review-r1-maintenance.md"
+    # Maintenance nights: a reviewer's maintenance focus, where it has one (R1, R3, R4, R5).
+    [[ $MODE != maintenance || ! -f $here/prompts/review-${r,,}-maintenance.md ]] || focus="$here/prompts/review-${r,,}-maintenance.md"
     { cat "$here/prompts/review.md" "$focus"; [[ $MODE != maintenance ]] || cat "$here/prompts/review-maintenance.md"; tonight; inputs_note; } >"$WORK/review-$r.md"
     agent_run "${r,,}" 1 "$WORK/review-$r.md" "$model" "$MAX_TURNS_REVIEW" "$WALL_REVIEW_MIN" --access ro --inputs "$RIN" \
       --json-schema "$here/schemas/findings.json" --tools Read,Glob,Grep "${effort[@]}" &
@@ -608,7 +609,7 @@ if soft_time review; then
   findings="$(ts_node findings "$RUN/review.json" "$RUN/phases" R1,R2,R3,R4,R5 "--failed=$(IFS=,; echo "${failed[*]}")")"
   eval "$findings"
   review_ok=1
-  log "review: $COUNT findings${failed[*]:+ (agent error, dropped: ${failed[*]})}"
+  log "review: $COUNT findings; checked: ${CHECKED:-none}${failed[*]:+ (agent error, dropped: ${failed[*]})}"
 else
   ts_node notreviewed "$RUN/review.json" "No time: the review would have started after $NO_NEW_PHASE_AFTER, so no reviewer, verifier or fixer ran."
 fi

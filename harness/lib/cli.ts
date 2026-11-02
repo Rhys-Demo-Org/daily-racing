@@ -17,7 +17,7 @@
 //   revise <audit.json>                                the revise brief for a fresh ideate
 //   lock <draft.json> <audit.md> <spec.md> <spec.json> <date> <mode> <meta.json>   locks; prints sha256
 //   inventory <repo> <changed.txt> <out-dir>          out-dir/{inventory.md,clones.md}
-//   findings <review.json> <phases-dir> <R1,R2,...> [--failed=R3,...]   reviewer findings → review.json; COUNT
+//   findings <review.json> <phases-dir> <R1,R2,...> [--failed=R3,...]   reviewer findings → review.json; COUNT CHECKED
 //                                                      (--failed: agent errors, recorded failed, findings ignored)
 //   rulings <review.json> <verify-result.json> <written.txt> <max-fixes> <queue.txt>   VERIFIED
 //   fixbrief <review.json> <id> <verify-tests-dir>     the brief for one fix agent
@@ -66,7 +66,7 @@ import { buildResult, gateFeedback, prBody, readJson, report } from './journal.t
 import { dropJournal, existingWork, fileOverlap, openFiles, renderOverlap, type GhPr, type OpenFiles } from './existing.ts';
 import { checkAudit, renderAudit, reviseBrief, type Audit } from './audit.ts';
 import { internalsLint, type Spec } from './spec.ts';
-import { checkRulings, fixBrief, fixQueue, readFindings, readFix, reviewMd, verifierTest, type ReviewState } from './review.ts';
+import { checkRulings, fixBrief, fixQueue, readChecked, readFindings, readFix, reviewMd, verifierTest, type ReviewState } from './review.ts';
 import { judgeBrief, judgeVerdict, readBlind, readCheck, renderJudge, scanPlanted, type JudgeVerdict } from './judge.ts';
 import { cloneReport, exportInventory, sourceFiles } from './inventory.ts';
 import { METRICS_COLUMNS, metricsRow } from './metrics.ts';
@@ -171,12 +171,14 @@ if (import.meta.main) {
       const failed = failedArg?.startsWith('--failed=') ? failedArg.slice(9).split(',') : [];
       const s = review(state);
       for (const id of ids.split(',')) {
-        const f = failed.includes(id) ? null : readFindings(id, join(phases, `${id.toLowerCase()}-1`, 'result.json'));
+        const result = join(phases, `${id.toLowerCase()}-1`, 'result.json');
+        const f = failed.includes(id) ? null : readFindings(id, result);
         s.reviewers[id] = f ? 'ok' : 'failed';
         s.findings.push(...(f ?? []));
+        if (f) s.checked = { ...s.checked, [id]: readChecked(result) ?? 0 };
       }
       json(state, s);
-      vars({ COUNT: s.findings.length });
+      vars({ COUNT: s.findings.length, CHECKED: Object.entries(s.checked ?? {}).map(([k, v]) => `${k} ${v}`).join(', ') });
       break;
     }
     case 'rulings': {

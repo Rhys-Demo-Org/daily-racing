@@ -154,7 +154,7 @@ export function reviewSummary(s: Json | null): Json | null {
   const rulings = (s.rulings ?? []) as { status: string }[];
   const fixes = (s.fixes ?? []) as { kept: boolean | null }[];
   const perReviewer = Object.fromEntries(Object.keys((s.reviewers ?? {}) as Json).map((r) => [r, findings.filter((f) => f.reviewer === r).length]));
-  return { reviewers: s.reviewers ?? {}, findings: findings.length, perReviewer, verified: rulings.filter((r) => r.status === 'verified').length,
+  return { reviewers: s.reviewers ?? {}, findings: findings.length, perReviewer, checked: s.checked ?? {}, verified: rulings.filter((r) => r.status === 'verified').length,
     dropped: rulings.filter((r) => r.status !== 'verified').length, fixesKept: fixes.filter((f) => f.kept === true).length, fixesDropped: fixes.filter((f) => f.kept === false).length };
 }
 
@@ -309,7 +309,7 @@ export function report(runDir: string, tz: string): string {
     out.push('', '## Pipeline', '');
     if (maint) out.push(maintLine(maint));
     if (audit) out.push(`- Plan audit: ${String(audit.verdict ?? '-')} after ${String(audit.rounds ?? '-')} round(s); items tried: ${((audit.items ?? []) as Json[]).map((i) => `${String(i.id)} ${String(i.verdict)}`).join(', ') || '-'}`);
-    if (review) out.push(`- Review: ${String(review.findings)} findings (${Object.entries((review.perReviewer ?? {}) as Json).map(([k, v]) => `${k} ${String(v)}`).join(', ')}), ${String(review.verified)} verified, ${String(review.dropped)} dropped; fixes kept ${String(review.fixesKept)}, dropped by gates ${String(review.fixesDropped)}`);
+    if (review) out.push(`- Review: ${String(review.findings)} findings (${Object.entries((review.perReviewer ?? {}) as Json).map(([k, v]) => `${k} ${String(v)}`).join(', ')}), ${String(review.verified)} verified, ${String(review.dropped)} dropped; fixes kept ${String(review.fixesKept)}, dropped by gates ${String(review.fixesDropped)}${Object.keys((review.checked ?? {}) as Json).length ? `; checked ${Object.entries(review.checked as Json).map(([k, v]) => `${k} ${String(v)}`).join(', ')}` : ''}`);
     if (judge) out.push(`- Judge: ${judge.pass ? 'pass' : 'fail'}${result?.judgeScore !== null && result?.judgeScore !== undefined ? ` (${String(result.judgeScore)}/10)` : ''}${(judge.reasons as string[] | undefined)?.length ? `: ${(judge.reasons as string[]).join('; ')}` : ''}`);
   }
   return out.join('\n') + '\n';

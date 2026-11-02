@@ -41,6 +41,13 @@ export function readFindings(reviewer: string, resultPath: string): Finding[] | 
   });
 }
 
+/** How many `checked` entries (schemas/findings.json: what was checked and how) a reviewer gave; null without valid output. */
+export function readChecked(resultPath: string): number | null {
+  const out = structuredOutput(resultPath) as { checked?: unknown } | null;
+  if (!out) return null;
+  return Array.isArray(out.checked) ? out.checked.filter((c: Record<string, unknown>) => trimmed(c?.target) && trimmed(c?.how)).length : 0;
+}
+
 /**
  * Agent V's rulings, held to the rules: every finding gets exactly one ruling (missing = dropped);
  * a `test` ruling needs a test file V actually wrote (`written`), a `trace` ruling a real trace.
@@ -108,7 +115,11 @@ export function readFix(id: string, resultPath: string): FixRecord {
   return { id, status: out.status === 'fixed' ? 'fixed' : 'not-fixed', summary: trimmed(out.summary), tests: Array.isArray(out.tests) ? out.tests.map(trimmed).filter(Boolean) : [], commit: null, kept: null };
 }
 
-export type ReviewState = { reviewers: Record<string, 'ok' | 'failed' | 'skipped'>; findings: Finding[]; rulings: Ruling[]; fixes: FixRecord[]; notes: string[] };
+export type ReviewState = {
+  reviewers: Record<string, 'ok' | 'failed' | 'skipped'>; findings: Finding[]; rulings: Ruling[]; fixes: FixRecord[]; notes: string[];
+  /** Per reviewer, how many `checked` entries it gave (what it checked and how), so 0 findings is auditable. */
+  checked?: Record<string, number>;
+};
 
 /**
  * review.md: what each reviewer found, what the verifier proved, what was fixed and kept. A night

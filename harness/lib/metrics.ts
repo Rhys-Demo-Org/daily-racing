@@ -25,7 +25,7 @@ export const METRICS_COLUMNS = [
   'date', 'dryRun', 'harnessSha', 'mode', 'backlogId', 'outcome', 'reason', 'attempts', 'retries',
   'auditVerdict', 'auditRounds', 'itemsTried',
   ...Object.keys(GROUPS).flatMap((g) => [`${g}Turns`, `${g}Tokens`, `${g}WallS`]),
-  'findingsR1', 'findingsR2', 'findingsR3', 'findingsR4', 'findingsR5', 'findingsVerified', 'findingsDropped', 'fixesKept', 'fixesDropped',
+  'findingsR1', 'findingsR2', 'findingsR3', 'findingsR4', 'findingsR5', 'checkedR1', 'checkedR2', 'checkedR3', 'checkedR4', 'checkedR5', 'findingsVerified', 'findingsDropped', 'fixesKept', 'fixesDropped',
   'srcLinesBeforeReview', 'srcLinesAfterReview', 'judgePass', 'judgeOverall', ...AXES.map((a) => `judge_${a}`), 'judgeRounds', 'costUsd', 'wallS',
   ...MAINTENANCE, ...OWNER,
 ];
@@ -73,7 +73,8 @@ export function metricsRow(runDir: string): string {
       preserveG2: head.G2, preserveG3: head.G3, preserveP1: head.P1, preserveP2: head.P2, limitsM1: head.M1,
     });
   }
-  for (const id of ['R1', 'R2', 'R3', 'R4', 'R5']) row[`findings${id}`] = per[id];
+  const checked = (review?.checked ?? {}) as Json;
+  for (const id of ['R1', 'R2', 'R3', 'R4', 'R5']) { row[`findings${id}`] = per[id]; row[`checked${id}`] = checked[id]; }
   for (const a of AXES) row[`judge_${a}`] = scores[a];
   for (const [g, names] of Object.entries(GROUPS)) {
     const ps = phases.filter((p) => names.includes(p.phase));

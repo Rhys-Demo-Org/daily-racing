@@ -90,7 +90,7 @@ Angle: one fixed perspective camera looking down at 57° from horizontal (allowe
 
 Lens: narrow field of view, about 19° vertical, placed far back (≈80 units from its target) so it reads as a tabletop diorama. Things at the top of the frame are only slightly smaller (≈10–15%) than at the bottom; never fisheye, never orthographic-flat.
 
-Framing: about 56 world units across the screen at the target on mobile, 55 on desktop. A car (4.2 long) is ≈ 60px long at 844 wide. Track 8.4 wide. Never zoom for drama.
+Framing: about 56 world units across the screen at the target on mobile, 55 on desktop. A car (4.2 long) is ≈ 60px long at 844 wide. Track 8.4 wide, or wider (≈11, five car widths) when sized for at least 3 cars abreast. Never zoom for drama.
 
 What you see: roofs and tops, plus the south face and the east or west face of each object. Never undersides. Cones on trunks show the trunk below the canopy; tyre stacks are cylinders; bales are boxes; ramps are wedges showing slope and side.
 

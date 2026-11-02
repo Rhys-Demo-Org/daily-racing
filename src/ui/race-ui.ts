@@ -4,6 +4,7 @@
 import type { PaletteName } from '@tokens';
 import { TICK_HZ, type CarView, type RaceView } from '../sim/types.ts';
 import { createCountdown, type CountdownStep } from './countdown.ts';
+import { ticksToMs } from './format.ts';
 import { createHud } from './hud.ts';
 import { createResultsScreen } from './results-screen.ts';
 import { createTouchControls, type TouchControls } from './touch-controls.ts';
@@ -11,8 +12,6 @@ import type { HudState } from './types.ts';
 
 /** GO! is cleared this many ticks after the start, in sim time, so staged frames are deterministic. */
 export const GO_HIDE_TICKS = TICK_HZ;
-
-const ticksToMs = (ticks: number): number => (ticks * 1000) / TICK_HZ;
 
 /** Optional race details for the results screen. */
 export interface RaceInfo {

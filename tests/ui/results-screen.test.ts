@@ -54,7 +54,7 @@ describe('results screen', () => {
 
   it('AC3: GAP is an en dash for the leader and +s.cc / +m:ss.cc behind', () => {
     const { ui, rows, cells } = setup(['rally-red', 'mustard', 'teal'], [1, 7, 12]);
-    ui.sync(finished([racer({ finishTick: 7200 }), racer({ finishTick: 7237 }), racer({ finishTick: 11400 })]), cars);
+    ui.sync(finished([racer({ finishTick: 7200 }), racer({ finishTick: 7237, position: 2 }), racer({ finishTick: 11400, position: 3 })]), cars);
     expect(rows().map((r) => cells(r)[3])).toEqual(['–', '+0.62', '+1:10.00']);
   });
 
@@ -78,7 +78,7 @@ describe('results screen', () => {
 
   it('AC5: only the player row has the player modifier, and rows carry their deal index', () => {
     const { ui, rows } = setup(['rally-red', 'mustard', 'teal'], [1, 7, 12]);
-    ui.sync(finished([racer({ finishTick: 7300 }), racer({ finishTick: 7200 }), racer({ finishTick: 7500 })]), cars);
+    ui.sync(finished([racer({ finishTick: 7300, position: 2 }), racer({ finishTick: 7200 }), racer({ finishTick: 7500, position: 3 })]), cars);
     const r = rows();
     expect(r.map((row) => row.classList.contains('ui-results__row--player'))).toEqual([false, true, false]);
     expect(document.querySelectorAll('.ui-results__row--player')).toHaveLength(1);

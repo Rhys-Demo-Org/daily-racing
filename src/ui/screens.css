@@ -1,4 +1,4 @@
-/* Start screen and finish panel. Tokens only. */
+/* Start screen, finish panel and the shared full-screen menu ground. Tokens only. */
 
 .ui-screen {
   display: flex;
@@ -6,8 +6,9 @@
   justify-content: center;
 }
 
-/* Start: full-screen menu on a solid navy ground. */
-.ui-start {
+/* Full-screen menus (start, results) on a solid navy ground. */
+.ui-start,
+.ui-results {
   flex-direction: column;
   gap: var(--space-s5);
   padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);

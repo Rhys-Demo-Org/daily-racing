@@ -35,6 +35,11 @@ export function button(className: string, children: (Node | string)[], onClick: 
   return b;
 }
 
+/** The triple stripe: red, mustard, cream at 4:2:1 (board header / screen-change pattern). */
+export function stripes(): HTMLElement {
+  return h('div', 'ui-stripes', [h('span', 'ui-stripe ui-stripe--red'), h('span', 'ui-stripe ui-stripe--mustard'), h('span', 'ui-stripe ui-stripe--cream')]);
+}
+
 export interface Overlay {
   readonly element: HTMLElement;
   show(): void;

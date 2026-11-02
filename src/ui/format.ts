@@ -1,4 +1,8 @@
 // Text formatting for HUD and menus (UI_RULES §4: times are m:ss.cc, position is "2/6").
+import { TICK_HZ } from '../sim/types.ts';
+
+/** Sim ticks to ms. */
+export const ticksToMs = (ticks: number): number => (ticks * 1000) / TICK_HZ;
 
 /** Shown where a time does not exist yet (e.g. no best lap). En dashes, same width as digits. */
 export const NO_TIME = '–:––.––';
@@ -29,6 +33,5 @@ export function ordinal(n: number): string {
 
 /** A gap behind the leader in ms: "+s.cc" under a minute, "+m:ss.cc" from a minute on. */
 export function formatGap(ms: number): string {
-  const time = formatTime(ms);
-  return `+${time.startsWith('0:') ? String(Number(time.slice(2, 4))) + time.slice(4) : time}`;
+  return `+${formatTime(ms).replace(/^0:0?/, '')}`;
 }

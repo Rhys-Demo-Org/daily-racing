@@ -4,7 +4,7 @@ import { CAR_LENGTH } from '../../src/sim/car.ts';
 import { groundAt } from '../../src/sim/track.ts';
 import { COUNTDOWN_TICKS } from '../../src/sim/race.ts';
 import { carViews, createWorld, stepWorld, type World } from '../../src/sim/world.ts';
-import { dustBowl, GAS } from './helpers.ts';
+import { dustBowlClassic, GAS } from './helpers.ts';
 
 const HALF = CAR_LENGTH / 2;
 const SAMPLES = 41;
@@ -25,7 +25,7 @@ function clipDepth(world: World, v: CarView): number {
 
 /** Drives car 0 with `input(tick, views so far)`; returns the worst clip depth and the views seen. */
 function drive(input: (tick: number, views: readonly CarView[]) => CarInput, ticks: number): { worst: number; views: CarView[] } {
-  const world = createWorld(dustBowl, { seed: 1, carCount: 1 });
+  const world = createWorld(dustBowlClassic, { seed: 1, carCount: 1 });
   for (let i = 0; i < COUNTDOWN_TICKS; i++) stepWorld(world, []);
   let worst = -Infinity;
   const views: CarView[] = [];

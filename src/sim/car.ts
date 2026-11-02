@@ -152,28 +152,21 @@ export function carView(car: CarState, track: Track): CarView {
  * piecewise linear (flat, ramp slopes, a drop at each lip), so the body rests on its upper convex
  * hull: sample the nose, tail, centre and every ramp foot/lip in between, and take the hull edge
  * above the centre. Airborne, the nose follows the trajectory, clamped so neither end of the body
- * dips below flat ground.
+ * dips below flat ground, and the body is lifted clear of any ramp still under it (a car rolling
+ * off a lip at walking pace drops its centre while its tail is still over the slope).
  */
 function visualPose(car: CarState, track: Track, speed: number): { y: number; pitch: number } {
   if (car.airborne) {
     const limit = Math.atan2(Math.max(car.y, 0), HALF_LENGTH);
     const climb = speed >= 0 ? car.vy : -car.vy;
-    return { y: car.y, pitch: clamp(Math.atan2(climb, Math.abs(speed) + 1e-6), -limit, limit) };
+    const pitch = clamp(Math.atan2(climb, Math.abs(speed) + 1e-6), -limit, limit);
+    const { ts, hs } = groundUnderBody(car, track, HALF_LENGTH * Math.cos(pitch));
+    const slope = Math.tan(pitch);
+    let y = car.y;
+    for (let i = 0; i < ts.length; i++) y = Math.max(y, (hs[i] as number) - (ts[i] as number) * slope);
+    return { y, pitch };
   }
-  const fx = Math.sin(car.heading);
-  const fz = -Math.cos(car.heading);
-  const ts = [-HALF_LENGTH, 0, HALF_LENGTH];
-  for (const r of track.ramps) {
-    const rate = fx * r.fx + fz * r.fz; // ramp "along" coordinate per unit along the body
-    if (Math.abs(rate) < 1e-9) continue;
-    const along = (car.x - r.x) * r.fx + (car.z - r.z) * r.fz;
-    // Lip sampled a hair on the slope side so it reads the lip's full height.
-    for (const a of [-1e-6, -r.length]) {
-      const t = (a - along) / rate;
-      if (Math.abs(t) < HALF_LENGTH) ts.push(t);
-    }
-  }
-  const hs = ts.map((t) => groundAt(track, car.x + fx * t, car.z + fz * t).h);
+  const { ts, hs } = groundUnderBody(car, track, HALF_LENGTH);
   let y = -Infinity;
   let pitch = 0;
   for (let i = 0; i < ts.length; i++) {
@@ -192,6 +185,25 @@ function visualPose(car: CarState, track: Track, speed: number): { y: number; pi
   }
   // Resting on a prop top or car roof (above the ground under it): sit level at that height.
   return y >= car.y ? { y, pitch } : { y: car.y, pitch: 0 };
+}
+
+/** Where the ground under the body axis can bend, as offsets from the centre within ±half (the
+ * ends, the centre, and every ramp foot and lip in between), and the ground height at each. */
+function groundUnderBody(car: CarState, track: Track, half: number): { ts: number[]; hs: number[] } {
+  const fx = Math.sin(car.heading);
+  const fz = -Math.cos(car.heading);
+  const ts = [-half, 0, half];
+  for (const r of track.ramps) {
+    const rate = fx * r.fx + fz * r.fz; // ramp "along" coordinate per unit along the body
+    if (Math.abs(rate) < 1e-9) continue;
+    const along = (car.x - r.x) * r.fx + (car.z - r.z) * r.fz;
+    // Lip sampled a hair on the slope side so it reads the lip's full height.
+    for (const a of [-1e-6, -r.length]) {
+      const t = (a - along) / rate;
+      if (Math.abs(t) < half) ts.push(t);
+    }
+  }
+  return { ts, hs: ts.map((t) => groundAt(track, car.x + fx * t, car.z + fz * t).h) };
 }
 
 /** Moves `v` toward 0 by at most `amount`, never crossing 0. */

@@ -84,10 +84,12 @@ cp -a "$work/main/." "$work/m"
 rm -rf "$work/m/src" "$work/m/tests"
 for d in src tests; do [[ -d $work/branch/$d ]] && cp -a "$work/branch/$d" "$work/m/$d"; done
 rm -rf "$work/m/src/driver" "$work/m/tests/baselines"
-mkdir -p "$work/m/src" "$work/m/node_modules" "$work/main/node_modules" "$work/g3in/replays" "$work/g3in/tracks"
+mkdir -p "$work/m/src" "$work/m/node_modules" "$work/main/node_modules" "$work/g3in/replays" "$work/g3in/tracks" "$work/g3in/fixtures"
 cp -a "$work/main/src/driver" "$work/m/src/driver"
 cp "$work/main/tests/baselines/replays/"*.json "$work/g3in/replays/" 2>/dev/null || true
 cp "$work/main/src/content/tracks/"*.json "$work/g3in/tracks/"
+# Main's frozen test-only tracks that recorded replays may be bound to; registered tracks win on an id clash.
+cp "$work/main/tests/fixtures/tracks/"*.json "$work/g3in/fixtures/" 2>/dev/null || true
 chmod -R a-w "$work/main" "$work/branch" "$work/m" "$work/g3in"
 
 IMAGE="$(image_tag "$work/main/harness/container/Dockerfile")"
@@ -174,7 +176,7 @@ G2() {
   verdict G2 g2-verdict.ts g2 --main /main --image "$IMAGE"
 }
 G3() {
-  measure g3 "$work/m" node --permission --allow-fs-read=/w --allow-fs-read=/in guardrails/gates/g3-measure.ts /in/replays /in/tracks
+  measure g3 "$work/m" node --permission --allow-fs-read=/w --allow-fs-read=/in guardrails/gates/g3-measure.ts /in/replays /in/tracks /in/fixtures
   verdict G3 g3-verdict.ts g3 --main /main --image "$IMAGE"
 }
 G8() {

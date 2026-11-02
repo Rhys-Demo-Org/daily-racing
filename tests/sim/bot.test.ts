@@ -12,6 +12,7 @@ import {
   TRACKS,
   baleHairpinTrack,
   dustBowl,
+  dustBowlClassic,
   hairpinTrack,
   rampCornerTrack,
   runBotRace,
@@ -46,7 +47,7 @@ describe('bot on Dust Bowl', () => {
   const rows: [cars: number, seed: number][] = [[1, 1], [1, 7], [1, 42], [1, 2024], [1, 99991], [4, 5]];
   for (const [cars, seed] of rows) {
     it(`${cars} car(s), seed ${seed}: all finish, never stuck, no teleports${cars === 1 ? '; laps in about 40 s on the dirt, clear of every prop' : ''}`, () => {
-      const { seen, lapSeconds, finished } = runBotRace(dustBowl, seed, cars);
+      const { seen, lapSeconds, finished } = runBotRace(dustBowlClassic, seed, cars);
       expect(finished).toBe(true);
       expect(seen.maxSlowTicks).toBeLessThan(BOT_TUNING.stuckTicks);
       expect(seen.maxStep).toBeLessThan(MAX_TICK_DISPLACEMENT);
@@ -130,12 +131,12 @@ describe('stuck recovery', () => {
   it('a bot wedged nose-first into a dead-end pocket of bales, facing the wrong way, reverses out and completes a lap', () => {
     // On the straight east of the start line (z = 78, driven east, s = x + 63): bales along both
     // sides of x ∈ [36, 42] and two across its west end. The car faces west into the dead end.
-    const length = createWorld(dustBowl, { seed: 1, carCount: 1 }).track.length;
+    const length = createWorld(dustBowlClassic, { seed: 1, carCount: 1 }).track.length;
     const side = (s: 'left' | 'right') => ({ kind: 'hay-bale' as const, side: s, from: 100 / length, to: 106 / length, spacing: 2.1, offset: -1.9 });
     const track: TrackData = {
-      ...dustBowl,
-      propRows: [...dustBowl.propRows, side('left'), side('right')],
-      props: [...dustBowl.props, { kind: 'hay-bale', x: 37.2, z: 77 }, { kind: 'hay-bale', x: 37.2, z: 79 }],
+      ...dustBowlClassic,
+      propRows: [...dustBowlClassic.propRows, side('left'), side('right')],
+      props: [...dustBowlClassic.props, { kind: 'hay-bale', x: 37.2, z: 77 }, { kind: 'hay-bale', x: 37.2, z: 79 }],
     };
     const { reversed, laps, seen } = escape(track, () => [40, 78, -Math.PI / 2]);
     expect(reversed).toBe(true);

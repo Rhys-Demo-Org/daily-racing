@@ -43,7 +43,7 @@ describe('src/sim purity', () => {
     const script = `
       import { readFileSync } from 'node:fs';
       const sim = await import(${JSON.stringify(join(SIM_DIR, 'index.ts'))});
-      const track = JSON.parse(readFileSync(${JSON.stringify(join(SIM_DIR, '../content/tracks/dust-bowl.json'))}, 'utf8'));
+      const track = JSON.parse(readFileSync(${JSON.stringify(join(SIM_DIR, '../../tests/fixtures/tracks/dust-bowl-classic.json'))}, 'utf8'));
       const world = sim.createWorld(track, { seed: 1, carCount: 2 });
       for (let i = 0; i < 400; i++) sim.stepWorld(world, [{ steer: 0, throttle: true, brake: false }]);
       const layout = sim.trackLayout(track);

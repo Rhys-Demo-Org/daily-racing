@@ -177,8 +177,8 @@ Weeknight reviewers still deduplicate inside the files each feature touches. The
   code there would dodge the net `src/` limit). Fixes that need one are filed as "needs owner: test pins
   internals" and listed in the PR for the owner (e.g. `src/ui/finish-panel.ts`, dead code only
   `tests/ui/screens.test.ts` and `tests/ui/no-inline-colour.test.ts` import).
-- **Conflicts: skip.** Items whose files an open daily PR changes are skipped tonight (noted on the
-  item), never scheduled ahead of the PR.
+- **Conflicts: skip.** Items whose files an open PR changes (a daily PR, or any other open PR of
+  the owner's) are skipped tonight (noted on the item), never scheduled ahead of the PR.
 - **No ideate on Sundays.** The maintenance plan auditor picks from the list and its choice is the
   spec; the harness checks it (eligible items only, at most `MAINT_MAX_ITEMS`).
 - **Limits fail, they don't trim.** Gate M1 (40 files, 1,500 lines, net `src/` ≤ 0, tests and
@@ -200,6 +200,14 @@ Weeknight reviewers still deduplicate inside the files each feature touches. The
 - **The list is closed only by a live PR.** Dry runs note the branch on the item and leave it open.
   A PR's items are its refactor's `done` items, carried in a hidden marker; the reviewers and judge
   check the diff, not that report.
+  Only a live night that passed puts its items in-PR; a failed or aborted night's draft PR is noted
+  on them and they stay open (an open draft never marks items in-PR; merging it still closes them).
+- **Maintenance review and judge.** R1, R3, R4 and R5 get maintenance focus prompts (claims checked
+  against the repo; remaining copies and newly dead code; what P1 can't see; which gate runs each
+  changed line), and every reviewer may list what it `checked`, counted in the metrics. The
+  refactor and its retries get main's P1/P2 measurements and perf numbers; the judge gets the
+  inventory and clone report of the branch and of main, and before/after perf numbers for
+  performance items.
 
 ## Never building the same thing twice
 The existing-work list (HANDOVER §6.2) is built from GitHub:

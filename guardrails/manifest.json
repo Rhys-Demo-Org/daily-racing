@@ -126,7 +126,7 @@
     "harness/scripts/in-container.sh": "4de9f95a6b18e05bf8eb355a173d027aa8a440161f92639a4b62606b4bc7bd28",
     "harness/scripts/publish.sh": "5ed419459b2fc60bc84e96b6c8f7f209780635c3106bed24f1d67f3098eccb38",
     "harness/scripts/rebaseline.sh": "3c3b0447ed10f2012089bd0a29c4b913e852620cd5209a648be7f25e08c7fbf7",
-    "harness/scripts/run-gates.sh": "6dee796c7f6faa8d2bfd51cb81b3e7df2acdcaacd134eb143c4fa6349ecff8f1",
+    "harness/scripts/run-gates.sh": "fde5ebe00af668d7789f29e07fa371e24a5fa72c12500217dfe42242d25a46eb",
     "harness/scripts/sandbox-net.sh": "24c674bb8d3cbeb61263f5a633e072fe1a8d0d5ca69a802c5b5aa4028d5ad473",
     "harness/scripts/screenshots.sh": "bba4ce0b6e90f97132c1f310cafec99616abb1bc972ef244d225bbeb44b60133",
     "harness/scripts/self-test-sandbox.sh": "579c062c4488e08c9d7406b4a27c43852303377d5042d59dc071a40c288f8fe7",

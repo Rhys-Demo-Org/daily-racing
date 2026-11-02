@@ -45,6 +45,20 @@ Never use `harness/scripts/in-container.sh` or `harness/scripts/screenshots.sh` 
   and compare `node harness/screens/probe.ts dom /tmp/p1` before and after (gate P1).
 - `git` is not available: keep your own before-copies under `/tmp` to compare.
 
+## Main's measurements (`/inputs/`, when present)
+The harness copies what the gates compare against, measured on `main`. Compare your tree with these,
+not only with your own before-copies (on a retry the tree already holds your earlier attempt):
+- `p2-main.json`: gate P2's measurement of `main` (`{tracks, cars}`). The output of
+  `node harness/screens/scene.ts . hash` (its last line, without `nonce`) must equal it.
+- `p1-main.json`: gate P1's measurement of `main` (`{stages: {"<viewport>/<stage>": [lines]}}`).
+  The output of `node harness/screens/probe.ts dom /tmp/p1` (last line, without `nonce`) must equal
+  it, stage by stage and line by line.
+- `perf-main.json`: the perf probe's counts on `main` (draw calls, triangles, DOM mutations,
+  sampled allocations per frame by function). A performance item should lower the counts it names;
+  everything else should stay the same.
+The P1/P2 files appear once a gate run has measured tonight's `main`: on the first attempt they may
+be missing, on a retry they are there.
+
 After you stop, independent agents review your diff against the spec, verify their findings and fix
 them, and a judge scores the result. Your report is shown to the owner, not to them.
 

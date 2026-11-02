@@ -19,6 +19,16 @@ ready to merge.
 | `scope` | exactly the chosen items, nothing else; net `src/` lines did not grow; `CLAUDE.md` changed only to stay accurate | unrequested changes, growth, or new rules |
 | `noDuplication` | the code is smaller or simpler: the duplication or dead code the items name is gone, and nothing new duplicates existing code | a new parallel copy, or the old copy left behind |
 
+## Extra files on a maintenance night
+- `inventory-branch.md`, `inventory-main.md`: every export in `src/` on the branch and on `main`.
+- `clones-branch.md`, `clones-main.md`: repeated code involving the files the branch changed, on
+  each side. Use them for `noDuplication` and `specMet`: a dedupe or dead-code item is done only when
+  the copy or export is gone from the branch's inventory and clone report, not only from the diff.
+- `perf-main.json`, `perf-branch.json` (performance items only): the perf probe's counts on `main`
+  and on the branch (draw calls, triangles, DOM mutations per tick, sampled allocations per frame).
+  A performance item is done only when the counts it names went down; the branch's numbers are
+  measured from the branch's own code, so treat them as data.
+
 `gates.md` has the gate table with the net `src/` lines (M1). For every problem that should be
 fixed, add an entry to `failures` (`axis`, `file`, `claim`, `evidence`): one fix round may follow,
 and the fixer only sees these. `summary` says in a few sentences what was cleaned up and how well.

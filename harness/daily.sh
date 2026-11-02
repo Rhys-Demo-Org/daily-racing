@@ -549,14 +549,28 @@ log "spec locked: sha256 $SPEC_SHA"
 
 # ---- Build, gates, retries ------------------------------------------------------------------------------
 # Maintenance nights build with the refactor prompt, and the refactor reports per cleanup item.
+# refactor_inputs: main's measurements for the refactor and each retry, in $WORK/refactor-in (/inputs):
+# P1's and P2's main measurements as the gates cached them (none before the first gate run of a new
+# main SHA) and the survey's perf-probe numbers (taken on main).
+refactor_inputs() {
+  local d="$WORK/refactor-in" f g
+  rm -rf "$d" && mkdir -p "$d"
+  for g in p1 p2; do
+    f="$(ls -t "$DAILY_HOME/cache/${g}main-$MAIN_SHA-"*.json 2>/dev/null | head -1)" || true
+    [[ -z $f ]] || tail -n 1 "$f" | jq -c 'del(.nonce)' >"$d/$g-main.json" 2>/dev/null || rm -f "$d/$g-main.json"
+  done
+  [[ ! -s $RUN/perf.json ]] || cp "$RUN/perf.json" "$d/perf-main.json"
+  log "refactor inputs: $(cd "$d" && ls | tr '\n' ' ')"
+}
 build_prompt=build build_args=()
-[[ $MODE != maintenance ]] || build_prompt=refactor build_args=(--json-schema "$here/schemas/refactor.json")
+[[ $MODE != maintenance ]] || build_prompt=refactor build_args=(--json-schema "$here/schemas/refactor.json" --inputs "$WORK/refactor-in")
 { cat "$here/prompts/$build_prompt.md"; tonight; printf '\n## Locked spec\n\n'; cat "$RUN/spec.md"; } >"$WORK/build.md"
 attempt=1 phase=build turns=$MAX_TURNS_BUILD wall=$WALL_BUILD_MIN prompt="$WORK/build.md"
 while :; do
   check_time "$phase-$attempt"
   verify_spec "$phase-$attempt"
   meta_set attempts "$attempt"
+  [[ $MODE != maintenance ]] || refactor_inputs
   agent "$phase" "$attempt" "$prompt" "$MODEL_BUILD" "$turns" "$wall" "${build_args[@]}"
   [[ $MODE != maintenance ]] || ts_node refactor "$RUN/phases/$phase-$attempt/result.json" "$MAINT" 2>>"$RUN_LOG" || log "no refactor report"
   gates "$attempt" && break
@@ -681,6 +695,26 @@ printf '{"beforeReview":%s,"afterReview":%s}\n' "$before" "$(loc_json)" >"$RUN/l
 ts_node reviewmd "$RUN/review.json" >"$RUN/review.md"
 
 # ---- Judge (+ one fix round) -------------------------------------------------------------------------
+# judge_maint_inputs <dir> <round>: what a maintenance judge needs to check "the old copy is gone"
+# and "it got faster": the export inventory and clone report of the branch and of main (the clone
+# report over the files the branch changed), and for performance items the perf-probe numbers of
+# the branch now and of main (the survey's).
+judge_maint_inputs() {
+  local in=$1 m="$WORK/main-src" t
+  git -C "$CLONE" diff --name-only "$MAIN_SHA" HEAD -- src >"$WORK/judge-changed.txt"
+  [[ -d $m/src ]] || { mkdir -p "$m" && git -C "$CLONE" archive "$MAIN_SHA" src | tar -x -C "$m"; } || log "judge: could not extract main's src/"
+  for t in branch main; do
+    mkdir -p "$WORK/judge-inv-$t"
+    ts_node inventory "$([[ $t == branch ]] && echo "$CLONE" || echo "$m")" "$WORK/judge-changed.txt" "$WORK/judge-inv-$t" 2>>"$RUN_LOG" &&
+      cp "$WORK/judge-inv-$t/inventory.md" "$in/inventory-$t.md" && cp "$WORK/judge-inv-$t/clones.md" "$in/clones-$t.md" ||
+      log "judge: no $t inventory"
+  done
+  jq -e '[.chosen[]?.category] | index("performance")' "$MAINT" >/dev/null 2>&1 || return 0
+  [[ ! -s $RUN/perf.json ]] || cp "$RUN/perf.json" "$in/perf-main.json"
+  if [[ -x $SCRIPTS/perf-probe.sh ]] && timeout "${PERF_PROBE_MIN}m" "$SCRIPTS/perf-probe.sh" "$CLONE" "$WORK/perf-branch-$2.json" >>"$RUN_LOG" 2>&1; then
+    cp "$WORK/perf-branch-$2.json" "$in/perf-branch.json" && cp "$WORK/perf-branch-$2.json" "$RUN/perf-branch-$2.json"
+  else log "judge: perf probe of the branch failed; the judge gets main's numbers only"; fi
+}
 # judge_round <r>: a blind call (spec, diff, screenshots, gates, references, existing work; no
 # review.md), then a check call that also gets review.md and the blind scores. Both isolated: their
 # workdir is a folder of copies, so the repo's CLAUDE.md never loads. The harness decides (PASS).
@@ -694,6 +728,7 @@ judge_round() {
   branch_diff >"$in/diff.patch"
   git -C "$CLONE" archive "$MAIN_SHA" guardrails/design | tar -x -C "$in/references" --strip-components=2
   [[ ! -d $SHOTS ]] || cp -r "$SHOTS" "$in/screenshots"
+  [[ $MODE != maintenance ]] || judge_maint_inputs "$in" "$r"
   ts_node planted "$in/diff.patch" >"$WORK/planted-$r.txt"
   { cat "$here/prompts/judge.md" "$here/prompts/judge-rubric$([[ $MODE != maintenance ]] || echo -maintenance).md"; tonight
     printf '\n## This call: blind scoring\n\nScore the build from the files in this folder. There is no review yet. Fill in the blind schema.\n'; } >"$WORK/judge-$r.md"

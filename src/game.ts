@@ -3,9 +3,10 @@
 // The sim advances in fixed 60 Hz ticks (src/sim); rendering runs once per animation frame and draws
 // car positions interpolated between the last two ticks, so motion is smooth at any refresh rate.
 // The UI only ever sees views (src/ui/race-ui.ts), never the sim itself.
+import { raceDrivers } from './content/drivers.ts';
 import { TRACKS, getTrack, nextTrackId } from './content/tracks.ts';
 import { createInput } from './input/index.ts';
-import { createRaceScene, createRenderer, playerLivery, type CarLivery, type RaceScene } from './render/index.ts';
+import { createRaceScene, createRenderer, type RaceScene } from './render/index.ts';
 import {
   DT,
   carViews,
@@ -28,8 +29,8 @@ const MAX_TICKS_PER_FRAME = 5;
 /** The minimap uses every Nth point of the dense centreline. */
 const MINIMAP_STRIDE = 8;
 const NO_INPUT: CarInput = { steer: 0, throttle: false, brake: false };
-/** Player (car 0) and the bot opponent (car 1): KOSKI #7 from the mockups, mustard with a navy stripe. */
-const LIVERIES: readonly CarLivery[] = [playerLivery(1), { body: 'mustard', stripe: 'navy', number: 7, player: false }];
+/** Player (car 0) and the bot opponent (car 1), from the roster: YOU #1 and KOSKI #7. */
+const DRIVERS = raceDrivers(2);
 
 export type GameMode = 'menu' | 'race';
 
@@ -134,7 +135,7 @@ export function createGame(root: HTMLElement): Game {
   function sceneFor(world: World): RaceScene {
     if (!scene || sceneTrack !== world.track.data.id) {
       scene?.dispose();
-      scene = createRaceScene(world.track.layout, LIVERIES, renderer);
+      scene = createRaceScene(world.track.layout, DRIVERS, renderer);
       sceneTrack = world.track.data.id;
     } else {
       scene.reset();
@@ -224,7 +225,7 @@ export function createGame(root: HTMLElement): Game {
     startRace(options = {}) {
       const track = getTrack(options.trackId ?? menuTrack.id);
       menuTrack = track;
-      const world = createWorld(track, { seed: options.seed ?? nextSeed++, carCount: LIVERIES.length });
+      const world = createWorld(track, { seed: options.seed ?? nextSeed++, carCount: DRIVERS.length });
       const views = carViews(world);
       race = {
         track,
@@ -238,8 +239,8 @@ export function createGame(root: HTMLElement): Game {
       ui.reset(
         track.laps,
         world.track.layout.centre.filter((_, i) => i % MINIMAP_STRIDE === 0),
-        LIVERIES.map((l) => l.body),
-        { trackName: track.name, carNumbers: LIVERIES.map((l) => l.number) },
+        DRIVERS.map((d) => d.body),
+        { trackName: track.name, carNumbers: DRIVERS.map((d) => d.number), driverNames: DRIVERS.map((d) => d.name) },
       );
       input.reset();
       paused = false; // ui.reset() hid the pause screen

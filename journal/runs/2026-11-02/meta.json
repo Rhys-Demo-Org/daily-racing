@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-02",
+  "dryRun": true,
+  "manual": false,
+  "startedAt": 1793584801,
+  "noNewPhaseAt": 1793596500,
+  "hardDeadlineAt": 1793601000,
+  "mainSha": "f8303385b6ccf0ae783b9f9b65af418e5be3e7fa",
+  "image": "daily-racer-toolchain:58cb4400b8d8",
+  "claudeCodeVersion": "2.1.304 (Claude Code)",
+  "models": {
+    "ideate": "claude-opus-5-5",
+    "build": "claude-opus-5-5",
+    "judge": "claude-opus-5-5"
+  },
+  "phase": 1,
+  "ideaType": "backlog",
+  "backlogId": "B03",
+  "specSha256": "c8a696d5079059ce8047e6ca6ba3a6ec40bd272c9460e6a278d1637c7caf34e4"
+}

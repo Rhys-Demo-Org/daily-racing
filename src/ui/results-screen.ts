@@ -20,6 +20,8 @@ export interface ResultsRace {
   trackName: string;
   /** Livery numbers, index-aligned with the cars (0 = player). */
   carNumbers: readonly number[];
+  /** Driver names (e.g. YOU, KOSKI), index-aligned with the cars; a car without one is YOU (car 0) or CPU. */
+  driverNames: readonly string[];
   /** The player's best lap in ms, or null. */
   bestLapMs: number | null;
 }
@@ -73,6 +75,7 @@ export function createResultsScreen(root: HTMLElement, opts: ResultsScreenOption
 
   let rows: Row[] = [];
   let numbers: readonly number[] = [];
+  let names: readonly string[] = [];
   // finishTick and position per car as last rendered, so frames where nothing changed skip render().
   let ticks: (number | null)[] = [];
   let places: number[] = [];
@@ -87,7 +90,7 @@ export function createResultsScreen(root: HTMLElement, opts: ResultsScreenOption
       if (!row) return;
       const finish = ticks[car] ?? null;
       setText(row.pos, String(i + 1));
-      setText(row.driver, `${car === 0 ? 'YOU' : 'CPU'} · #${numbers[car] ?? car + 1}`);
+      setText(row.driver, `${names[car] ?? (car === 0 ? 'YOU' : 'CPU')} · #${numbers[car] ?? car + 1}`);
       setText(row.time, finish === null ? NO_TIME : formatTime(ticksToMs(finish)));
       setText(row.gap, finish === null || leader === null ? NO_TIME : i === 0 ? LEADER_GAP : formatGap(ticksToMs(finish - leader)));
       row.element.classList.toggle('ui-results__row--player', car === 0);
@@ -99,6 +102,7 @@ export function createResultsScreen(root: HTMLElement, opts: ResultsScreenOption
     ...screen,
     show(race, racers) {
       numbers = race.carNumbers;
+      names = race.driverNames;
       label.textContent = `Race complete · ${race.laps} ${race.laps === 1 ? 'lap' : 'laps'}`;
       trackName.textContent = race.trackName;
       best.textContent = formatOptionalTime(race.bestLapMs);

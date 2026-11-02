@@ -75,14 +75,17 @@ export function parseRaw(raw: string): Omit<Change, 'binary'>[] {
   return out;
 }
 
-/** Paths that `git diff --numstat -z --no-renames` reports as binary (`-\t-\t`). */
-function parseNumstatBinary(numstat: string): Set<string> {
-  const binary = new Set<string>();
-  for (const entry of numstat.split('\0')) {
+/** `git diff --numstat -z --no-renames` rows; a binary file (`-\t-\t`) counts 0 lines. */
+export function parseNumstat(numstat: string): { path: string; added: number; deleted: number; binary: boolean }[] {
+  return numstat.split('\0').flatMap((entry) => {
     const m = /^\n?(-|\d+)\t(-|\d+)\t(.*)$/s.exec(entry);
-    if (m && m[1] === '-') binary.add(m[3] as string);
-  }
-  return binary;
+    return m ? [{ path: m[3] as string, added: Number(m[1]) || 0, deleted: Number(m[2]) || 0, binary: m[1] === '-' }] : [];
+  });
+}
+
+/** Paths that `git diff --numstat -z --no-renames` reports as binary. */
+function parseNumstatBinary(numstat: string): Set<string> {
+  return new Set(parseNumstat(numstat).filter((r) => r.binary).map((r) => r.path));
 }
 
 /** Every disallowed change in a diff, as `path: reason` lines. */

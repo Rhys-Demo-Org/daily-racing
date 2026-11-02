@@ -31,8 +31,6 @@
 //   metricsheader                                      the metrics.csv header line
 //   allowed <diff-raw> <numstat> <today> <maintenance 0|1>   G8's diff rules; exit 1 + reasons on a violation
 //   prbody <run-dir> <preview-url>                     markdown PR body
-//   spec <claude-result.json> <spec.md> <date> <mode> <backlogId|-> <meta.json>
-//                                                      locks spec.md, prints (and records) its sha256
 //   feedback <gates.json>                              failed-gate text for the retry prompt
 //   shots <raw-dir> <out-dir>                          copies the PNGs a valid index lists; prints the count
 //   nojournal                                          a diff on stdin without its journal/ file sections
@@ -40,6 +38,18 @@
 //   redact <dir>...                                    token on stdin; exit 1 if it couldn't be scrubbed
 //   result <run-dir> <outcome> [reason]                writes <run-dir>/result.json
 //   report <run-dir>                                   markdown dry-run report
+//
+// Maintenance nights (plans/full-pipeline.md "The 7th day"); <list> is CLEANUP_LIST, <maint> the
+// run's maintenance.json (what the PR body, result.json and metrics read):
+//   cleanup-sync <list> <prs.json|-> <owner> <date> <maint>   maintenance PRs close / reopen items
+//   survey <list> <phases-dir> <repo> <date> <maint> [--failed=sim,...]   merges every pass; SURVEY_FINDINGS SURVEY_NEW
+//   cleanup-md <list> <out.md>                         the list as markdown
+//   candidates <list> <open-files.json> <date> <out.md> <maint>   tonight's eligible items; ELIGIBLE
+//   maintspec <list> <audit-result.json> <spec.md> <spec.json> <date> <meta.json> <audit.json> <maint>
+//                                                      CHOSEN SPEC_SHA (spec locked only when CHOSEN > 0)
+//   limits <raw> <numstat> <gates.json> <summary.md> <today> <maint>   adds gate M1 to a gate run
+//   refactor <result.json> <maint>                     records the refactor agent's per-item report
+//   cleanup-done <list> <run-dir> <branch>             items done tonight: in-PR (pr.json) or noted
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { runWindows } from './time.ts';
@@ -58,6 +68,8 @@ import { METRICS_COLUMNS, metricsRow } from './metrics.ts';
 import { keepShots } from './screens.ts';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { AREAS, candidates, loadList, markDone, mergeSurvey, note, readSurvey, recordRejections, renderCandidates, renderList, saveList, staleMissing, syncPrs, type Area, type CleanupList } from './cleanup.ts';
+import { checkLimits, checkMaintAudit, doneItems, limitsGate, readRefactor, renderMaintSpec, type MaintRecord } from './maintenance.ts';
 
 /** Single-quotes a value for bash `eval`. */
 export const q = (v: unknown): string => `'${String(v).replace(/'/g, `'\\''`)}'`;
@@ -71,6 +83,10 @@ const skip = args.find((x) => x.startsWith('--skip='))?.slice(7).split(',').filt
 const a = args.filter((x) => !x.startsWith('--skip='));
 const review = (path: string): ReviewState => readJson<ReviewState>(path) ?? { reviewers: {}, findings: [], rulings: [], fixes: [], notes: [] };
 const specOutput = (result: string): unknown => structuredOutput(result) ?? (() => { throw new Error('ideate result has no structured output'); })();
+const limits = () => ({ maxFiles: Number(env('MAINT_MAX_FILES')), maxLines: Number(env('MAINT_MAX_LINES')), maxNetSrc: Number(env('MAINT_MAX_NET_SRC_LINES')) });
+const listCounts = (l: CleanupList): Record<string, number> => ({
+  size: l.items.length, ...Object.fromEntries((['open', 'in-pr', 'stale', 'closed'] as const).map((st) => [st, l.items.filter((i) => i.status === st).length])),
+});
 const lines = (path: string): string[] => (existsSync(path) ? readFileSync(path, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean) : []);
 if (import.meta.main) {
   switch (cmd) {
@@ -96,13 +112,6 @@ if (import.meta.main) {
       }
       merge(meta, { phase: 1, ideaType: w.kind, backlogId: id || null });
       vars({ KIND: w.kind, ITEM_ID: id, ITEM_TITLE: w.kind === 'backlog' ? w.item.title : '' });
-      break;
-    }
-    case 'spec': {
-      const [result, out, date, mode, id, meta] = a as [string, string, string, SpecMode, string, string];
-      const specSha256 = lockSpec(out, renderSpec(validateSpec(specOutput(result), mode, id === '-' ? null : id), date, mode));
-      merge(meta, { specSha256 });
-      console.log(specSha256);
       break;
     }
     case 'existing': {
@@ -274,6 +283,108 @@ if (import.meta.main) {
     case 'report':
       process.stdout.write(report(a[0]!, env('TZ_NAME')));
       break;
+    case 'cleanup-sync': {
+      const [path, prs, owner, date, maint] = a as [string, string, string, string, string];
+      const list = loadList(path);
+      const synced = syncPrs(list, prs === '-' ? [] : readJson<GhPr[]>(prs) ?? [], owner, date);
+      saveList(path, list);
+      merge(maint, { synced, list: listCounts(list) });
+      vars({ SYNC_CLOSED: synced.closed, SYNC_REOPENED: synced.reopened });
+      break;
+    }
+    case 'survey': {
+      const [path, phases, repo, date, maint] = a as [string, string, string, string, string];
+      const failed = args.find((x) => x.startsWith('--failed='))?.slice(9).split(',') ?? [];
+      const list = loadList(path);
+      const total = { findings: 0, new: 0, merged: 0, confirmed: 0, staled: 0, reopened: 0, dropped: 0 };
+      const passes: Record<string, 'ok' | 'failed'> = {};
+      for (const area of AREAS) {
+        const sv = failed.includes(area) ? null : readSurvey(join(phases, `survey-${area}-1`, 'result.json'));
+        passes[area] = sv ? 'ok' : 'failed';
+        if (!sv) continue;
+        const st = mergeSurvey(list, area as Area, sv, date);
+        for (const k of Object.keys(total) as (keyof typeof total)[]) total[k] += st[k];
+        for (const d of sv.dropped) console.error(`survey ${area}: dropped ${d}`);
+      }
+      const gone = staleMissing(list, date, (f) => existsSync(join(repo, f)));
+      saveList(path, list);
+      merge(maint, { survey: { passes, ...total, gone }, list: listCounts(list) });
+      vars({ SURVEY_FINDINGS: total.findings, SURVEY_NEW: total.new });
+      break;
+    }
+    case 'cleanup-md':
+      writeFileSync(a[1]!, renderList(loadList(a[0]!)));
+      break;
+    case 'candidates': {
+      const [path, open, date, out, maint] = a as [string, string, string, string, string];
+      const list = loadList(path);
+      const c = candidates(list, readJson<OpenFiles[]>(open) ?? [], date);
+      saveList(path, list);
+      writeFileSync(out, renderCandidates(list, c));
+      const ownerOnly = c.ownerOnly.map((id) => list.items.find((i) => i.id === id)!).map((i) => ({ id: i.id, claim: i.claim, files: i.files }));
+      merge(maint, { candidates: c, ownerOnly });
+      vars({ ELIGIBLE: c.eligible.length });
+      break;
+    }
+    case 'maintspec': {
+      const [path, result, specMd, specJson, date, meta, auditJson, maint] = a as [string, string, string, string, string, string, string, string];
+      const list = loadList(path);
+      const rec = readJson<MaintRecord>(maint) ?? {};
+      const c = rec.candidates ?? { eligible: [], skipped: [], ownerOnly: [] };
+      const audit = checkMaintAudit(structuredOutput(result), c.eligible, Number(env('MAINT_MAX_ITEMS')));
+      if (!audit || !audit.chosen.length) {
+        json(auditJson, { verdict: 'reject', rounds: 1, items: [], reason: audit ? 'the plan audit chose no item' : 'the plan audit returned no valid output' });
+        if (audit) { recordRejections(list, audit.rejected, date); saveList(path, list); merge(maint, { rejected: audit.rejected, auditNotes: audit.notes }); }
+        vars({ CHOSEN: 0, SPEC_SHA: '' });
+        break;
+      }
+      recordRejections(list, audit.rejected, date);
+      for (const ch of audit.chosen) note(list.items.find((i) => i.id === ch.id)!, date, 'chosen by the plan audit');
+      saveList(path, list);
+      const lim = limits();
+      const skipped = c.skipped.map((s) => `${s.id}: open PR ${s.prs.map((n) => `#${n}`).join(', ')}`);
+      const specSha256 = lockSpec(specMd, renderMaintSpec(audit, list, date, lim, skipped));
+      const chosen = audit.chosen.map((ch) => { const i = list.items.find((x) => x.id === ch.id)!; return { id: i.id, category: i.category, files: i.files, claim: i.claim, why: ch.why }; });
+      json(specJson, { backlogId: null, title: audit.title, summary: audit.summary, acceptanceCriteria: [], closestExisting: [], items: chosen.map((x) => x.id),
+        expectedFiles: [...new Set(chosen.flatMap((x) => x.files))], supersedes: [], playtest: audit.playtest });
+      json(auditJson, { verdict: 'approve', rounds: 1, items: [...chosen.map((x) => ({ id: x.id, verdict: 'chosen', rounds: 1, waitsOn: null })), ...audit.rejected.map((r) => ({ id: r.id, verdict: 'rejected', rounds: 1, waitsOn: null }))] });
+      merge(meta, { specSha256 });
+      merge(maint, { chosen, rejected: audit.rejected, auditNotes: audit.notes });
+      vars({ CHOSEN: chosen.length, SPEC_SHA: specSha256 });
+      break;
+    }
+    case 'limits': {
+      const [raw, numstat, gatesPath, summary, today, maint] = a as [string, string, string, string, string, string];
+      const lim = limits();
+      const r = checkLimits(readFileSync(raw, 'utf8'), readFileSync(numstat, 'utf8'), today, lim);
+      const row = limitsGate(r, lim);
+      const g = readJson<{ pass: boolean; gates: { id: string }[] }>(gatesPath);
+      if (g && Array.isArray(g.gates)) {
+        g.gates = [...g.gates.filter((x) => x.id !== 'M1'), row];
+        g.pass = g.pass === true && r.pass;
+        json(gatesPath, g);
+      }
+      writeFileSync(summary, `${existsSync(summary) ? readFileSync(summary, 'utf8') : ''}\n| M1 ${row.name} | ${row.pass ? 'pass' : '**FAIL**'} | - | ${row.summary} |\n${row.pass ? '' : `\n## M1 details\n\n\`\`\`\n${row.details}\n\`\`\`\n`}`);
+      merge(maint, { limits: r });
+      break;
+    }
+    case 'refactor': { // a retry without a valid report keeps the earlier attempt's
+      const rec = readJson<MaintRecord>(a[1]!) ?? {};
+      const items = readRefactor(a[0]!, (rec.chosen ?? []).map((c) => c.id));
+      if (items || !rec.refactor) merge(a[1]!, { refactor: items });
+      break;
+    }
+    case 'cleanup-done': {
+      const [path, run, branch] = a as [string, string, string];
+      const rec = readJson<MaintRecord>(join(run, 'maintenance.json')) ?? {};
+      const pr = readJson<{ number?: unknown }>(join(run, 'pr.json'));
+      const date = readJson<{ date?: string }>(join(run, 'meta.json'))?.date ?? '';
+      const list = loadList(path);
+      const n = markDone(list, doneItems(rec), date, typeof pr?.number === 'number' ? pr.number : null, branch);
+      saveList(path, list);
+      console.log(n);
+      break;
+    }
     default:
       console.error(`cli.ts: unknown command ${String(cmd)}`);
       process.exit(2);

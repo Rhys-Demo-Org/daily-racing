@@ -12,6 +12,18 @@ the harness renders it to `spec.md`, locks it and hands it to the builder.
 - Size: one night's work, as a guide rather than a hard limit: about 800 changed lines in `src/`
   (excluding tests and track JSON) and at most 20 changed files. Don't cut the feature's core to fit.
 - `closestExisting` is `[]` unless tonight is an invention night.
+- The existing-work list below is what is merged, in flight (open PRs) and rejected. Never spec
+  something that repeats or overlaps it. A separate plan auditor checks your spec before any code
+  is written, against that list and the open PRs' files.
+- `expectedFiles`: every `src/` and new `tests/` path you expect the build to add or change. The
+  harness compares them with open PRs' files, so be accurate rather than short.
+- `supersedes`: the `src/` modules this feature replaces. They are deleted with it; never leave the
+  old code as dead code. Empty when nothing is retired. Never list a module that an existing test
+  imports (grep `tests/` for it): tests are append-only and the gates fail a night that deletes or
+  edits one, so that module can't be retired yet. Spec the feature without retiring it, and say in
+  `summary` that it stays until the owner retires it with its tests.
+- `playtest`: what the owner will see on the PR preview (`whatYoullSee`) and the steps to try it on a
+  phone (`howToTest`), in plain words with no code names. `null` only on maintenance nights.
 
 ## Backlog night
 - The spec covers exactly the backlog item under "Tonight": its `scope` and `done_when`, nothing
@@ -22,10 +34,18 @@ the harness renders it to `spec.md`, locks it and hands it to the builder.
 - Each AC must be testable with Vitest in Node: the sim headless, the UI with happy-dom, the
   render layer through its scene graph (no WebGL). Name concrete values (keys, labels, counts,
   ticks) where the backlog or mockups give them.
+- Test behaviour, not internals. Phrase every AC through a public seam: the DOM by role and text,
+  `RaceView`, `window.__racer`, or exported content data. Never name an internal class, function,
+  file or private field: tests are append-only, so a test that pins one freezes that name forever.
+- The change must be visible to the owner, and `playtest` says how to see it.
 
 ## Maintenance night (Sunday)
 - No new content and no behaviour change: bot lap times, physics replays and visual baselines must
   stay identical. Pick one small, worthwhile cleanup: a refactor, dead code, clearer tests or docs,
   or making `CLAUDE.md` match the code.
-- `backlogId` is `null` and `acceptanceCriteria` is `[]`. Say in `summary` exactly what changes
-  and why it is safe.
+- `backlogId` is `null`, `acceptanceCriteria` is `[]` and `playtest` is `null`. Say in `summary`
+  exactly what changes and why it is safe.
+
+## Revisions
+If a "Plan audit asked for a revision" section follows, a plan auditor rejected your previous
+draft. Write a complete new spec that addresses every finding; don't argue with them.

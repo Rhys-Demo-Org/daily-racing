@@ -25,8 +25,8 @@ Check each point and record every problem as a finding (`check`, `severity`, `cl
    and ask for a revision that leaves that part out.
 3. **Duplicates** (`duplicate`). It does not repeat merged, in-flight or rejected work in the
    existing-work list.
-4. **In-flight overlap** (`overlap`). The harness lists the open daily PRs whose files the draft's
-   `expectedFiles` hit. Read those PRs' diffs in `/inputs/`. If the draft would change the same
+4. **In-flight overlap** (`overlap`). The harness lists the open PRs (daily, and the owner's
+   others) whose files the draft's `expectedFiles` hit. Read those PRs' diffs in `/inputs/`. If the draft would change the same
    behaviour or the same lines, or builds on work that isn't merged yet, the verdict is `defer`
    with `waitsOn` set (e.g. `#11`). If the overlap is harmless (say, both add one line to a shared
    list), say why in `overlapAssessment`. **If there is overlap and you approve, `overlapAssessment`

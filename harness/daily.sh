@@ -90,6 +90,15 @@ if [[ -s $GITHUB_TOKEN_FILE ]]; then # read-only: list the daily PRs with what t
   elif [[ $mode == live ]]; then die "could not list the daily PRs"
   else echo "dry run: could not list the daily PRs; going on without them" >&2; fi
 fi
+# Every open PR of the owner's, daily or not (exact author), for the file-overlap checks: a night
+# never touches files an open PR changes.
+OWNER_PRS="$DAILY_HOME/work/owner-prs.json"
+rm -f "$OWNER_PRS"
+if (( ${#prs[@]} )); then
+  gh_ pr list -R "$(repo_slug "$CLONE")" --state open --author "$OWNER_LOGIN" --limit 300 \
+    --json number,title,state,isDraft,labels,author,files,url >"$OWNER_PRS" ||
+    { rm -f "$OWNER_PRS"; [[ $mode != live ]] || die "could not list the owner's open PRs"; echo "dry run: could not list the owner's open PRs" >&2; }
+fi
 if [[ $mode == live ]]; then
   open_prs=$(jq '[.[] | select(.state == "OPEN")] | length' "$PRS")
   (( open_prs < MAX_OPEN_DAILY_PRS )) || skip "$open_prs daily PRs open (limit $MAX_OPEN_DAILY_PRS); review some first"
@@ -245,12 +254,13 @@ MODE=$KIND   # backlog | maintenance
 maint=(); [[ $MODE != maintenance ]] || maint=(--maintenance)
 log "work: $MODE ${ITEM_ID:+$ITEM_ID · $ITEM_TITLE}"
 # The existing-work list (merged / in flight / rejected daily PRs, the backlog) for ideate, the plan
-# audit and the judge, and each open PR's files for the overlap check. The owner's in-flight diffs
-# go to the plan auditor as files, without their journal/ sections (journal masking).
-ts_node existing "${prs[0]:--}" "$CLONE/guardrails/BACKLOG.md" "$OWNER_LOGIN" "$RUN/existing-work.md" "$WORK/open-files.json"
+# audit and the judge, and each open PR's files (daily PRs and the owner's other open PRs) for the
+# overlap check of feature nights and the skip of maintenance nights. The owner's in-flight diffs
+# (daily or not) go to the plan auditor as files, without their journal/ sections (journal masking).
+ts_node existing "${prs[0]:--}" "$CLONE/guardrails/BACKLOG.md" "$OWNER_LOGIN" "$RUN/existing-work.md" "$WORK/open-files.json" "$( [[ -s $OWNER_PRS ]] && echo "$OWNER_PRS" || echo -)"
 mkdir -p "$WORK/inflight"
 if (( ${#prs[@]} )); then
-  for pr in $(jq -r --arg o "$OWNER_LOGIN" '.[] | select(.state == "OPEN" and .author.login == $o) | .number' "$PRS"); do
+  for pr in $(jq -rs --arg o "$OWNER_LOGIN" '[.[][] | select(.state == "OPEN" and .author.login == $o) | .number] | unique[]' "$PRS" $( [[ -s $OWNER_PRS ]] && echo "$OWNER_PRS")); do
     gh_ pr diff "$pr" -R "$(repo_slug "$CLONE")" 2>>"$RUN_LOG" | ts_node nojournal >"$WORK/inflight/pr-$pr.diff" 2>>"$RUN_LOG" ||
       { log "could not fetch the diff of #$pr"; rm -f "$WORK/inflight/pr-$pr.diff"; }
   done
@@ -372,9 +382,9 @@ audit_prompt() {
   { cat "$here/prompts/plan-audit.md"; tonight
     printf '\n### Backlog item\n\n%s\n' "$(cat "$RUN/item.md")"
     printf '\n## Draft spec\n\n'; cat "$2/draft.md"
-    printf '\n## File overlap with open daily PRs (computed by the harness)\n\n'; cat "$2/overlap.md"
+    printf '\n## File overlap with open PRs (daily, and the owner'"'"'s others; computed by the harness)\n\n'; cat "$2/overlap.md"
     printf '\n## Acceptance criteria that may name internals (harness lint, advisory)\n\n'; cat "$2/lint.md"
-    printf '\n## In-flight diffs\n\nThe owner'"'"'s open daily PRs'"'"' diffs are in `/inputs/` (`pr-<n>.diff`), if any.\n'
+    printf '\n## In-flight diffs\n\nThe owner'"'"'s open PRs'"'"' diffs are in `/inputs/` (`pr-<n>.diff`), if any.\n'
     printf '\n## Existing work (data, from the harness)\n\n'; cat "$RUN/existing-work.md"
   } >"$1"
 }
@@ -432,7 +442,7 @@ maintenance_spec() {
     printf '\n## Limits\n\n- At most %s items; %s changed files and %s changed lines in all (journal excluded).\n' "$MAINT_MAX_ITEMS" "$MAINT_MAX_FILES" "$MAINT_MAX_LINES"
     printf -- '- Net `src/` lines must not grow (added − deleted ≤ %s); tests don'"'"'t count.\n- Existing tests are append-only tonight.\n' "$MAINT_MAX_NET_SRC_LINES"
     printf '\n## Tonight'"'"'s candidates from the cleanup list (data, from the harness)\n\n'; cat "$WORK/candidates.md"
-    printf '\n## In-flight diffs\n\nThe owner'"'"'s open daily PRs'"'"' diffs are in `/inputs/` (`pr-<n>.diff`), if any.\n'
+    printf '\n## In-flight diffs\n\nThe owner'"'"'s open PRs'"'"' diffs are in `/inputs/` (`pr-<n>.diff`), if any.\n'
     printf '\n## Existing work (data, from the harness)\n\n'; cat "$RUN/existing-work.md"
   } >"$WORK/maint-audit.md"
   agent audit 1 "$WORK/maint-audit.md" "$MODEL_AUDIT" "$MAX_TURNS_MAINT_AUDIT" "$WALL_MAINT_AUDIT_MIN" \

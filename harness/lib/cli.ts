@@ -8,7 +8,9 @@
 //                                                      KIND ITEM_ID ITEM_TITLE; with prs.json (live)
 //                                                      state comes from the daily PRs, ledger untouched;
 //                                                      --skip: items deferred or rejected tonight
-//   existing <prs.json|-> <backlog.md> <owner> <out.md> <open-files.json>   existing-work list
+//   existing <prs.json|-> <backlog.md> <owner> <out.md> <open-files.json> [<owner-prs.json|->]
+//                                                      existing-work list; open files of the daily PRs
+//                                                      and the owner's other open PRs
 //   draft <claude-result.json> <dir> <date> <mode> <backlogId|-> <open-files.json>
 //                                                      dir/{draft.json,draft.md,overlap.md,lint.md}; OVERLAP
 //   audit <claude-result.json> <overlap-count> <round> <out.json> <out.md>   VERDICT WAITS_ON
@@ -116,10 +118,10 @@ if (import.meta.main) {
       break;
     }
     case 'existing': {
-      const [prsPath, backlog, owner, out, open] = a as [string, string, string, string, string];
+      const [prsPath, backlog, owner, out, open, ownerPrs] = a as [string, string, string, string, string, string?];
       const prs = prsPath === '-' ? [] : readJson<GhPr[]>(prsPath) ?? [];
       writeFileSync(out, existingWork(prs, parseBacklog(readFileSync(backlog, 'utf8')), owner));
-      json(open, openFiles(prs, owner));
+      json(open, openFiles(prs, owner, ownerPrs && ownerPrs !== '-' ? readJson<GhPr[]>(ownerPrs) ?? [] : []));
       break;
     }
     case 'draft': {

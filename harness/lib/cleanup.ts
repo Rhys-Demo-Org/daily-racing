@@ -264,7 +264,8 @@ export type Candidates = { eligible: string[]; skipped: { id: string; prs: numbe
 
 /**
  * Items the maintenance plan audit may choose tonight: open, not owner-only, and touching no file an
- * open daily PR changes (skipping is the simplest conflict rule; the skip is noted on the item).
+ * open PR changes (a daily PR, or any other of the owner's; skipping is the simplest conflict rule,
+ * and the skip is noted on the item).
  * Eligible items are ordered by worth, then how often they were seen, then age.
  */
 export function candidates(list: CleanupList, open: readonly OpenFiles[], date: string): Candidates {

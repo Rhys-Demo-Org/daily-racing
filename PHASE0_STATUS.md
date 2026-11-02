@@ -3,7 +3,8 @@
 Resume point for any session working on Phase 0. Plan: `plans/phase0-plan.md` (owner-approved,
 don't re-plan). Spec: `HANDOVER.md`. Delete this file when Phase 0 is handed over.
 
-Milestone order: M1 → M1.5 spike → M2 → M3 → M4-thin → dry-run week → Later.
+Milestone order: M1 → M1.5 spike → M2 → M3 → M4-thin → dry-run week → Later. The owner cut the
+dry-run week short on 2026-10-30 to open real PRs early (`plans/live-prs.md`).
 One `phase0/mN-*` branch and PR per milestone; the owner merges. Every milestone gets a spec
 audit and a code review (speed, LOC, duplication) with fixes applied before handover.
 
@@ -132,7 +133,7 @@ content 3), build, end-to-end in Chromium at 844×390 (touch) and 1440×900 with
 **Checkpoint passed (2026-10-29):** owner re-approved the reference frames (the M2 review fixes
 and the bot car changed the look); the new shots replace the M2 ones.
 
-## In progress: M4-thin · Thin harness + nightly dry runs (branch `phase0/m4-thin`)
+## M4-thin · Thin harness + nightly dry runs — PR #6 (merged 2026-10-30)
 Built by three agents in parallel (gates, sandbox, nightly loop), then a security audit and a code review;
 every finding fixed. Read `SETUP.md` for how to run it and its "Known residuals".
 - **Gates** (`harness/scripts/run-gates.sh`, `guardrails/gates/`): G1 typecheck + build + tests + test
@@ -170,12 +171,22 @@ every finding fixed. Read `SETUP.md` for how to run it and its "Known residuals"
 - 2nd attempt: B01 pause screen, spec 1m10s, build 5m02s (41 turns), gates passed first time (7 s),
   $2.38 notional, 8 ACs each with a named test, 10 files / ~550 lines. Looks right by eye at both sizes.
 
-Remaining: merge this PR, put a checkout of `main` at `~/.daily-racer/harness`, install the systemd
-timer (`SETUP.md`), start the dry-run week.
+Hosting: Cloudflare Pages via `.github/workflows/deploy.yml` (PR #7, merged 2026-10-30), live at
+https://daily-racing.pages.dev; same-repo PRs get `<branch>.daily-racing.pages.dev` previews.
+
+**First nightly dry run (2026-10-30 02:00):** B01 passed first time in 4m37s (spec 52 s, build 3m32s /
+24 turns, gates 6 s), $1.75 notional, 8 ACs, 10 files / ~460 lines.
+
+## In progress: live PRs (branch `harness/live-prs`, `plans/live-prs.md`)
+`daily.sh --live`: pre-flight lists the repo's `daily` PRs (7 open → skip; `backlog:Bxx` labels drive
+the picker: merged = done, open or closed = never retried), then `harness/scripts/publish.sh` pushes
+`daily/<date>` and opens the PR (ready on pass; draft + `failed` otherwise) with the spec, gate table
+and preview link. Publish refuses any commit touching a non-allowlisted path, a final diff breaking
+G8's rules, or a token/secret-shaped string. Fine-grained PAT (no Workflows permission) at
+`~/.daily-racer/github-token`, via `GIT_ASKPASS`/`GH_TOKEN` only.
 
 ## Next step
-After M4-thin: host `main` (Cloudflare Pages via a GitHub Action, owner preference pending), then the
-dry-run week.
+Owner switches the timer to `--live` (`SETUP.md` §5). Still Later: judge, G4–G7/G9–G11, GitHub App.
 
 ## Owner decisions
 1. G4 perf margin: 15% with 7 alternating runs per side (M1.5 finding 5). Accepted 2026-10-29.

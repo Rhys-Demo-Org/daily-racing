@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Nightly loop, thin version (HANDOVER §6, plan M4-thin): pre-flight, pick, spec, build, gates,
-# retries, journal. Only dry runs exist: nothing is pushed, no PR, no GitHub writes.
+# retries, journal. A dry run pushes nothing; a live run (plans/live-prs.md) then hands the branch to
+# scripts/publish.sh, which pushes it and opens the PR.
 #
-#   harness/daily.sh --dry-run [--manual]
+#   harness/daily.sh --dry-run|--live [--manual]
 #
 #   --manual  owner-run daytime dry run: no start cutoff; the no-new-phase and hard limits are the
 #             start plus the nightly offsets from START_AT (+3h15, +4h30).
@@ -12,20 +13,21 @@
 # $DAILY_HOME/runs/<date>/ (outside every container) and are copied to journal/runs/<date>/ and
 # committed on the branch at the end, abort included; the builder's own journal files move under
 # journal/runs/<date>/builder/ so they can't pose as harness files. Before every commit the token
-# is redacted from the tree and the run folder.
+# is redacted from the tree and the run folder. Live runs also take the backlog state from the
+# repo's daily PRs and skip the night when MAX_OPEN_DAILY_PRS are open.
 # Exit 0: the night ran (whatever the outcome) or was skipped on purpose. Non-zero: harness error.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 source "$here/lib/common.sh"
 
-dry=0 manual=0
+mode='' manual=0
 for arg in "$@"; do
-  case $arg in --dry-run) dry=1 ;; --manual) manual=1 ;; *) echo "usage: daily.sh --dry-run [--manual]" >&2; exit 2 ;; esac
+  case $arg in --dry-run) mode=dry ;; --live) mode=live ;; --manual) manual=1 ;; *) mode=; break ;; esac
 done
-(( dry )) || { echo "daily.sh: live mode isn't built yet; run with --dry-run" >&2; exit 2; }
+[[ -n $mode ]] || { echo "usage: daily.sh --dry-run|--live [--manual]" >&2; exit 2; }
 
 # Test-only hooks, used by harness/tests/daily-e2e.sh and nothing else: a folder of stub
-# agent-run/run-gates/sandbox-net scripts and a file holding a fake epoch clock.
+# agent-run/run-gates/sandbox-net scripts and a file holding a fake epoch clock (DAILY_GH: common.sh).
 SCRIPTS="${DAILY_SCRIPTS:-$here/scripts}"
 now() { if [[ -n ${DAILY_TEST_CLOCK:-} ]]; then cat "$DAILY_TEST_CLOCK"; else date +%s; fi; }
 
@@ -69,6 +71,15 @@ CLONE="$DAILY_HOME/repo"
 [[ -d $CLONE/.git ]] || git clone --quiet "$(git -C "$here/.." remote get-url origin)" "$CLONE"
 git -C "$CLONE" fetch --quiet --prune origin
 ! git -C "$CLONE" cat-file -e origin/main:harness/STOP 2>/dev/null || skip "kill switch harness/STOP on origin/main"
+PRS="$DAILY_HOME/work/prs.json" prs=()
+if [[ $mode == live ]]; then
+  [[ -s $GITHUB_TOKEN_FILE ]] || die "no GitHub token at $GITHUB_TOKEN_FILE"
+  gh_ pr list -R "$(repo_slug "$CLONE")" --state all --label daily --limit 1000 --json number,state,labels >"$PRS" ||
+    die "could not list the daily PRs"
+  open_prs=$(jq '[.[] | select(.state == "OPEN")] | length' "$PRS")
+  (( open_prs < MAX_OPEN_DAILY_PRS )) || skip "$open_prs daily PRs open (limit $MAX_OPEN_DAILY_PRS); review some first"
+  prs=("$PRS")
+fi
 
 # From here on every exit (stop, error, deadline) ends in finish(), which journals and commits.
 mkdir -p "$RUN/phases"
@@ -114,7 +125,8 @@ finish() {
   ts_node result "$RUN" "$OUTCOME" "$REASON" 2>>"$RUN_LOG"
   if (( on_branch )); then
     rm -rf "$RUN/builder" && mv "$J" "$RUN/builder" 2>/dev/null
-    cp -rT "$RUN" "$J" && "${GIT[@]}" add -A && "${GIT[@]}" commit -qm "journal: $DATE dry run ($OUTCOME)"
+    cp -rT "$RUN" "$J" && "${GIT[@]}" add -A && "${GIT[@]}" commit -qm "journal: $DATE $mode run ($OUTCOME)" &&
+      if [[ $mode == live ]]; then "$here/scripts/publish.sh" "$RUN" >>"$RUN_LOG" 2>&1 || log "publish failed (see run.log)"; fi
   fi
   "$SCRIPTS/sandbox-net.sh" down >>"$RUN_LOG" 2>&1 || log "sandbox-net.sh down failed"
   # Thin disk cleanup: exited toolchain containers, dangling images, old local daily/* branches and
@@ -138,12 +150,12 @@ trap on_exit EXIT
 trap 'OUTCOME=abort REASON="terminated: hard deadline $HARD_DEADLINE reached (or service stopped)"; exit 124' TERM
 trap 'OUTCOME=abort REASON="interrupted"; exit 130' INT
 
-log "dry run $DATE (manual=$manual) main=$MAIN_SHA"
-jq -n --arg date "$DATE" --argjson manual "$( ((manual)) && echo true || echo false)" --argjson startedAt "$(now)" \
+log "$mode run $DATE (manual=$manual) main=$MAIN_SHA"
+jq -n --arg date "$DATE" --argjson dryRun "$([[ $mode == dry ]] && echo true || echo false)" --argjson manual "$( ((manual)) && echo true || echo false)" --argjson startedAt "$(now)" \
   --argjson noNewPhaseAt "$NO_NEW_PHASE_AT" --argjson hardDeadlineAt "$HARD_AT" --arg mainSha "$MAIN_SHA" --arg image "$IMAGE" \
   --arg claudeCodeVersion "$(docker run "${DOCKER_BASE[@]}" --network none --read-only "$IMAGE" claude --version)" \
   --arg ideate "$MODEL_IDEATE" --arg build "$MODEL_BUILD" --arg judge "$MODEL_JUDGE" \
-  '{$date, dryRun: true, $manual, $startedAt, $noNewPhaseAt, $hardDeadlineAt, $mainSha, $image, $claudeCodeVersion,
+  '{$date, $dryRun, $manual, $startedAt, $noNewPhaseAt, $hardDeadlineAt, $mainSha, $image, $claudeCodeVersion,
     models: {$ideate, $build, $judge}}' >"$RUN/meta.json"
 
 git -C "$CLONE" checkout -qf -B "$BRANCH" origin/main
@@ -152,11 +164,11 @@ mkdir -p "$J"
 on_branch=1
 
 # ---- Pick ---------------------------------------------------------------------------------------
-pick="$(ts_node pick "$SUNDAY" "$CLONE/guardrails/BACKLOG.md" "$DAILY_HOME/dry-runs.json" "$RUN/item.md" "$RUN/meta.json")"
+pick="$(ts_node pick "$SUNDAY" "$CLONE/guardrails/BACKLOG.md" "$DAILY_HOME/dry-runs.json" "$RUN/item.md" "$RUN/meta.json" "${prs[@]}")"
 eval "$pick"
 case $KIND in
   phase2) stop skip "phase 2 not built" ;;
-  blocked) stop skip "blocked: every open backlog item waits on unmerged dependencies" ;;
+  blocked) stop skip "blocked: every open backlog item waits on unmerged dependencies or already has a PR" ;;
 esac
 MODE=$KIND   # backlog | maintenance
 maint=(); [[ $MODE != maintenance ]] || maint=(--maintenance)

@@ -1,9 +1,11 @@
 // Shared helpers for render tests: the real Dust Bowl layout, car views and a scene-graph walk.
 import type { BufferGeometry, Line, Mesh, Object3D } from 'three';
 import { trackLayout, type CarView } from '../../src/sim/index.ts';
-import { dustBowl } from '../sim/helpers.ts';
+import { dustBowl, dustBowlClassic } from '../sim/helpers.ts';
 
 export const layout = trackLayout(dustBowl);
+/** The frozen pre-rework Dust Bowl's layout (tests/fixtures/tracks), for suites that assert its geometry. */
+export const classicLayout = trackLayout(dustBowlClassic);
 
 /** Centreline point and driving heading (0 = north, clockwise) at a lap fraction of Dust Bowl. */
 export function at(fraction: number): { x: number; z: number; heading: number } {

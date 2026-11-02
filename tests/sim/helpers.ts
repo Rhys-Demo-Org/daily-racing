@@ -10,6 +10,7 @@ import type { CarState } from '../../src/sim/car.ts';
 import { CAR_LENGTH, CAR_WIDTH, DT, SURFACES, createCar, forwardSpeed, stepCars } from '../../src/sim/car.ts';
 import { COUNTDOWN_TICKS } from '../../src/sim/race.ts';
 import type { Collider, Track } from '../../src/sim/track.ts';
+import { validateTrack } from '../../src/sim/track.ts';
 import { clamp, headingOf, wrapAngle } from '../../src/sim/vec.ts';
 
 const TRACK_DIR = join(import.meta.dirname, '../../src/content/tracks');
@@ -19,6 +20,11 @@ export const TRACKS: readonly TrackData[] = readdirSync(TRACK_DIR)
   .sort()
   .map((f) => JSON.parse(readFileSync(join(TRACK_DIR, f), 'utf8')) as TrackData);
 export const dustBowl = TRACKS.find((t) => t.id === 'dust-bowl') as TrackData;
+/** Dust Bowl as it was before it was made smaller and tighter, frozen as a test-only track (not
+ * registered in the game): the suites written against its geometry, and the recorded replays, use it. */
+export const dustBowlClassic: TrackData = validateTrack(
+  JSON.parse(readFileSync(join(import.meta.dirname, '../fixtures/tracks/dust-bowl-classic.json'), 'utf8')),
+);
 
 export const NO_INPUT: CarInput = { steer: 0, throttle: false, brake: false };
 export const GAS: CarInput = { steer: 0, throttle: true, brake: false };

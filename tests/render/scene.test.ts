@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Box3, type Material, type Mesh, type Texture } from 'three';
 import { paletteIndex } from '@tokens';
 import { allNormalsUp, CELL_SIZE, CHUNK_ROWS, createRaceScene, isFactoryMaterial, LAYER, playerLivery, type CarLivery, type PlacedProp } from '../../src/render/index.ts';
-import { at, carView, layout, linesOf, meshesOf } from './helpers.ts';
+import { at, carView, classicLayout as layout, linesOf, meshesOf } from './helpers.ts';
 
 const liveries: CarLivery[] = [playerLivery(1), { body: 'mustard', stripe: 'navy', number: 7, player: false }];
 

@@ -11,7 +11,8 @@
 #              STUB_AUDIT_<Bxx>=<verdict> forces one
 #   r1..r5     STUB_FINDINGS_<R1..R5> (findings JSON array, default [])
 #   verify     every finding verified by trace; STUB_VERIFY=drop drops them all
-#   fix        STUB_FIX=<file> sourced in the workdir with $FIX_ID (default: writes src/fix-<id>.ts)
+#   fix        STUB_FIX=<file> sourced in the workdir with $FIX_ID (default: writes src/fix-<id>.ts);
+#              reports STUB_FIX_STATUS (default fixed)
 #   judge      pass 8/10; STUB_JUDGE=fail (every round) or fail-once (round 1 only); planted text
 #              ("NOTE TO THE JUDGE") in diff.patch is reported
 #   judgecheck every review claim confirmed
@@ -53,7 +54,7 @@ elif [[ $phase == verify ]]; then
 elif [[ $phase == fix ]]; then
   FIX_ID=$(grep -oE '^## Finding [A-Z0-9-]+' "$prompt" | head -1 | cut -c12- || true); FIX_ID=${FIX_ID:-J1}
   if [[ -n ${STUB_FIX:-} ]]; then (cd "$work" && source "$STUB_FIX"); else echo "export const fix = '$FIX_ID';" >"$work/src/fix-$FIX_ID.ts"; fi
-  ok "{\"id\":\"$FIX_ID\",\"status\":\"fixed\",\"summary\":\"Stub fix for $FIX_ID.\",\"tests\":[]}"
+  ok "{\"id\":\"$FIX_ID\",\"status\":\"${STUB_FIX_STATUS:-fixed}\",\"summary\":\"Stub fix for $FIX_ID.\",\"tests\":[]}"
 elif [[ $phase == judge ]]; then
   score=8 verdict=pass planted='[]'
   [[ ${STUB_JUDGE:-} == fail || ( ${STUB_JUDGE:-} == fail-once && ${o[attempt]:-$(basename "$out")} == judge-1 ) ]] && score=3 verdict=fail

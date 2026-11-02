@@ -1,9 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { checkRulings, fixBrief, fixQueue, readFindings, readFix, reviewMd, verifierTest, type Finding } from '../lib/review.ts';
+import { checkRulings, fixBrief, fixQueue, readFindings, readFix, REVIEWERS, reviewMd, verifierTest, type Finding } from '../lib/review.ts';
 import { structuredOutput } from '../lib/spec.ts';
 
 let dir = '';
@@ -150,5 +150,37 @@ describe('structured output', () => {
     expect(structuredOutput(p('d.json', { type: 'result', result: 'no JSON here' }))).toBeNull();
     expect(structuredOutput(p('e.json', 'not json'))).toBeNull();
     expect(structuredOutput(join(dir, 'missing.json'))).toBeNull();
+  });
+});
+
+describe('reviewer focus and verifier duplicates', () => {
+  const prompt = (f: string): string => readFileSync(new URL(`../prompts/${f}`, import.meta.url), 'utf8').replace(/\s+/g, ' ');
+  it('R1 covers the criteria and the play-test only; test strength is R5\'s', () => {
+    expect(REVIEWERS.R1).toBe('spec: every acceptance criterion is met and the play-test is true');
+    expect(prompt('review-r1.md')).not.toMatch(/really prove|fail without the feature|Supersedes/);
+    expect(prompt('review-r5.md')).toMatch(/test strength/);
+  });
+  it('the verifier drops cross-reviewer duplicates by name', () => {
+    expect(prompt('verify.md')).toContain('reason `duplicate of Rx-y`');
+  });
+});
+
+describe('review.md for the judge check call and for a skipped review', () => {
+  const findings = [f('R2-1', 'critical'), f('R4-1', 'minor')];
+  const rulings = checkRulings({ results: [{ id: 'R2-1', status: 'verified', method: 'trace', testFile: null, trace, reason: 'Reproduced.' }, { id: 'R4-1', status: 'dropped', method: 'none', testFile: null, trace: '', reason: 'Not real.' }] }, findings, []);
+  const s = { reviewers: { R2: 'ok' as const, R4: 'ok' as const }, findings, rulings, fixes: [], notes: [] };
+
+  it('leaves dropped findings out of the check call\'s copy, but not the PR\'s', () => {
+    expect(reviewMd(s)).toContain('claim R4-1');
+    const check = reviewMd(s, true);
+    expect(check).toContain('claim R2-1');
+    expect(check).not.toContain('claim R4-1');
+    expect(check).toContain('Dropped findings are left out here');
+  });
+
+  it('says "Not reviewed" when every reviewer was skipped', () => {
+    const md = reviewMd({ reviewers: { R1: 'skipped', R2: 'skipped', R3: 'skipped', R4: 'skipped', R5: 'skipped' }, findings: [], rulings: [], fixes: [], notes: ['No time.'] });
+    expect(md).toContain('**Not reviewed.**');
+    expect(md).toContain('- No time.');
   });
 });

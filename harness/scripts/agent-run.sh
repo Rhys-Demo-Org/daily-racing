@@ -9,8 +9,8 @@
 # Phases: ideate audit build retry r1..r5 verify fix judge judgecheck (plans/full-pipeline.md).
 #
 # Writes <out>/result.json (claude's stdout, verbatim), <out>/stderr.log, <out>/meta.json.
-# Exit: 0 ok · 10 usage/rate limit or unrecognised error · 11 max turns · 12 wall-clock timeout ·
-# 2 harness/usage error (classification: harness/lib/classify.ts).
+# Exit: 0 ok · 10 usage/rate limit · 11 max turns · 12 wall-clock timeout · 13 any other agent
+# error · 2 harness/usage error (classification: harness/lib/classify.ts).
 #
 # Mount scheme: the workdir is mounted at /work READ-ONLY, then only the allowlist (plan deviation
 # 2) is bound read-write over it: src/, tests/, journal/runs/<date>/ (and CLAUDE.md with
@@ -160,5 +160,5 @@ docker rm -f "$name" >/dev/null 2>&1 || true
 code=0
 docker run "${DOCKER_BASE[@]}" --network none --read-only -v "$HARNESS_ROOT:/repo:ro" -v "$out:/out" "$IMAGE" \
   node /repo/harness/lib/classify.ts /out "$rc" "$phase" "$model" "$wall_ms" "${timed_out[@]}" >/dev/null || code=$?
-[[ "$code" =~ ^(0|10|11|12)$ ]] || die "classifier failed (exit $code)"
+[[ "$code" =~ ^(0|10|11|12|13)$ ]] || die "classifier failed (exit $code)"
 exit "$code"

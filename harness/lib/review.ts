@@ -110,8 +110,18 @@ export function readFix(id: string, resultPath: string): FixRecord {
 
 export type ReviewState = { reviewers: Record<string, 'ok' | 'failed' | 'skipped'>; findings: Finding[]; rulings: Ruling[]; fixes: FixRecord[]; notes: string[] };
 
-/** review.md: what each reviewer found, what the verifier proved, what was fixed and kept. */
-export function reviewMd(s: ReviewState): string {
+/**
+ * review.md: what each reviewer found, what the verifier proved, what was fixed and kept. A night
+ * whose review was skipped (every reviewer `skipped`) says "Not reviewed". `forCheck` is the judge
+ * check call's copy: dropped findings are only counted, since the verifier found them wrong and
+ * they claim nothing about the code the judge should test.
+ */
+export function reviewMd(s: ReviewState, forCheck = false): string {
+  const states = Object.values(s.reviewers);
+  if (states.length && states.every((v) => v === 'skipped')) {
+    return ['## Review', '', '**Not reviewed.** The review phase did not run tonight, so no reviewer or verifier checked this build.', '',
+      ...s.notes.map((n) => `- ${n}`), ...(s.notes.length ? [''] : [])].join('\n');
+  }
   const ruling = new Map(s.rulings.map((r) => [r.id, r]));
   const fix = new Map(s.fixes.map((f) => [f.id, f]));
   const verified = s.rulings.filter((r) => r.status === 'verified').length;
@@ -119,8 +129,10 @@ export function reviewMd(s: ReviewState): string {
   const lines = ['## Review', '', `Reviewers: ${Object.entries(s.reviewers).map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}.`,
     `${s.findings.length} findings, ${verified} verified, ${s.findings.length - verified} dropped; ${kept} fixes kept after the gates.`, ''];
   if (s.notes.length) lines.push(...s.notes.map((n) => `- ${n}`), '');
+  if (forCheck && s.findings.length > verified) lines.push('Dropped findings are left out here: the verifier could not reproduce them.', '');
   for (const f of s.findings) {
     const r = ruling.get(f.id);
+    if (forCheck && r?.status !== 'verified') continue;
     const x = fix.get(f.id);
     lines.push(`### ${f.id} · ${f.severity} · ${r?.status ?? 'unverified'}`, '', `\`${f.file}\`${f.line ? `:${f.line}` : ''}: ${f.claim}`, '');
     if (r) lines.push(`Verifier (${r.method}): ${r.reason}${r.harnessNote ? ` (harness: ${r.harnessNote})` : ''}`, '');

@@ -15,12 +15,15 @@
 //   revise <audit.json>                                the revise brief for a fresh ideate
 //   lock <draft.json> <audit.md> <spec.md> <spec.json> <date> <mode> <meta.json>   locks; prints sha256
 //   inventory <repo> <changed.txt> <out-dir>          out-dir/{inventory.md,clones.md}
-//   findings <review.json> <phases-dir> <R1,R2,...>    reviewer findings → review.json; COUNT
+//   findings <review.json> <phases-dir> <R1,R2,...> [--failed=R3,...]   reviewer findings → review.json; COUNT
+//                                                      (--failed: agent errors, recorded failed, findings ignored)
 //   rulings <review.json> <verify-result.json> <written.txt> <max-fixes> <queue.txt>   VERIFIED
 //   fixbrief <review.json> <id> <verify-tests-dir>     the brief for one fix agent
 //   fixrecord <review.json> <id> <fix-result.json> <commit|->
 //   fixkept <review.json> <id> <0|1>                   the gates' fate for that fix
-//   reviewmd <review.json>                             review.md
+//   fixstatus <fix-result.json>                        FIX_STATUS: fixed | not-fixed | agent-error
+//   reviewmd <review.json> [--for-check]               review.md (--for-check: dropped findings only counted)
+//   notreviewed <review.json> <reason>                 marks every reviewer skipped (PR: "Not reviewed")
 //   planted <diff.patch>                               added lines aimed at an AI reader
 //   judge <gates-pass 0|1> <blind-result> <check-result> <scan.txt> <round> <out.json> <out.md>   PASS
 //   judgebrief <judge.json>                            the judge fix round's brief
@@ -150,10 +153,11 @@ if (import.meta.main) {
       break;
     }
     case 'findings': {
-      const [state, phases, ids] = a as [string, string, string];
+      const [state, phases, ids, failedArg] = a as [string, string, string, string?];
+      const failed = failedArg?.startsWith('--failed=') ? failedArg.slice(9).split(',') : [];
       const s = review(state);
       for (const id of ids.split(',')) {
-        const f = readFindings(id, join(phases, `${id.toLowerCase()}-1`, 'result.json'));
+        const f = failed.includes(id) ? null : readFindings(id, join(phases, `${id.toLowerCase()}-1`, 'result.json'));
         s.reviewers[id] = f ? 'ok' : 'failed';
         s.findings.push(...(f ?? []));
       }
@@ -199,7 +203,17 @@ if (import.meta.main) {
       break;
     }
     case 'reviewmd':
-      process.stdout.write(reviewMd(review(a[0]!)));
+      process.stdout.write(reviewMd(review(a[0]!), a[1] === '--for-check'));
+      break;
+    case 'notreviewed': {
+      const s = review(a[0]!);
+      for (const id of ['R1', 'R2', 'R3', 'R4', 'R5']) s.reviewers[id] = 'skipped';
+      s.notes.push(a[1]!);
+      json(a[0]!, s);
+      break;
+    }
+    case 'fixstatus':
+      vars({ FIX_STATUS: readFix('-', a[0]!).status });
       break;
     case 'planted':
       process.stdout.write(scanPlanted(readFileSync(a[0]!, 'utf8')).map((l) => `${l}\n`).join(''));

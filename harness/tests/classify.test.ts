@@ -64,6 +64,6 @@ describe('classify', () => {
   });
 
   it('exit codes match the agent-run.sh contract', () => {
-    expect(EXIT_CODE).toEqual({ ok: 0, 'usage-limit': 10, error: 10, 'max-turns': 11, timeout: 12 });
+    expect(EXIT_CODE).toEqual({ ok: 0, 'usage-limit': 10, error: 13, 'max-turns': 11, timeout: 12 });
   });
 });

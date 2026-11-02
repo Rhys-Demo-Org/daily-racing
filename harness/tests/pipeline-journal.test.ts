@@ -150,3 +150,12 @@ describe('R3 inputs: export inventory and clone report', () => {
     expect(cloneReport(dir, files, ['src/sim/three.ts'])).toContain('No clones found.');
   });
 });
+
+describe('result.json gates after a reverted fix', () => {
+  it('reports the gate run of the final commit, not a later failing run of a reverted fix', () => {
+    put('gates-4.json', gates(false));
+    expect(buildResult(dir, 'pass', null).gates).toEqual({ G1: false }); // no record: the last run
+    put('meta.json', { ...JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8')), headGateRun: 3 });
+    expect(buildResult(dir, 'pass', null).gates).toEqual({ G1: true });
+  });
+});

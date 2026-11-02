@@ -68,7 +68,9 @@ const gateMap = (g: Gates | null): Record<string, boolean> | null => (g ? Object
 
 /**
  * result.json: HANDOVER §9 fields. The thin harness has no judge, perf or lap-time capture, so
- * those are null; `gates` is the final gate run (the verdict), `gateRuns` every attempt.
+ * those are null; `gates` is the gate run of the branch's final commit (meta.headGateRun, else the
+ * last run: a fix reverted after failing its gates leaves a later failing run that isn't HEAD's),
+ * `gateRuns` every attempt.
  */
 export function buildResult(runDir: string, outcome: string, reason: string | null): Json {
   const meta = readJson(join(runDir, 'meta.json')) ?? {};
@@ -90,7 +92,7 @@ export function buildResult(runDir: string, outcome: string, reason: string | nu
     claudeCodeVersion: meta.claudeCodeVersion ?? null,
     ideaType: meta.ideaType ?? null,
     backlogId: meta.backlogId ?? null,
-    gates: gateMap(runs.at(-1)?.gates ?? null),
+    gates: gateMap((runs.find((r) => r.attempt === meta.headGateRun) ?? runs.at(-1))?.gates ?? null),
     gateRuns: runs.map((r) => ({ attempt: r.attempt, pass: r.gates?.pass ?? false, gates: gateMap(r.gates) })),
     retries: phases.filter((p) => p.phase === 'retry').length,
     judgeScore: (judge?.blind as Json | null)?.overall ?? null,

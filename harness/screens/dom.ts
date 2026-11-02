@@ -3,10 +3,10 @@
 // element's attributes, its box (CSS px, 2 decimals) and the computed value of every STYLE_PROPS
 // property. Two renders of the same stage from main and from the branch must give the same lines.
 //
-// snapshotDom runs inside the page (page.evaluate(snapshotDom, STYLE_PROPS)), so it is
+// snapshotDom runs inside the page (probe.ts evaluates its source in a CDP isolated world), so it is
 // self-contained: no imports, no closure over this module.
 
-/** The computed styles a snapshot records: everything that moves pixels or changes what is hit. */
+/** The computed styles a snapshot records: everything that moves pixels, changes what is hit, or times motion. */
 export const STYLE_PROPS = [
   'display', 'position', 'top', 'right', 'bottom', 'left', 'z-index', 'float', 'box-sizing',
   'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height',
@@ -24,7 +24,10 @@ export const STYLE_PROPS = [
   'flex-direction', 'flex-wrap', 'justify-content', 'align-items', 'align-content', 'align-self', 'flex-grow', 'flex-shrink', 'flex-basis', 'order',
   'grid-template-columns', 'grid-template-rows', 'grid-column', 'grid-row', 'row-gap', 'column-gap',
   'overflow-x', 'overflow-y', 'pointer-events', 'touch-action', 'user-select', 'cursor',
-  'fill', 'stroke', 'stroke-width', 'content', 'list-style-type', 'animation-name', 'transition-property',
+  'fill', 'stroke', 'stroke-width', 'content', 'list-style-type',
+  // Motion: the snapshot is taken settled, so timing is the only trace an animation leaves.
+  'animation-name', 'animation-duration', 'animation-timing-function', 'animation-delay', 'animation-iteration-count', 'animation-fill-mode', 'animation-direction',
+  'transition-property', 'transition-duration', 'transition-timing-function', 'transition-delay',
 ] as const;
 
 /**

@@ -32,3 +32,16 @@ describe('snapshotDom', () => {
     expect(after.filter((l, i) => l !== before[i])).toHaveLength(1);
   });
 });
+
+describe('snapshotDom: motion timing (P1)', () => {
+  it('records transition and animation timing, so a timing-only change fails P1', () => {
+    for (const p of ['transition-duration', 'transition-timing-function', 'transition-delay', 'animation-duration', 'animation-timing-function', 'animation-delay', 'animation-iteration-count', 'animation-fill-mode', 'animation-direction']) {
+      expect(STYLE_PROPS).toContain(p);
+    }
+    const before = snapshotDom(STYLE_PROPS);
+    (document.querySelector('span') as HTMLElement).style.transitionDuration = '0.4s';
+    const after = snapshotDom(STYLE_PROPS);
+    expect(after[2]).toMatch(/transition-duration:0\.4s/);
+    expect(after.filter((l, i) => l !== before[i])).toHaveLength(1);
+  });
+});

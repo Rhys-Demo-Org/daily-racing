@@ -1,11 +1,12 @@
-// The race screen's UI (HUD, countdown, touch controls, finish panel), driven once per frame from
-// sim views. One HudState is kept and updated in place, so a frame where nothing changed allocates
+// The race screen's UI (HUD, countdown, touch controls, finish and pause screens), driven once per
+// frame from sim views. One HudState is kept and updated in place, so a frame where nothing changed allocates
 // nothing here and the HUD touches no DOM.
 import type { PaletteName } from '@tokens';
 import { TICK_HZ, type CarView, type RaceView } from '../sim/types.ts';
 import { createCountdown, type CountdownStep } from './countdown.ts';
 import { createFinishPanel } from './finish-panel.ts';
 import { createHud } from './hud.ts';
+import { createPauseScreen, type PauseScreenOptions } from './pause-screen.ts';
 import { createTouchControls, type TouchControls } from './touch-controls.ts';
 import type { HudState } from './types.ts';
 
@@ -20,13 +21,28 @@ export interface RaceUi {
   reset(laps: number, outline: [number, number][], colours: readonly PaletteName[]): void;
   /** Pushes the latest race state into the UI. */
   sync(view: RaceView, cars: readonly CarView[]): void;
+  /** Shows the pause screen with the HUD's current lap and time. */
+  pause(): void;
+  /** Hides the pause screen and wakes the touch controls (a resume, UI_RULES §6). */
+  resume(): void;
 }
 
-export function createRaceUi(root: HTMLElement, opts: { onRaceAgain: () => void }): RaceUi {
-  const hud = createHud(root);
+export interface RaceUiOptions extends Partial<PauseScreenOptions> {
+  onRaceAgain: () => void;
+  /** The HUD PAUSE button was pressed (it toggles pause). */
+  onPause?: () => void;
+}
+
+export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
+  const hud = createHud(root, opts);
   const countdown = createCountdown(root);
   const touch = createTouchControls(root);
   const finish = createFinishPanel(root, opts);
+  const pauseScreen = createPauseScreen(root, {
+    onResume: () => opts.onResume?.(),
+    onRestart: () => opts.onRestart?.(),
+    onQuit: () => opts.onQuit?.(),
+  });
   let state: HudState | null = null;
   let lastStep = -1;
   let lapsSeen = 0;
@@ -49,6 +65,7 @@ export function createRaceUi(root: HTMLElement, opts: { onRaceAgain: () => void 
       finishShown = false;
       finish.hide();
       countdown.hide();
+      pauseScreen.hide();
     },
     sync(view, cars) {
       if (!state) throw new Error('RaceUi.sync() before reset()');
@@ -83,6 +100,14 @@ export function createRaceUi(root: HTMLElement, opts: { onRaceAgain: () => void 
         finishShown = true;
         finish.show({ timeMs: state.timeMs ?? 0, bestLapMs: state.bestLapMs });
       }
+    },
+    pause() {
+      if (!state) throw new Error('RaceUi.pause() before reset()');
+      pauseScreen.show(state);
+    },
+    resume() {
+      pauseScreen.hide();
+      touch.wake();
     },
   };
 }

@@ -46,3 +46,7 @@ New tests are in `tests/game/pause-review.test.ts`, 5 tests. All 5 fail on the u
 - Before review: 9 files, +230 / −17.
 - After review: 12 files, +268 / −41. The net growth is +14 lines: about 8 for the input move, 8 for the resize, zones and loop fixes, and −2 for the cleanups. The 17-line `hatch()` move is a relocation, not new code.
 - Tests: `tests/game/pause.test.ts` is unchanged at 232 lines. `tests/game/pause-review.test.ts` is new, at 129 lines.
+
+## Gates
+
+On the original PR head (`7b0a1ea`) and on the review commit alone, G1, G2 and G3 pass but G8 fails. The branch was cut from `f830338`, before PR #8 (live-mode harness) merged, so main's newer protected files all show as "differs from main's manifest". After merging `origin/main` into the branch, all four gates pass: G1 396/396 tests, G2 dust-bowl 42.53 s (+0.0%), G3 5/5 replays, G8 pass.

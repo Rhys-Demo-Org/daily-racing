@@ -53,14 +53,18 @@ Each of these is detected automatically and fails the night:
 - An oversized change.
 
 ## Checks (run them before you stop)
+You are already inside the toolchain container (the agent sandbox): run `pnpm` and `node`
+directly. Never use `harness/scripts/in-container.sh` or `harness/scripts/screenshots.sh`; they
+need Docker, which isn't here.
 - `pnpm typecheck`
 - `pnpm test` (one file: `pnpm vitest run --config vitest.config.ts <file>`)
 - `pnpm check:tokens`
 - `pnpm build`
-- Screenshots, if `harness/scripts/screenshots.sh` exists: run
-  `harness/scripts/screenshots.sh . /tmp/shots`, read `/tmp/shots/index.json` and open every
-  screenshot of a screen you changed next to its mockup. Fix what doesn't match `UI_RULES.md` or the
-  mockup. If the script is missing or fails, carry on without it.
+- Screenshots: run
+  `node_modules/.bin/vite build --config harness/screens/vite.config.ts --outDir /tmp/shots-dist --emptyOutDir && node harness/screens/capture.ts /tmp/shots-dist /tmp/shots`,
+  read `/tmp/shots/index.json` and open every screenshot of a screen you changed next to its
+  mockup. Fix what doesn't match `UI_RULES.md` or the mockup. A new screen or state needs its
+  stage first (see "Screen stages" in `CLAUDE.md`). If the command fails, carry on without it.
 
 After you stop, independent agents review your diff, verify their findings and fix them, and a
 judge scores the result against the spec and the mockups. Your summary and notes are not shown to

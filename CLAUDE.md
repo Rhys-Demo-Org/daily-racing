@@ -78,8 +78,11 @@ spikes           Phase 0 throwaway experiments (deleted at handover)
   state with the real UI modules and fixed data; `raceStage()` sets up the race screen. Stages
   register by glob (`registry.ts`) and nothing in the game may import them, so they never ship. A
   new screen, or a new state of one, needs a new stage in the same PR.
-  `harness/scripts/screenshots.sh <repo> <outdir>` renders every stage plus race frames at 844×390
-  and 1440×900; compare yours with the mockup.
+  Screenshots of every stage plus race frames at 844×390 and 1440×900: on the host,
+  `harness/scripts/screenshots.sh <repo> <outdir>` (needs Docker); inside the agent sandbox or the
+  toolchain container, `node_modules/.bin/vite build --config harness/screens/vite.config.ts
+  --outDir /tmp/shots-dist --emptyOutDir && node harness/screens/capture.ts /tmp/shots-dist /tmp/shots`.
+  Compare yours with the mockup.
 - **Fonts:** self-hosted woff2 in `public/fonts/` (`fonts.css`), Barlow Condensed 800/900/900i and
   Atkinson Hyperlegible 400/700, Latin + Latin Extended only.
 

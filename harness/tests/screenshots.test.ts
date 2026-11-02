@@ -49,4 +49,16 @@ describe('screenshot index', () => {
     expect(readFileSync('vite.config.ts', 'utf8')).not.toMatch(/stages/);
     expect(readFileSync('harness/screens/vite.config.ts', 'utf8')).toContain('stages.html');
   });
+
+  it('gives the builder and fixer the in-sandbox command, never the Docker-only scripts', () => {
+    const cmd = 'node_modules/.bin/vite build --config harness/screens/vite.config.ts --outDir /tmp/shots-dist --emptyOutDir && node harness/screens/capture.ts /tmp/shots-dist /tmp/shots';
+    for (const f of ['harness/prompts/build.md', 'harness/prompts/fix.md']) {
+      const p = readFileSync(f, 'utf8');
+      expect(p, f).toContain(cmd);
+      expect(p, f).toMatch(/already inside the toolchain container/);
+      // Named only to forbid them.
+      for (const line of p.split('\n').filter((l) => /screenshots\.sh|in-container\.sh/.test(l))) expect(line, f).toMatch(/Never|never/);
+    }
+    expect(readFileSync('harness/scripts/self-test-sandbox.sh', 'utf8')).toContain('node harness/screens/capture.ts /tmp/shots-dist /tmp/shots');
+  });
 });

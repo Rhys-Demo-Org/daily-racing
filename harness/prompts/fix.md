@@ -20,7 +20,12 @@ commit is dropped and the finding stays unfixed.
   dead. Behaviour must not change, and the existing tests must still pass.
 - Keep the change to this finding. No unrelated refactors, renames or "while I'm here" edits.
 - Don't change the spec's behaviour, existing physics, replays or lap times.
-- Run `pnpm typecheck` and `pnpm test` before you stop.
+- You are already inside the toolchain container (the agent sandbox): run `pnpm` and `node`
+  directly, never `harness/scripts/in-container.sh` or `harness/scripts/screenshots.sh` (they need
+  Docker, which isn't here). Run `pnpm typecheck` and `pnpm test` before you stop. For a UI fix,
+  check it on screen:
+  `node_modules/.bin/vite build --config harness/screens/vite.config.ts --outDir /tmp/shots-dist --emptyOutDir && node harness/screens/capture.ts /tmp/shots-dist /tmp/shots`,
+  then open the screenshot (`/tmp/shots/index.json` lists them) next to its mockup.
 - If the finding turns out not to be real, or can't be fixed safely within these rules, change
   nothing and report `not-fixed` with the reason.
 

@@ -1,4 +1,5 @@
 // Small DOM helpers. UI code never sets inline colours: styling is by class, from token variables.
+import { tokens } from '@tokens';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -33,6 +34,22 @@ export function button(className: string, children: (Node | string)[], onClick: 
   const b = h('button', `ui-button ${className}`, children, { type: 'button' });
   b.addEventListener('click', onClick);
   return b;
+}
+
+let hatchIds = 0;
+
+/** Full-screen hatch of 3px ink lines every 9px at 45° (UI_RULES §7), as an SVG pattern. */
+export function hatch(): SVGSVGElement {
+  const id = `ui-hatch-${++hatchIds}`;
+  const { lineWidth, pitch, angle } = tokens.hatch;
+  return s('svg', { class: 'ui-hatch', 'aria-hidden': 'true' }, [
+    s('defs', {}, [
+      s('pattern', { id, width: pitch, height: pitch, patternUnits: 'userSpaceOnUse', patternTransform: `rotate(${angle})` }, [
+        s('rect', { class: 'ui-hatch__line', width: lineWidth, height: pitch }),
+      ]),
+    ]),
+    s('rect', { width: '100%', height: '100%', fill: `url(#${id})` }),
+  ]);
 }
 
 export interface Overlay {

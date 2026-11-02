@@ -34,7 +34,7 @@
   align-items: flex-end;
 }
 
-/* PAUSE beside TIME: the only HUD widget that takes pointer input. */
+/* PAUSE in the corner, right of TIME: the only HUD widget that takes pointer input. */
 .ui-hud-pause {
   pointer-events: auto;
 }

@@ -104,7 +104,12 @@ export function createGame(root: HTMLElement): Game {
     onRestart: restart,
     onQuit: () => game.showMenu(),
   });
-  const input = createInput({ touchZones: () => ui.touch.zones(), touchListener: ui.touch.machine });
+  const input = createInput({
+    // Nothing on the race screen can be pressed through the pause overlay.
+    touchZones: () => (paused ? [] : ui.touch.zones()),
+    touchListener: ui.touch.machine,
+    onPause: () => setPaused(!paused),
+  });
 
   let mode: GameMode = 'menu';
   let race: Race | null = null;
@@ -142,18 +147,20 @@ export function createGame(root: HTMLElement): Game {
     menuLayer.hidden = next !== 'menu';
   }
 
-  /** Pause or resume a race in progress; a finished race (finish panel up) can't be paused. */
+  /**
+   * Pauses or resumes the race in progress (not on the menu, not once the player has finished).
+   * Pausing stops the loop; resuming restarts it from a fresh frame, so paused time is never caught up.
+   */
   function setPaused(next: boolean): void {
-    if (next === paused || (next && (mode !== 'race' || !race || race.world.racers[0]?.finishTick != null))) return;
+    if (next === paused || (next && (mode !== 'race' || race?.world.racers[0]?.finishTick != null))) return;
     paused = next;
     if (paused) {
+      stopLoop();
       input.reset();
       ui.pause();
     } else {
-      // Paused time is never caught up: the next frame starts a fresh step.
-      lastFrame = 0;
-      accumulator = 0;
       ui.resume();
+      startLoop();
     }
   }
 
@@ -177,7 +184,7 @@ export function createGame(root: HTMLElement): Game {
     const dt = lastFrame === 0 ? DT : Math.min((now - lastFrame) / 1000, 0.25);
     lastFrame = now;
     const r = race;
-    if (mode !== 'race' || !r || paused) return;
+    if (mode !== 'race' || !r) return;
     accumulator += dt;
     let ticks = 0;
     while (accumulator >= DT && ticks < MAX_TICKS_PER_FRAME) {
@@ -190,7 +197,7 @@ export function createGame(root: HTMLElement): Game {
   }
 
   function startLoop(): void {
-    if (rafId !== 0 || frozen) return;
+    if (rafId !== 0 || frozen || paused) return;
     lastFrame = 0;
     accumulator = 0;
     rafId = requestAnimationFrame(frame);
@@ -201,12 +208,11 @@ export function createGame(root: HTMLElement): Game {
     rafId = 0;
   }
 
-  window.addEventListener('keydown', (e) => {
-    if (e.code !== 'Escape' || e.repeat || mode !== 'race') return;
-    e.preventDefault();
-    setPaused(!paused);
+  window.addEventListener('resize', () => {
+    race?.scene.resize(window.innerWidth, window.innerHeight);
+    // Resizing clears the canvas; with the loop stopped, redraw the frozen race under the overlay.
+    if (paused) race?.scene.render();
   });
-  window.addEventListener('resize', () => race?.scene.resize(window.innerWidth, window.innerHeight));
   // Coming back to a backgrounded tab is a resume: wake the touch controls (UI_RULES §6).
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && mode === 'race') ui.touch.wake();
@@ -233,7 +239,7 @@ export function createGame(root: HTMLElement): Game {
         LIVERIES.map((l) => l.body),
       );
       input.reset();
-      paused = false;
+      paused = false; // ui.reset() hid the pause screen
       startScreen.hide();
       setMode('race');
       draw(race, 1, 0);

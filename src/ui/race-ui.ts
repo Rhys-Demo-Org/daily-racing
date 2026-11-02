@@ -1,5 +1,5 @@
-// The race screen's UI (HUD, countdown, touch controls, finish panel, pause screen), driven once per frame from
-// sim views. One HudState is kept and updated in place, so a frame where nothing changed allocates
+// The race screen's UI (HUD, countdown, touch controls, finish and pause screens), driven once per
+// frame from sim views. One HudState is kept and updated in place, so a frame where nothing changed allocates
 // nothing here and the HUD touches no DOM.
 import type { PaletteName } from '@tokens';
 import { TICK_HZ, type CarView, type RaceView } from '../sim/types.ts';
@@ -34,7 +34,7 @@ export interface RaceUiOptions extends Partial<PauseScreenOptions> {
 }
 
 export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
-  const hud = createHud(root, { onPause: () => opts.onPause?.() });
+  const hud = createHud(root, opts);
   const countdown = createCountdown(root);
   const touch = createTouchControls(root);
   const finish = createFinishPanel(root, opts);

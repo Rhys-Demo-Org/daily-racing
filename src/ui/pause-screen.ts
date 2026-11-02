@@ -3,8 +3,7 @@
 // RESUME (rally-red, focused), RESTART RACE (cream) and QUIT TO MENU (navy).
 import './components.css';
 import './screens.css';
-import { button, h, overlay, type Overlay } from './dom.ts';
-import { hatch } from './finish-panel.ts';
+import { button, h, hatch, overlay, type Overlay } from './dom.ts';
 import { formatTime } from './format.ts';
 import { icon } from './icons.ts';
 

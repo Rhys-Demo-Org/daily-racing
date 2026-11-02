@@ -1,4 +1,4 @@
-// Race HUD (mockup S1–S2): POS + LAP + minimap top-left, PAUSE + TIME + BEST top-right.
+// Race HUD (mockup S1–S2): POS + LAP + minimap top-left, TIME + BEST then PAUSE top-right.
 // The game loop calls update() every frame. Each shown value is one persistent Text node or SVG
 // attribute, written only when its cached value changes; update() never reads the DOM or allocates.
 import { tokens } from '@tokens';
@@ -74,11 +74,11 @@ export function createHud(root: HTMLElement, opts: HudOptions = {}): Hud {
       h('div', 'ui-panel ui-panel--navy ui-hud-map', [map]),
     ]),
     h('div', 'ui-hud__tr', [
-      pause,
       h('div', 'ui-hud__timer', [
         h('div', 'ui-panel ui-panel--navy ui-hud-panel ui-hud-time', [h('span', 'ui-label', ['Time']), h('span', 'ui-value', [time.node])]),
         h('div', 'ui-panel ui-panel--mustard ui-hud-best', [h('span', 'ui-label', ['Best']), h('span', 'ui-hud-best__value', [best.node])]),
       ]),
+      pause,
     ]),
   ]);
   root.append(element);

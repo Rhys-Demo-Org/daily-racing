@@ -112,21 +112,16 @@
 }
 /* Full-width stripe band (4:2:1), ink rule above and below, no side outlines. */
 .ui-pause__stripes .ui-stripe {
+  flex: 1;
+  width: auto;
   height: var(--space-s3);
   border-width: var(--outline-default) 0;
-  border-right: 0;
 }
 .ui-pause__stripes .ui-stripe--red {
-  flex: 4 1 0;
-  width: auto;
+  flex: 4;
 }
 .ui-pause__stripes .ui-stripe--mustard {
-  flex: 2 1 0;
-  width: auto;
-}
-.ui-pause__stripes .ui-stripe--cream {
-  flex: 1 1 0;
-  width: auto;
+  flex: 2;
 }
 .ui-pause__buttons {
   display: flex;

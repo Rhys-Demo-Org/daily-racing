@@ -18,6 +18,30 @@ import { assertNoErrors, context, GAME_READY, launch, open, renderStage, serve, 
 import { snapshotDom, STYLE_PROPS } from './dom.ts';
 import { RACE_SEED, VIEWPORTS, viewportName } from './shots.ts';
 
+// The nonce and the real stdout writer are taken before anything else runs in this process.
+const NONCE = process.env['GATE_NONCE'];
+delete process.env['GATE_NONCE'];
+const write = process.stdout.write.bind(process.stdout);
+
+/**
+ * snapshotDom run in a CDP isolated world of the page: it shares the DOM and the computed styles but
+ * none of the page's JavaScript globals, so the build under test can't patch getComputedStyle,
+ * getBoundingClientRect or Array.from to fake the snapshot.
+ */
+async function isolatedSnapshot(ctx: BrowserContext, page: Page): Promise<string[]> {
+  const cdp = await ctx.newCDPSession(page);
+  try {
+    const { frameTree } = await cdp.send('Page.getFrameTree');
+    const { executionContextId } = await cdp.send('Page.createIsolatedWorld', { frameId: frameTree.frame.id, worldName: 'p1-snapshot' });
+    const r = await cdp.send('Runtime.evaluate', { expression: `(${snapshotDom.toString()})(${JSON.stringify(STYLE_PROPS)})`, contextId: executionContextId, returnByValue: true });
+    if (r.exceptionDetails) throw new Error(`snapshot failed: ${r.exceptionDetails.exception?.description ?? r.exceptionDetails.text}`);
+    if (!Array.isArray(r.result.value)) throw new Error('snapshot returned no lines');
+    return r.result.value as string[];
+  } finally {
+    await cdp.detach();
+  }
+}
+
 /** Ticks stepped (one rendered frame each) before and while measuring a race. */
 export const WARMUP_TICKS = 300;
 export const MEASURE_TICKS = 240;
@@ -147,7 +171,7 @@ async function main(): Promise<void> {
         for (const name of await stageNames(ctx, origin)) {
           const page = await renderStage(ctx, origin, name);
           assertNoErrors(page, `${viewportName(v)} stage ${name}`);
-          stages[`${viewportName(v)}/${name}`] = await page.evaluate(snapshotDom, STYLE_PROPS);
+          stages[`${viewportName(v)}/${name}`] = await isolatedSnapshot(ctx, page);
           await page.close();
         }
         await ctx.close();
@@ -174,7 +198,7 @@ async function main(): Promise<void> {
     await browser.close();
     server.close();
   }
-  process.stdout.write(`\n${JSON.stringify({ nonce: process.env['GATE_NONCE'], ...value })}\n`);
+  write(`\n${JSON.stringify({ nonce: NONCE, ...value })}\n`);
 }
 
 if (import.meta.main) await main();

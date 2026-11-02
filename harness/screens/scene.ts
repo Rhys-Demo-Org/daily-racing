@@ -2,7 +2,8 @@
 // race scene and the car meshes, built headlessly (no WebGL) from a tree's own src/ with its own
 // Three.js. Two uses:
 //   hash   one hash per object over its geometry (every attribute's values, palette indices
-//          included, the index, groups, draw range), its materials (kind, render state, uniforms)
+//          included, the index, groups, draw range), its materials (kind, render state, blending,
+//          polygon offset, sha256 of the GLSL sources with their defines and version, uniforms)
 //          and its world transform: gate P2 compares main's with the branch's (lib/preserve.ts).
 //   stats  meshes, lines, triangles and draw calls (one per drawable object and material group)
 //          per track and car, for the Sunday performance survey.
@@ -19,6 +20,12 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+
+// The tree's code runs in this process (measureTree imports it), so the gate's nonce and the real
+// stdout writer are taken before any of it loads: it can neither read the nonce nor fake the line.
+const NONCE = process.env['GATE_NONCE'];
+delete process.env['GATE_NONCE'];
+const write = process.stdout.write.bind(process.stdout);
 
 /** One object of a scene graph, as the hash and the stats see it. */
 export interface SceneEntry {
@@ -59,7 +66,12 @@ type Geo = {
   groups: { start: number; count: number; materialIndex?: number }[];
   drawRange: { start: number; count: number };
 };
-type Mat = { type: string; userData: Record<string, unknown>; side: number; transparent: boolean; depthTest: boolean; depthWrite: boolean; visible: boolean; uniforms?: Record<string, { value: unknown }> };
+type Mat = {
+  type: string; userData: Record<string, unknown>; side: number; transparent: boolean; depthTest: boolean; depthWrite: boolean; visible: boolean;
+  uniforms?: Record<string, { value: unknown }>; vertexShader?: string; fragmentShader?: string; defines?: Record<string, unknown>; glslVersion?: string | null;
+  blending?: number; blendSrc?: number; blendDst?: number; blendEquation?: number; polygonOffset?: boolean; polygonOffsetFactor?: number; polygonOffsetUnits?: number;
+  wireframe?: boolean; colorWrite?: boolean; onBeforeCompile?: unknown;
+};
 
 /** A stable text form of a uniform or userData value (numbers quantised, objects key-sorted). */
 function text(v: unknown): string {
@@ -80,9 +92,14 @@ function text(v: unknown): string {
 
 const attrText = (a: Attr): string => `${a.itemSize}/${a.normalized ? 1 : 0}/${a.array.constructor.name}:${Array.from(a.array, q).join(',')}`;
 
-function materialText(m: Mat): string {
+const sha = (s: string): string => createHash('sha256').update(s).digest('hex');
+
+/** A material's kind, render state, shaders (sha256 of the GLSL source, its defines and version) and uniforms. */
+export function materialText(m: Mat): string {
   const u = m.uniforms ?? {};
-  return [m.type, text(m.userData), m.side, m.transparent, m.depthTest, m.depthWrite, m.visible, ...Object.keys(u).sort().map((k) => `${k}=${text(u[k]?.value)}`)].join('|');
+  const shaders = `vs=${sha(m.vertexShader ?? '')} fs=${sha(m.fragmentShader ?? '')} defines=${text(m.defines ?? {})} glsl=${String(m.glslVersion ?? '')} hook=${sha(String(m.onBeforeCompile ?? ''))}`;
+  const state = [m.blending, m.blendSrc, m.blendDst, m.blendEquation, m.polygonOffset, m.polygonOffsetFactor, m.polygonOffsetUnits, m.wireframe, m.colorWrite].map(String).join(',');
+  return [m.type, text(m.userData), m.side, m.transparent, m.depthTest, m.depthWrite, m.visible, state, shaders, ...Object.keys(u).sort().map((k) => `${k}=${text(u[k]?.value)}`)].join('|');
 }
 
 /** Every object under `root` in traversal order (depth first, children in order). */
@@ -213,5 +230,5 @@ if (import.meta.main) {
   if (!tree || (mode !== 'hash' && mode !== 'stats')) throw new Error('usage: node harness/screens/scene.ts <tree> hash|stats');
   const m = await measureTree(tree);
   const value = mode === 'hash' ? m : sceneStats(m);
-  process.stdout.write(`\n${JSON.stringify({ nonce: process.env['GATE_NONCE'], ...value })}\n`);
+  write(`\n${JSON.stringify({ nonce: NONCE, ...value })}\n`);
 }

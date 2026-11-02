@@ -7,7 +7,9 @@
 # What goes to GitHub is one squashed commit on the run's main SHA, so the checks below see exactly
 # what is pushed (no intermediate attempt commits). Pushes nothing when the night left no work
 # outside the journal. Refuses (exit 1) when the diff breaks G8's allowlist rules or holds a token or
-# a secret-shaped string. Pass → ready PR labelled daily + backlog:Bxx; else a draft also labelled failed.
+# a secret-shaped string. Pass → ready PR labelled daily + backlog:Bxx (or maintenance); else a draft
+# also labelled failed. The body carries the hidden harness marker (lib/existing.ts) and the PR then
+# requests the owner's review (GitHub refuses that while the PAT makes the owner the author; logged).
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 source "$here/../lib/common.sh"
@@ -53,9 +55,12 @@ preview="https://$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9-' '-' | cut -c1-28).
 title="daily $DATE: $(sed -n '1s/^# //p' "$RUN/spec.md" 2>/dev/null | cut -c1-200 || true)"
 labels=(daily) args=()
 [[ -z $ITEM_ID ]] || labels+=("backlog:$ITEM_ID")
+(( ! maint )) || labels+=(maintenance)
 [[ $OUTCOME == pass ]] || { labels+=(failed); args=(--draft); title="$title [$OUTCOME]"; }
 for l in "${labels[@]}"; do gh_ label create "$l" -R "$REPO" --force >/dev/null; args+=(--label "$l"); done
 ts_node prbody "$RUN" "$preview" >"$work/body.md"
 GIT_ASKPASS="$here/git-askpass.sh" GIT_TERMINAL_PROMPT=0 \
   git -C "$CLONE" -c credential.helper= push -q origin "$squash:refs/heads/$BRANCH"
-gh_ pr create -R "$REPO" --base main --head "$BRANCH" --title "$title" --body-file "$work/body.md" "${args[@]}"
+url="$(gh_ pr create -R "$REPO" --base main --head "$BRANCH" --title "$title" --body-file "$work/body.md" "${args[@]}")"
+echo "$url"
+gh_ pr edit "$url" -R "$REPO" --add-reviewer "$OWNER_LOGIN" >/dev/null 2>&1 || echo "publish: could not request a review from $OWNER_LOGIN (the PR's author?)"

@@ -1,10 +1,14 @@
 // Run journal (HANDOVER §9) from a run folder written by daily.sh:
 //   meta.json  spec.md  run.log  gates-<n>.json  phases/<phase>-<n>/{meta.json,harness.json}  diffstat.txt
+//   and, on feature nights (plans/full-pipeline.md): audit.json  review.json  review.md
+//   judge-<round>.json  judge.md  loc.json  existing-work.md
 // Builds result.json, the gate feedback for a retry, the morning report and the PR body.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { zonedParts } from './time.ts';
+import { HARNESS_MARKER } from './existing.ts';
+import { renderPlaytest, type Playtest } from './spec.ts';
 
 type Json = Record<string, unknown>;
 type GateRow = { id: string; name?: string; pass: boolean; durationMs?: number; summary?: string; details?: string };
@@ -30,16 +34,19 @@ export function gateFeedback(path: string): string {
   return g.gates.filter((x) => !x.pass).map((x) => `### ${x.id} · ${x.name ?? ''}\n${x.summary ?? ''}\n\n${x.details ?? ''}\n`).join('\n');
 }
 
-const ORDER: Record<string, number> = { ideate: 0, build: 1, retry: 1 };
+/** Agent phases (agent-run.sh --phase) in pipeline order; parallel reviewers share a step. */
+export const PHASE_ORDER: Record<string, number> = { ideate: 0, audit: 1, build: 2, retry: 2, r1: 3, r2: 3, r3: 3, r4: 3, r5: 3, verify: 4, fix: 5, judge: 6, judgecheck: 7 };
+const PHASE_DIR = new RegExp(`^(${Object.keys(PHASE_ORDER).join('|')})-(\\d+)$`);
 
-/** Agent phases in run order. */
+/** Agent phases in run order: by start time (ideate and audit alternate), then pipeline order. */
 export function readPhases(runDir: string): Phase[] {
   const dir = join(runDir, 'phases');
   if (!existsSync(dir)) return [];
+  const start = (p: Phase): number => (typeof p.harness?.startedAt === 'number' ? p.harness.startedAt : Infinity);
   return readdirSync(dir).flatMap((name) => {
-    const m = /^(ideate|build|retry)-(\d+)$/.exec(name);
+    const m = PHASE_DIR.exec(name);
     return m ? [{ name, phase: m[1]!, attempt: Number(m[2]), meta: readJson(join(dir, name, 'meta.json')), harness: readJson(join(dir, name, 'harness.json')) }] : [];
-  }).sort((a, b) => ORDER[a.phase]! - ORDER[b.phase]! || a.attempt - b.attempt);
+  }).sort((a, b) => start(a) - start(b) || PHASE_ORDER[a.phase]! - PHASE_ORDER[b.phase]! || a.attempt - b.attempt || a.name.localeCompare(b.name));
 }
 
 /** Gate runs in attempt order. `gates` is null for a missing or malformed gates.json. */
@@ -69,6 +76,8 @@ export function buildResult(runDir: string, outcome: string, reason: string | nu
   const runs = readGateRuns(runDir);
   const diff = existsSync(join(runDir, 'diffstat.txt')) ? diffSize(readFileSync(join(runDir, 'diffstat.txt'), 'utf8')) : null;
   const cost = phases.reduce((n, p) => n + (Number(p.meta?.total_cost_usd) || 0), 0);
+  const judgeRounds = readJudgeRounds(runDir);
+  const judge = judgeRounds.at(-1)?.verdict ?? null;
   return {
     date: meta.date ?? null,
     dryRun: meta.dryRun ?? true,
@@ -76,7 +85,7 @@ export function buildResult(runDir: string, outcome: string, reason: string | nu
     reason,
     abortReason: outcome === 'abort' ? reason : null,
     phase: meta.phase ?? null,
-    attempts: 1,
+    attempts: typeof meta.attempts === 'number' ? meta.attempts : 1,
     models: meta.models ?? null,
     claudeCodeVersion: meta.claudeCodeVersion ?? null,
     ideaType: meta.ideaType ?? null,
@@ -84,7 +93,11 @@ export function buildResult(runDir: string, outcome: string, reason: string | nu
     gates: gateMap(runs.at(-1)?.gates ?? null),
     gateRuns: runs.map((r) => ({ attempt: r.attempt, pass: r.gates?.pass ?? false, gates: gateMap(r.gates) })),
     retries: phases.filter((p) => p.phase === 'retry').length,
-    judgeScore: null,
+    judgeScore: (judge?.blind as Json | null)?.overall ?? null,
+    judge: judge ? { pass: judge.pass, reasons: judge.reasons, round: judgeRounds.at(-1)?.round, scores: (judge.blind as Json | null)?.scores ?? null } : null,
+    audit: readJson(join(runDir, 'audit.json')),
+    review: reviewSummary(readJson(join(runDir, 'review.json'))),
+    loc: readJson(join(runDir, 'loc.json')),
     medianLapTimes: null,
     p95FrameTimeMs: null,
     triangleCount: null,
@@ -93,6 +106,27 @@ export function buildResult(runDir: string, outcome: string, reason: string | nu
     usage: phases.map((p) => ({ phase: p.phase, attempt: p.attempt, exit: p.harness?.exit ?? null, class: p.meta?.class ?? null, model: p.meta?.model ?? null, wallMs: p.meta?.wallMs ?? null, numTurns: p.meta?.num_turns ?? null, usage: p.meta?.usage ?? null, costUsd: p.meta?.total_cost_usd ?? null })),
     totalCostUsd: Math.round(cost * 100) / 100,
   };
+}
+
+/** judge-<round>.json files (the harness's verdicts) in round order. */
+function readJudgeRounds(runDir: string): { round: number; verdict: Json }[] {
+  if (!existsSync(runDir)) return [];
+  return readdirSync(runDir).flatMap((f) => {
+    const m = /^judge-(\d+)\.json$/.exec(f);
+    const v = m ? readJson(join(runDir, f)) : null;
+    return m && v ? [{ round: Number(m[1]), verdict: v }] : [];
+  }).sort((a, b) => a.round - b.round);
+}
+
+/** review.json (lib/review.ts ReviewState) reduced to counts for result.json and metrics. */
+export function reviewSummary(s: Json | null): Json | null {
+  if (!s) return null;
+  const findings = (s.findings ?? []) as { reviewer: string }[];
+  const rulings = (s.rulings ?? []) as { status: string }[];
+  const fixes = (s.fixes ?? []) as { kept: boolean | null }[];
+  const perReviewer = Object.fromEntries(Object.keys((s.reviewers ?? {}) as Json).map((r) => [r, findings.filter((f) => f.reviewer === r).length]));
+  return { reviewers: s.reviewers ?? {}, findings: findings.length, perReviewer, verified: rulings.filter((r) => r.status === 'verified').length,
+    dropped: rulings.filter((r) => r.status !== 'verified').length, fixesKept: fixes.filter((f) => f.kept === true).length, fixesDropped: fixes.filter((f) => f.kept === false).length };
 }
 
 const clock = (sec: unknown, tz: string): string => {
@@ -118,18 +152,35 @@ export function defang(md: string): string {
   return md.replace(/@(?=[\w-])/g, '@\u200b').replace(/\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)(\s*:?\s*)(?=[\w./-]*#\d)/gi, '$1\u200b$2').replace(/<!--/g, '&lt;!--');
 }
 
-/** PR body: preview link and outcome, the locked spec, then the report's phases and gates. */
+const text = (runDir: string, f: string): string | null => (existsSync(join(runDir, f)) ? readFileSync(join(runDir, f), 'utf8') : null);
+
+/**
+ * PR body, in the order of plans/full-pipeline.md "PR": how to play-test and what you'll see (when
+ * the spec has them), the preview link and outcome (with the hidden harness marker), any CLAUDE.md
+ * or rule change, then the spec with its audit, the review, the judge, the gate table and usage.
+ */
 export function prBody(runDir: string, tz: string, previewUrl: string): string {
   const result = readJson(join(runDir, 'result.json'));
-  const spec = existsSync(join(runDir, 'spec.md')) ? readFileSync(join(runDir, 'spec.md'), 'utf8').replace(/^# .*\n/, '') : 'No spec was locked.\n';
+  const specJson = readJson<{ playtest?: Playtest | null }>(join(runDir, 'spec.json'));
+  let spec = text(runDir, 'spec.md')?.replace(/^# .*\n/, '') ?? 'No spec was locked.\n';
+  if (specJson?.playtest) spec = spec.replace(/^## What you'll see\n[\s\S]*?^## How to play-test\n[\s\S]*?(?=^## |(?![\s\S]))/m, ''); // shown first instead
   const date = String(result?.date ?? '');
-  const lines = [
+  const lines: string[] = [];
+  if (specJson?.playtest) lines.push(...renderPlaytest(specJson.playtest).map((l) => defang(l)));
+  lines.push(
     `**Preview:** ${previewUrl} (live once the deploy check passes)`,
     `**Outcome:** ${String(result?.outcome ?? '?')}${result?.reason ? ` (${String(result.reason)})` : ''}`,
-  ];
-  if (result?.outcome !== 'pass') lines.push('', '> Gates did not pass. Kept as a draft so the attempt is on record; close it to drop the item.');
-  const body = [...lines, '', defang(spec.trim()), '', report(runDir, tz).replace(/^# .*\n/, '').replace(/^## /gm, '### ').trim(), '',
-    `Journal: \`journal/runs/${date}/\`. Built unattended; no judge or style gates yet, so review before merging.`].join('\n');
+    HARNESS_MARKER,
+  );
+  if (result?.outcome !== 'pass') lines.push('', '> Gates or judge did not pass. Kept as a draft so the attempt is on record; close it to drop the item.');
+  const rules = text(runDir, 'rule-changes.md');
+  if (rules?.trim()) lines.push('', '> [!WARNING]', '> **Rule change.** This PR changes text that every later agent loads as instructions. Read it before merging.', '', defang(rules.trim()));
+  const parts = [...lines, '', defang(spec.trim())];
+  for (const f of ['review.md', 'judge.md']) { const t = text(runDir, f); if (t?.trim()) parts.push('', defang(t.trim())); }
+  const shots = readJson<unknown[]>(join(runDir, 'screenshots', 'index.json'));
+  if (Array.isArray(shots) && shots.length) parts.push('', `Screenshots: ${shots.length} in the run folder (\`runs/${date}/screenshots/\` on the VM); the reviewers and judge saw them.`);
+  const body = [...parts, '', report(runDir, tz).replace(/^# .*\n/, '').replace(/^## /gm, '### ').trim(), '',
+    `Journal: \`journal/runs/${date}/\`. Built and reviewed unattended; play-test the preview before merging.`].join('\n');
   return (body.length > BODY_MAX ? `${body.slice(0, BODY_MAX)}\n\n…truncated; see the journal.` : body) + '\n';
 }
 
@@ -164,5 +215,14 @@ export function report(runDir: string, tz: string): string {
   }
   if (failures.length) out.push('', ...failures);
   out.push('', `Retries: ${String(result?.retries ?? '-')} · total notional cost: $${String(result?.totalCostUsd ?? '-')}`);
+  const audit = result?.audit as Json | null | undefined;
+  const review = result?.review as Json | null | undefined;
+  const judge = result?.judge as Json | null | undefined;
+  if (audit || review || judge) {
+    out.push('', '## Pipeline', '');
+    if (audit) out.push(`- Plan audit: ${String(audit.verdict ?? '-')} after ${String(audit.rounds ?? '-')} round(s); items tried: ${((audit.items ?? []) as Json[]).map((i) => `${String(i.id)} ${String(i.verdict)}`).join(', ') || '-'}`);
+    if (review) out.push(`- Review: ${String(review.findings)} findings (${Object.entries((review.perReviewer ?? {}) as Json).map(([k, v]) => `${k} ${String(v)}`).join(', ')}), ${String(review.verified)} verified, ${String(review.dropped)} dropped; fixes kept ${String(review.fixesKept)}, dropped by gates ${String(review.fixesDropped)}`);
+    if (judge) out.push(`- Judge: ${judge.pass ? 'pass' : 'fail'}${result?.judgeScore !== null && result?.judgeScore !== undefined ? ` (${String(result.judgeScore)}/10)` : ''}${(judge.reasons as string[] | undefined)?.length ? `: ${(judge.reasons as string[]).join('; ')}` : ''}`);
+  }
   return out.join('\n') + '\n';
 }

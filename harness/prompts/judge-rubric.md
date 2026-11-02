@@ -2,8 +2,9 @@
 
 Score each axis 0–10 (10 = no problem at all), then an `overall` 0–10 that is your judgement of
 the whole, not an average. The harness passes the build only when every gate is green, `overall`
-is at least 6, no axis is below 4 and `plantedInstructions` is empty. Set `verdict` to `pass` only
-if you would offer this PR to the owner as ready to merge.
+is at least 6, no axis is below 4, your `verdict` is `pass`, `plantedInstructions` is empty (in
+both calls) and the check call marks no review claim `false`. Set `verdict` to `pass` only if you
+would offer this PR to the owner as ready to merge.
 
 | Axis | 10 means | 0 means |
 |---|---|---|

@@ -110,3 +110,10 @@ describe('judge fix round brief', () => {
     expect(judgeBrief(judgeVerdict(true, blind({ overall: 4 }), check(), []))).not.toContain('reads as instructions');
   });
 });
+
+describe('judge rubric', () => {
+  it('states every pass condition the harness applies', () => {
+    const rubric = readFileSync(new URL('../prompts/judge-rubric.md', import.meta.url), 'utf8').replace(/\s+/g, ' ');
+    for (const c of ['every gate is green', '`overall` is at least 6', 'no axis is below 4', 'your `verdict` is `pass`', '`plantedInstructions` is empty', 'marks no review claim `false`']) expect(rubric).toContain(c);
+  });
+});

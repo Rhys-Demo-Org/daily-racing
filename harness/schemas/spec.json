@@ -3,7 +3,7 @@
   "description": "Ideate output. The harness renders it to journal/runs/<date>/spec.md, then locks and hashes it.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["backlogId", "title", "summary", "acceptanceCriteria", "closestExisting"],
+  "required": ["backlogId", "title", "summary", "acceptanceCriteria", "closestExisting", "expectedFiles", "supersedes", "playtest"],
   "properties": {
     "backlogId": {
       "description": "Tonight's backlog ID (e.g. B03) on backlog nights; null on maintenance and invention nights.",
@@ -37,6 +37,34 @@
         "properties": {
           "item": { "type": "string", "minLength": 1, "maxLength": 120 },
           "whyDifferent": { "type": "string", "minLength": 1, "maxLength": 300 }
+        }
+      }
+    },
+    "expectedFiles": {
+      "description": "Repo paths the build is expected to add or change (src/**, new tests/**). The harness intersects them with every open PR's files for the plan audit.",
+      "type": "array",
+      "maxItems": 40,
+      "items": { "type": "string", "pattern": "^(src|tests)/[A-Za-z0-9_./-]+$", "maxLength": 200 }
+    },
+    "supersedes": {
+      "description": "Modules (src/ paths) this feature replaces and deletes, so nothing is left as dead code. Empty when nothing is retired.",
+      "type": "array",
+      "maxItems": 20,
+      "items": { "type": "string", "pattern": "^src/[A-Za-z0-9_./-]+$", "maxLength": 200 }
+    },
+    "playtest": {
+      "description": "For the owner's phone test of the PR preview, in plain words with no code names. null only on maintenance nights.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["whatYoullSee", "howToTest"],
+      "properties": {
+        "whatYoullSee": { "description": "What visibly changes in the game, one to three sentences.", "type": "string", "minLength": 10, "maxLength": 600 },
+        "howToTest": {
+          "description": "Steps to follow on the preview, ending in what to check.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "type": "string", "minLength": 5, "maxLength": 300 }
         }
       }
     }

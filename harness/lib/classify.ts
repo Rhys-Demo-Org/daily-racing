@@ -7,9 +7,12 @@ import { readJson } from './journal.ts';
 
 export type AgentClass = 'ok' | 'usage-limit' | 'max-turns' | 'error';
 
-/** agent-run.sh exit code per class; unrecognised errors stop the night like a usage limit. */
+/**
+ * agent-run.sh exit code per class. A usage limit stops the night (HANDOVER §6.3); any other agent
+ * error has its own code, so daily.sh can drop just that reviewer or fix and carry on.
+ */
 export const EXIT_CODE: Record<AgentClass | 'timeout', number> = {
-  ok: 0, 'usage-limit': 10, error: 10, 'max-turns': 11, timeout: 12,
+  ok: 0, 'usage-limit': 10, error: 13, 'max-turns': 11, timeout: 12,
 };
 
 const LIMIT = /usage limit|rate limit|rate_limit|\b429\b|overloaded/i;

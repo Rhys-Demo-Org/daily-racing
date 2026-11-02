@@ -1,0 +1,30 @@
+{
+  "title": "Plan audit",
+  "description": "Agent B's verdict on a draft spec, before any code is written (plans/full-pipeline.md, step 5).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "findings", "overlapAssessment", "waitsOn", "designRequest", "backlogChangeRequests"],
+  "properties": {
+    "verdict": { "description": "approve: lock it. revise: a fresh ideate fixes the findings. defer: it waits on in-flight work (soft dependency). reject: it should not be built.", "type": "string", "enum": ["approve", "revise", "defer", "reject"] },
+    "summary": { "description": "The verdict's reason in one to three sentences.", "type": "string", "minLength": 10, "maxLength": 800 },
+    "findings": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check", "severity", "claim", "suggestedFix"],
+        "properties": {
+          "check": { "type": "string", "enum": ["scope", "design", "duplicate", "overlap", "testability", "supersedes", "visible", "backlog", "other"] },
+          "severity": { "type": "string", "enum": ["blocker", "major", "minor"] },
+          "claim": { "type": "string", "minLength": 5, "maxLength": 600 },
+          "suggestedFix": { "type": "string", "maxLength": 600 }
+        }
+      }
+    },
+    "overlapAssessment": { "description": "When the harness reports file overlap with open PRs: why building this now is safe, or null to accept the overlap as a reason to defer.", "type": ["string", "null"], "maxLength": 800 },
+    "waitsOn": { "description": "defer only: what it waits on, e.g. \"#11\" or \"B02\".", "type": ["string", "null"], "maxLength": 80 },
+    "designRequest": { "description": "When UI_RULES.md doesn't cover a visual decision the spec needs: the request for the owner (written to design-request.md). Otherwise null.", "type": ["string", "null"], "maxLength": 2000 },
+    "backlogChangeRequests": { "description": "Backlog fixes for the owner to apply, e.g. \"B03 should depend on B02\".", "type": "array", "maxItems": 5, "items": { "type": "string", "maxLength": 300 } }
+  }
+}

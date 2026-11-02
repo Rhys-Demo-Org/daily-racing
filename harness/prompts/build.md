@@ -12,6 +12,8 @@ runs the gates and decides the result; only the gates count, not your summary.
   `guardrails/design/boards/`) with the Read tool and look at them before you build any UI.
 - The spec's plan audit (at its end) is part of the spec: follow its findings. Delete every module
   listed under "Supersedes" along with its now-dead code; don't leave the old version in place.
+  Never delete or edit an existing test to do it: if an existing test imports a listed module,
+  leave that module in place and say so in your summary.
 - Acceptance tests go through public seams (the DOM by role and text, `RaceView`,
   `window.__racer`, exported content data), never internal class or function names.
 - Touch only `src/**` (not `src/driver/**`), **new** files under `tests/**` (not

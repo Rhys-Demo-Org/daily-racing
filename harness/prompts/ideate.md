@@ -18,7 +18,10 @@ the harness renders it to `spec.md`, locks it and hands it to the builder.
 - `expectedFiles`: every `src/` and new `tests/` path you expect the build to add or change. The
   harness compares them with open PRs' files, so be accurate rather than short.
 - `supersedes`: the `src/` modules this feature replaces. They are deleted with it; never leave the
-  old code as dead code. Empty when nothing is retired.
+  old code as dead code. Empty when nothing is retired. Never list a module that an existing test
+  imports (grep `tests/` for it): tests are append-only and the gates fail a night that deletes or
+  edits one, so that module can't be retired yet. Spec the feature without retiring it, and say in
+  `summary` that it stays until the owner retires it with its tests.
 - `playtest`: what the owner will see on the PR preview (`whatYoullSee`) and the steps to try it on a
   phone (`howToTest`), in plain words with no code names. `null` only on maintenance nights.
 

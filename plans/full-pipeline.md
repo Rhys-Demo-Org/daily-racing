@@ -253,6 +253,8 @@ is not needed.
 |---|---|---|
 | Resume after usage limit (today an aborted night opens a draft PR) | §6.3 | M2 |
 | Health check 08:00, `daily-status`, health issues | §7.3 | M2 |
+| A deferred item is re-ideated and re-audited every night until its blocker merges (each costs an ideate and an audit); remember the defer and skip the item while `waitsOn` is still open | review of M1a | M2 |
+| G1/G9 exception: a night may delete exactly the tests of the modules in `supersedes`. Until then ideate, audit and build never retire a module an existing test imports | §5.2, M1a review | M2 |
 | CI reruns every gate on each PR (today: typecheck/test/build) | chat, §7.2 | M2 |
 | Mutation testing on changed lines (report-only, then gate), seed fuzz for sim/track changes | review | M2 → M3 |
 | G10 red/green, with a worked example in `build.md` and a valid-feature cheat that must pass | §5.2, chat | M3 |

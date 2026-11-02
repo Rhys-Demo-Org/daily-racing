@@ -38,7 +38,11 @@ Check each point and record every problem as a finding (`check`, `severity`, `cl
    so a test pinning an internal name freezes it forever. The harness's lint of such names is
    below; it is advisory, you decide.
 6. **Retired code** (`supersedes`). Code the feature replaces is listed in `supersedes`, so it is
-   deleted rather than left as dead code (e.g. an old panel the new screen replaces).
+   deleted rather than left as dead code (e.g. an old panel the new screen replaces). But no night
+   may delete or edit an existing test (the gates fail it), so a module that an existing test
+   imports can't be retired yet: grep `tests/` for every module in `supersedes`. If any test
+   imports one, the verdict is `revise`: keep that module, take it out of `supersedes`, and spec the
+   feature so the old module's tests still pass.
 7. **Visible change** (`visible`). The owner will see a difference on the preview, and `playtest`
    says what and how, in plain words.
 8. **Backlog fixes** (`backlog`). If the backlog itself is wrong (a missing `depends_on`, an item

@@ -95,3 +95,12 @@ describe('spec: plans/full-pipeline.md fields', () => {
     ]);
   });
 });
+
+describe('supersedes until the G1/G9 test-deletion exception exists', () => {
+  const prompt = (f: string): string => readFileSync(new URL(`../prompts/${f}`, import.meta.url), 'utf8').replace(/\s+/g, ' ');
+  it('ideate, the plan audit and the builder never retire a module an existing test imports', () => {
+    expect(prompt('ideate.md')).toMatch(/Never list a module that an existing test imports/);
+    expect(prompt('plan-audit.md')).toMatch(/If any test imports one, the verdict is `revise`/);
+    expect(prompt('build.md')).toMatch(/if an existing test imports a listed module, leave that module in place/);
+  });
+});

@@ -21,7 +21,7 @@ import {
   validateTrack,
 } from '../../src/sim/track.ts';
 import { wrapAngle } from '../../src/sim/vec.ts';
-import { dustBowl, hairpinTrack, rampCornerTrack } from './helpers.ts';
+import { dustBowl, dustBowlClassic, hairpinTrack, rampCornerTrack } from './helpers.ts';
 
 describe('validateTrack', () => {
   it('accepts Dust Bowl and returns an equal copy', () => {
@@ -103,7 +103,7 @@ describe('validateTrack', () => {
 });
 
 describe('Dust Bowl geometry', () => {
-  const track = buildTrack(validateTrack(dustBowl));
+  const track = buildTrack(validateTrack(dustBowlClassic));
 
   it('is resampled to about 1 unit spacing, closed, starting on the first control point', () => {
     expect(track.spacing).toBeGreaterThan(0.95);
@@ -113,14 +113,14 @@ describe('Dust Bowl geometry', () => {
       const d = Math.hypot(track.xs[k]! - track.xs[i]!, track.zs[k]! - track.zs[i]!);
       expect(Math.abs(d - track.spacing)).toBeLessThan(0.05);
     }
-    expect(track.xs[0]).toBeCloseTo(dustBowl.centreline[0]![0], 9);
-    expect(track.zs[0]).toBeCloseTo(dustBowl.centreline[0]![1], 9);
+    expect(track.xs[0]).toBeCloseTo(dustBowlClassic.centreline[0]![0], 9);
+    expect(track.zs[0]).toBeCloseTo(dustBowlClassic.centreline[0]![1], 9);
     expect(track.length).toBeGreaterThan(900);
     expect(track.length).toBeLessThan(1100);
   });
 
   it('passes through every control point', () => {
-    for (const [x, z] of dustBowl.centreline) {
+    for (const [x, z] of dustBowlClassic.centreline) {
       expect(nearestGlobal(track, x, z).distance).toBeLessThan(0.05);
     }
   });
@@ -176,7 +176,7 @@ describe('Dust Bowl geometry', () => {
     expect(track.ramps).toHaveLength(1);
     const r = track.ramps[0]!;
     expect(nearestGlobal(track, r.x, r.z).s).toBeCloseTo(0.09 * track.length, 0);
-    expect(r.width).toBe(dustBowl.width);
+    expect(r.width).toBe(dustBowlClassic.width);
     const fx = Math.sin(r.heading);
     const fz = -Math.cos(r.heading);
     const at = (along: number, lat = 0): number =>
@@ -190,8 +190,8 @@ describe('Dust Bowl geometry', () => {
   });
 
   it('expands props deterministically with the expected kinds', () => {
-    const a = trackLayout(dustBowl);
-    const b = trackLayout(structuredClone(dustBowl));
+    const a = trackLayout(dustBowlClassic);
+    const b = trackLayout(structuredClone(dustBowlClassic));
     expect(a).toEqual(b);
     const kinds = new Set(a.props.map((p) => p.kind));
     expect(kinds).toEqual(new Set(['hay-bale', 'tyre-stack', 'cone-tree']));

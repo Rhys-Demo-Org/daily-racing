@@ -18,7 +18,7 @@ run=("$HARNESS_ROOT/harness/scripts/in-container.sh" --)
   export GATE_NONCE=rebaseline
   v="--exit 0 --stderr /dev/null --nonce $GATE_NONCE --main . --image $1"
   node guardrails/gates/record-replays.ts
-  node --permission --allow-fs-read=/repo guardrails/gates/g3-measure.ts tests/baselines/replays src/content/tracks >/tmp/g3.out
+  node --permission --allow-fs-read=/repo guardrails/gates/g3-measure.ts tests/baselines/replays src/content/tracks tests/fixtures/tracks >/tmp/g3.out
   node guardrails/gates/g3-verdict.ts --measure /tmp/g3.out $v --baseline tests/baselines/replay-states.json
   node --permission --allow-fs-read=/repo guardrails/gates/g2-measure.ts . "$2" >/tmp/g2.out
   node guardrails/gates/g2-verdict.ts --measure /tmp/g2.out $v --baseline tests/baselines/bot-laps.json

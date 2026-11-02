@@ -14,7 +14,7 @@ import type { World } from '../../src/sim/world.ts';
 import { carViews, createWorld, raceView, stepWorld } from '../../src/sim/world.ts';
 import { sampleAt } from '../../src/sim/track.ts';
 import { createBot } from '../../src/sim/bot.ts';
-import { GAS, NO_INPUT, driveToward, dustBowl, runBotRace, stepN } from './helpers.ts';
+import { GAS, NO_INPUT, driveToward, dustBowl, dustBowlClassic, runBotRace, stepN } from './helpers.ts';
 
 const L = 1000;
 const SECTOR = L / sectorCount(L);
@@ -153,7 +153,7 @@ function driveUntil(world: World, drive: (w: World) => CarInput, until: (w: Worl
 
 describe('laps on Dust Bowl', () => {
   it('reversing back over the line after the start does not count a lap', () => {
-    const world = createWorld(dustBowl, { seed: 3, carCount: 1 });
+    const world = createWorld(dustBowlClassic, { seed: 3, carCount: 1 });
     const bot = createBot(world, 0);
     stepN(world, COUNTDOWN_TICKS, NO_INPUT);
     const L = world.track.length;
@@ -168,7 +168,7 @@ describe('laps on Dust Bowl', () => {
   });
 
   it('cutting across the infield does not count a lap', () => {
-    const world = createWorld(dustBowl, { seed: 4, carCount: 1 });
+    const world = createWorld(dustBowlClassic, { seed: 4, carCount: 1 });
     const bot = createBot(world, 0);
     stepN(world, COUNTDOWN_TICKS, NO_INPUT);
     const L = world.track.length;

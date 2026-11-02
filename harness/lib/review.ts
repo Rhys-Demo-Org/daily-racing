@@ -9,7 +9,7 @@ import { sep } from 'node:path';
 import { structuredOutput, trimmed } from './spec.ts';
 
 export const REVIEWERS = {
-  R1: 'spec: every acceptance criterion is met and its test proves it',
+  R1: 'spec: every acceptance criterion is met and the play-test is true',
   R2: 'correctness and determinism',
   R3: 'duplication and dead code',
   R4: 'UI_RULES and screenshots',

@@ -108,7 +108,8 @@ What each verdict does:
 ### Review (steps 7–10)
 Five read-only reviewers, each with one focus:
 
-- **R1, spec:** each acceptance criterion is truly met, and the test really proves it.
+- **R1, spec:** each acceptance criterion is truly met, and the play-test is true. (Test strength
+  is R5's; the verifier drops cross-reviewer duplicates as `duplicate of Rx-y`.)
 - **R2, correctness and determinism:** state leaks, listeners, edge cases, input, replays.
 - **R3, duplication:** against a harness-generated inventory of exported helpers and components and a
   clone report. Reuse instead of parallel copies; flag dead or superseded code.

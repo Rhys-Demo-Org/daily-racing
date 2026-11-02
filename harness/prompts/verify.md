@@ -29,5 +29,8 @@ are fixed; the rest are dropped.
     out of the spec's scope, or fixing it would change behaviour the spec or `main` requires.
 - Duplication findings (R3) are verified by a trace that shows both copies and that the existing
   one does the same job; UI findings (R4) by the rule, token or mockup detail they break.
+- Reviewers overlap. When findings from different reviewers describe the same problem, rule on
+  the first one (lowest reviewer number, then lowest index) and drop each of the others with
+  method `none` and reason `duplicate of Rx-y` (the one you kept).
 - Be strict. A dropped real finding costs less than a "fix" that breaks something.
 - Return one result per finding, with its ID exactly as given (e.g. `R2-3`).

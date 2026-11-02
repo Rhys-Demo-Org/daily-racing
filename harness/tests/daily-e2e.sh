@@ -272,6 +272,12 @@ echo "revise every round: rejected after 2 revisions, next item (Tue 2026-12-08)
 daily 2026-12-08T02:00:00Z STUB_AUDIT_B01=revise
 ok "3 rounds for B01, then B02" '[[ $(jq -c "[.items[] | [.id, .verdict, .rounds]]" "$D/runs/2026-12-08/audit.json") == "[[\"B01\",\"reject\",3],[\"B02\",\"approve\",1]]" && $(pl ideate) == 4 ]]'
 
+echo "metrics.csv with old columns is moved aside (Thu 2026-12-17)"
+sed -i '1s/.*/date,old,columns/' "$D/metrics.csv"
+rows=$(wc -l <"$D/metrics.csv")
+daily 2026-12-17T02:00:00Z
+ok "old file kept as metrics-2026-12-17.csv; new one has today's header and one row" '[[ $(head -1 "$D/metrics-2026-12-17.csv") == date,old,columns && $(wc -l <"$D/metrics-2026-12-17.csv") == "$rows" && $(wc -l <"$D/metrics.csv") == 2 && $(head -1 "$D/metrics.csv") == date,dryRun,* ]]'
+
 echo "live: the PR body leads with the play-test, carries the marker, review and judge (Wed 2026-12-09)"
 MODE=--live
 daily 2026-12-09T02:00:00Z STUB_FINDINGS_R1="[$(finding 1 major 1)]"

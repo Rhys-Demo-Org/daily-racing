@@ -25,6 +25,7 @@
 //   judge <gates-pass 0|1> <blind-result> <check-result> <scan.txt> <round> <out.json> <out.md>   PASS
 //   judgebrief <judge.json>                            the judge fix round's brief
 //   metrics <run-dir> [--header]                       metrics.csv row (and header)
+//   metricsheader                                      the metrics.csv header line
 //   allowed <diff-raw> <numstat> <today> <maintenance 0|1>   G8's diff rules; exit 1 + reasons on a violation
 //   prbody <run-dir> <preview-url>                     markdown PR body
 //   spec <claude-result.json> <spec.md> <date> <mode> <backlogId|-> <meta.json>
@@ -213,6 +214,9 @@ if (import.meta.main) {
     }
     case 'judgebrief':
       process.stdout.write(judgeBrief(readJson<JudgeVerdict>(a[0]!)!));
+      break;
+    case 'metricsheader':
+      console.log(METRICS_COLUMNS.join(','));
       break;
     case 'metrics':
       if (a[1] === '--header') console.log(METRICS_COLUMNS.join(','));

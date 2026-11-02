@@ -123,11 +123,18 @@ notes_out() {
   [[ -n $(ls -A "$J" 2>/dev/null) ]] || return 0
   mkdir -p "$RUN/builder/${1:-}" && cp -rT "$J" "$RUN/builder/${1:-}" && rm -rf "$J" && mkdir -p "$J"
 }
-# metrics: appends tonight's row to METRICS_CSV (with the header when the file is new).
+# metrics: appends tonight's row to METRICS_CSV (with the header when the file is new). A file whose
+# header isn't today's columns (a harness change) is first moved aside to metrics-<date>.csv.
 metrics() {
-  local header=()
-  [[ -s $METRICS_CSV ]] || header=(--header)
+  local header=() want old
   mkdir -p "$(dirname "$METRICS_CSV")"
+  want="$(ts_node metricsheader 2>>"$RUN_LOG")" || { log "metrics header failed"; return 0; }
+  if [[ -s $METRICS_CSV && $(head -1 "$METRICS_CSV") != "$want" ]]; then
+    old="${METRICS_CSV%.csv}-$DATE.csv"
+    [[ ! -e $old ]] || old="${METRICS_CSV%.csv}-$DATE-$(now).csv"
+    mv "$METRICS_CSV" "$old" && log "metrics: columns changed; old file moved to $old"
+  fi
+  [[ -s $METRICS_CSV ]] || header=(--header)
   ts_node metrics "$RUN" "${header[@]}" >>"$METRICS_CSV" 2>>"$RUN_LOG" || log "metrics row failed"
 }
 # scrub: redacts the token (when one exists) from the clone and the run folder; fails if it stays.

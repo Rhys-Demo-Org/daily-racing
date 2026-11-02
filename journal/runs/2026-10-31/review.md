@@ -57,3 +57,9 @@ env sniffing; nothing registered by hand.
 
 Before review: +349 / −13. After: +314 / −19. `results-screen.ts` 147 → 124,
 `results.css` 145 → 119.
+
+## Gates
+
+The branch predated main's live-mode harness (PR #8), so G8 first failed on 17 protected files
+that main had changed. `origin/main` was merged in (no conflicts); `run-gates.sh` against
+origin/main `8fd4fa8` then passed G1 (393/393 tests), G2, G3 and G8.

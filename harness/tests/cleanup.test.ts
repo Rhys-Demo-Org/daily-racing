@@ -87,6 +87,14 @@ describe('survey merge and dedupe', () => {
     expect(l.items[0]!.status).toBe('stale');
   });
 
+  it('but not an item reported tonight, or a tests item naming the new test file it proposes', () => {
+    const l = emptyList();
+    mergeSurvey(l, 'tests', survey([finding({ category: 'tests', files: ['tests/ui/stage-colours.test.ts'], claim: 'nothing checks the pause screen for inline colours' })]), 'd1');
+    mergeSurvey(l, 'ui', survey([finding({ files: ['src/ui/new-helper.ts'] })]), 'd2');
+    expect(staleMissing(l, 'd2', () => false)).toBe(0);
+    expect(l.items.map((i) => i.status)).toEqual(['open', 'open']);
+  });
+
   it('a closed item is never reopened by a repeat; the repeat is new and says what it resembles', () => {
     const l = emptyList();
     mergeSurvey(l, 'ui', survey([finding()]), 'd1');

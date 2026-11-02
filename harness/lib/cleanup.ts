@@ -201,11 +201,15 @@ export function mergeSurvey(list: CleanupList, area: Area, survey: Survey, date:
   return st;
 }
 
-/** Open items none of whose files exist any more go stale. Returns how many. */
+/**
+ * Open items none of whose files exist any more go stale. Not an item reported or confirmed tonight
+ * (its files may be ones it proposes to add) or a `tests` item (it names the new test file to add).
+ * Returns how many.
+ */
 export function staleMissing(list: CleanupList, date: string, exists: (path: string) => boolean): number {
   let n = 0;
   for (const it of list.items) {
-    if (it.status !== 'open' || it.files.some(exists)) continue;
+    if (it.status !== 'open' || it.lastSeen === date || it.category === 'tests' || it.files.some(exists)) continue;
     it.status = 'stale';
     note(it, date, 'its files no longer exist');
     n++;

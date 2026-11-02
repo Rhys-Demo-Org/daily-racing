@@ -3,7 +3,7 @@
 // RESUME (rally-red, focused), RESTART RACE (cream) and QUIT TO MENU (navy).
 import './components.css';
 import './screens.css';
-import { button, h, hatch, overlay, type Overlay } from './dom.ts';
+import { button, h, hatch, overlay, stripes, type Overlay } from './dom.ts';
 import { formatTime } from './format.ts';
 import { icon } from './icons.ts';
 
@@ -32,7 +32,7 @@ export function createPauseScreen(root: HTMLElement, opts: PauseScreenOptions): 
     'ui-panel ui-panel--cream ui-panel--overlay ui-pause__card',
     [
       h('div', 'ui-pause__header', [h('h2', 'ui-pause__title', ['Paused']), status]),
-      h('div', 'ui-stripes ui-pause__stripes', [h('span', 'ui-stripe ui-stripe--red'), h('span', 'ui-stripe ui-stripe--mustard'), h('span', 'ui-stripe ui-stripe--cream')]),
+      stripes('ui-pause__stripes'),
       h('div', 'ui-pause__buttons', [
         resume,
         button('', [icon('restart'), 'Restart race'], opts.onRestart),

@@ -3,7 +3,7 @@
 // The sim advances in fixed 60 Hz ticks (src/sim); rendering runs once per animation frame and draws
 // car positions interpolated between the last two ticks, so motion is smooth at any refresh rate.
 // The UI only ever sees views (src/ui/race-ui.ts), never the sim itself.
-import { TRACKS, getTrack } from './content/tracks.ts';
+import { TRACKS, getTrack, nextTrackId } from './content/tracks.ts';
 import { createInput } from './input/index.ts';
 import { createRaceScene, createRenderer, playerLivery, type CarLivery, type RaceScene } from './render/index.ts';
 import {
@@ -43,7 +43,7 @@ export interface GameState {
   paused: boolean;
 }
 
-/** Control surface used by the start screen, the finish panel and src/driver (gates). */
+/** Control surface used by the start screen, the results screen and src/driver (gates). */
 export interface Game {
   startRace(options?: { trackId?: string; seed?: number }): void;
   showMenu(): void;
@@ -96,9 +96,11 @@ export function createGame(root: HTMLElement): Game {
   root.append(canvas, raceLayer, menuLayer);
 
   const renderer = createRenderer(canvas);
+  // RESTART RACE (pause) and RETRY (results) are one action: a fresh race on the same track.
   const restart = (): void => game.startRace({ trackId: race?.track.id ?? menuTrack.id });
   const ui = createRaceUi(raceLayer, {
     onRaceAgain: restart,
+    onNextRace: () => game.startRace({ trackId: nextTrackId(race?.track.id ?? menuTrack.id) }),
     onPause: () => setPaused(!paused),
     onResume: () => setPaused(false),
     onRestart: restart,
@@ -237,6 +239,7 @@ export function createGame(root: HTMLElement): Game {
         track.laps,
         world.track.layout.centre.filter((_, i) => i % MINIMAP_STRIDE === 0),
         LIVERIES.map((l) => l.body),
+        { trackName: track.name, carNumbers: LIVERIES.map((l) => l.number) },
       );
       input.reset();
       paused = false; // ui.reset() hid the pause screen
@@ -279,6 +282,8 @@ export function createGame(root: HTMLElement): Game {
         tick(r, carInput);
         r.scene.update(r.curr, DT);
       }
+      // Driver steps run even while paused; if the player finishes, the results screen replaces the pause.
+      if (paused && r.world.racers[0]?.finishTick != null) setPaused(false);
       draw(r, 1, 0);
     },
   };

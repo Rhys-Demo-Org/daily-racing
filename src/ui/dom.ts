@@ -36,6 +36,12 @@ export function button(className: string, children: (Node | string)[], onClick: 
   return b;
 }
 
+/** The triple stripe: red, mustard, cream at 4:2:1 (board header / screen-change pattern). */
+export function stripes(className = ''): HTMLElement {
+  const stripe = (colour: string): HTMLElement => h('span', `ui-stripe ui-stripe--${colour}`);
+  return h('div', `ui-stripes ${className}`.trim(), [stripe('red'), stripe('mustard'), stripe('cream')]);
+}
+
 let hatchIds = 0;
 
 /** Full-screen hatch of 3px ink lines every 9px at 45° (UI_RULES §7), as an SVG pattern. */

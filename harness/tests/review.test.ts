@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { checkRulings, fixBrief, fixQueue, readFindings, readFix, reviewMd, type Finding } from '../lib/review.ts';
+import { structuredOutput } from '../lib/spec.ts';
 
 let dir = '';
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'review-')); });
@@ -97,5 +98,17 @@ describe('fixes and review.md', () => {
     expect(md).toContain('Reused formatTime. Dropped: the gates failed with it.');
     expect(md).toContain('### R4-1 · minor · dropped');
     expect(md).toContain('### Judge fix round\n\nFix: fixed in `fedcba987654`. Judge: fixed the label. Kept');
+  });
+});
+
+describe('structured output', () => {
+  it('reads it from a result object, a message array or a JSON result string; null otherwise', () => {
+    const p = (name: string, v: unknown): string => { const x = join(dir, name); writeFileSync(x, typeof v === 'string' ? v : JSON.stringify(v)); return x; };
+    expect(structuredOutput(p('a.json', { type: 'result', structured_output: { a: 1 } }))).toEqual({ a: 1 });
+    expect(structuredOutput(p('b.json', [{ type: 'system' }, { type: 'result', structured_output: { b: 2 } }]))).toEqual({ b: 2 });
+    expect(structuredOutput(p('c.json', { type: 'result', result: '{"c":3}' }))).toEqual({ c: 3 });
+    expect(structuredOutput(p('d.json', { type: 'result', result: 'no JSON here' }))).toBeNull();
+    expect(structuredOutput(p('e.json', 'not json'))).toBeNull();
+    expect(structuredOutput(join(dir, 'missing.json'))).toBeNull();
   });
 });

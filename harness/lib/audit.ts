@@ -2,6 +2,8 @@
 // harness. The harness owns two rules the agent can't talk its way past: an approve that ignores
 // file overlap with open PRs becomes a defer, and invalid output counts as a reject.
 
+import { trimmed } from './spec.ts';
+
 export type Verdict = 'approve' | 'revise' | 'defer' | 'reject';
 export type AuditFinding = { check: string; severity: 'blocker' | 'major' | 'minor'; claim: string; suggestedFix: string };
 export type Audit = {
@@ -18,8 +20,7 @@ export type Audit = {
 
 const VERDICTS: readonly Verdict[] = ['approve', 'revise', 'defer', 'reject'];
 const SEVERITIES = ['blocker', 'major', 'minor'];
-const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
-const orNull = (v: unknown): string | null => text(v) || null;
+const orNull = (v: unknown): string | null => trimmed(v) || null;
 
 /**
  * Validates agent B's structured output and applies the harness rules. `overlapCount` is the number
@@ -27,19 +28,19 @@ const orNull = (v: unknown): string | null => text(v) || null;
  */
 export function checkAudit(x: unknown, overlapCount: number): Audit {
   const a = x as Record<string, unknown> | null;
-  if (!a || typeof a !== 'object' || !VERDICTS.includes(a.verdict as Verdict) || !text(a.summary)) {
+  if (!a || typeof a !== 'object' || !VERDICTS.includes(a.verdict as Verdict) || !trimmed(a.summary)) {
     return { verdict: 'reject', summary: 'The plan audit returned no valid verdict.', findings: [], overlapAssessment: null, waitsOn: null, designRequest: null, backlogChangeRequests: [], harnessOverride: 'invalid audit output' };
   }
   const findings = (Array.isArray(a.findings) ? a.findings : []).flatMap((f: Record<string, unknown>) =>
-    text(f?.claim) ? [{ check: text(f.check) || 'other', severity: (SEVERITIES.includes(f.severity as string) ? f.severity : 'major') as AuditFinding['severity'], claim: text(f.claim), suggestedFix: text(f.suggestedFix) }] : []);
+    trimmed(f?.claim) ? [{ check: trimmed(f.check) || 'other', severity: (SEVERITIES.includes(f.severity as string) ? f.severity : 'major') as AuditFinding['severity'], claim: trimmed(f.claim), suggestedFix: trimmed(f.suggestedFix) }] : []);
   const audit: Audit = {
     verdict: a.verdict as Verdict,
-    summary: text(a.summary),
+    summary: trimmed(a.summary),
     findings,
     overlapAssessment: orNull(a.overlapAssessment),
     waitsOn: orNull(a.waitsOn),
     designRequest: orNull(a.designRequest),
-    backlogChangeRequests: (Array.isArray(a.backlogChangeRequests) ? a.backlogChangeRequests : []).map(text).filter(Boolean),
+    backlogChangeRequests: (Array.isArray(a.backlogChangeRequests) ? a.backlogChangeRequests : []).map(trimmed).filter(Boolean),
   };
   if (audit.verdict === 'approve' && overlapCount > 0 && !audit.overlapAssessment) {
     return { ...audit, verdict: 'defer', waitsOn: audit.waitsOn ?? 'the open PRs it overlaps', harnessOverride: `approve ignored file overlap with ${overlapCount} open PR(s), so the harness deferred it` };
@@ -50,10 +51,12 @@ export function checkAudit(x: unknown, overlapCount: number): Audit {
   return audit;
 }
 
+const findingLine = (f: AuditFinding): string => `- ${f.severity} · ${f.check}: ${f.claim}${f.suggestedFix ? ` Fix: ${f.suggestedFix}` : ''}`;
+
 /** The audit as markdown, attached to the locked spec and shown in the PR. */
 export function renderAudit(a: Audit, round: number): string {
   const lines = ['## Plan audit', '', `Verdict: **${a.verdict}** (round ${round})${a.harnessOverride ? ` · harness: ${a.harnessOverride}` : ''}`, '', a.summary, ''];
-  if (a.findings.length) lines.push(...a.findings.map((f) => `- ${f.severity} · ${f.check}: ${f.claim}${f.suggestedFix ? ` Fix: ${f.suggestedFix}` : ''}`), '');
+  if (a.findings.length) lines.push(...a.findings.map(findingLine), '');
   if (a.overlapAssessment) lines.push(`Overlap with open PRs: ${a.overlapAssessment}`, '');
   if (a.waitsOn) lines.push(`Waits on: ${a.waitsOn}`, '');
   if (a.backlogChangeRequests.length) lines.push('Backlog change requests for the owner:', '', ...a.backlogChangeRequests.map((r) => `- ${r}`), '');
@@ -63,5 +66,5 @@ export function renderAudit(a: Audit, round: number): string {
 /** What a fresh ideate agent gets after a revise verdict. */
 export function reviseBrief(a: Audit): string {
   return ['## Plan audit asked for a revision', '', 'A plan auditor reviewed your previous draft (shown below) and asked for these changes. Write a new spec that addresses every finding.', '', a.summary, '',
-    ...a.findings.map((f) => `- ${f.severity} · ${f.check}: ${f.claim}${f.suggestedFix ? ` Fix: ${f.suggestedFix}` : ''}`), ''].join('\n');
+    ...a.findings.map(findingLine), ''].join('\n');
 }

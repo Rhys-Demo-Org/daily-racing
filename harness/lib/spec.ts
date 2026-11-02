@@ -1,7 +1,7 @@
 // The locked spec (HANDOVER §6.2 step 2): validates ideate's structured output against tonight's
 // work, renders spec.md, makes it read-only and hashes it; daily.sh verifies the hash later.
 
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { hashFile } from '../../guardrails/gates/lib.ts';
 
 /** Kind of night: a backlog item, a Sunday maintenance day, or phase 2 invention. */
@@ -34,6 +34,21 @@ export function extractSpec(claudeResult: unknown): unknown {
   }
   throw new Error('ideate result has no structured output');
 }
+
+/**
+ * The structured output (`--json-schema`) of one agent call's result.json (a result object, or a
+ * message array ending in one), or null when the file is missing, malformed or has none. The one
+ * reader for every phase (and daily.sh, via `cli.ts structured`).
+ */
+export function structuredOutput(resultPath: string): unknown {
+  let json: unknown;
+  try { json = JSON.parse(readFileSync(resultPath, 'utf8')); } catch { return null; }
+  const r = Array.isArray(json) ? json.findLast((m: { type?: unknown } | null) => m?.type === 'result') : json;
+  try { return extractSpec(r) ?? null; } catch { return null; }
+}
+
+/** A string field of agent output, trimmed; anything else is ''. */
+export const trimmed = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
 const str = (v: unknown, what: string): string => {
   if (typeof v !== 'string' || v.trim() === '') throw new Error(`spec: ${what} must be a non-empty string`);

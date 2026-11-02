@@ -4,8 +4,7 @@
 // call and the harness commits each fix on its own, so the gates can drop exactly the fixes that
 // break them. review.md is assembled from those records for the judge and the PR.
 
-import { readJson } from './journal.ts';
-import { extractSpec } from './spec.ts';
+import { structuredOutput, trimmed } from './spec.ts';
 
 export const REVIEWERS = {
   R1: 'spec: every acceptance criterion is met and its test proves it',
@@ -21,23 +20,21 @@ export type Ruling = { id: string; status: 'verified' | 'dropped'; method: 'test
 export type FixRecord = { id: string; status: 'fixed' | 'not-fixed' | 'no-change' | 'agent-error'; summary: string; tests: string[]; commit: string | null; kept: boolean | null };
 
 const SEV = ['critical', 'major', 'minor'] as const;
-const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
-const structured = (path: string): unknown => { try { return extractSpec(readJson(path)); } catch { return null; } };
 
 /**
  * Findings of one reviewer's `claude -p` result.json, renumbered `<reviewer>-<k>`. Unusable output
  * gives none (the reviewer is recorded as failed by the caller).
  */
 export function readFindings(reviewer: string, resultPath: string): Finding[] | null {
-  const out = structured(resultPath) as { findings?: unknown } | null;
+  const out = structuredOutput(resultPath) as { findings?: unknown } | null;
   if (!out || !Array.isArray(out.findings)) return null;
   return out.findings.flatMap((f: Record<string, unknown>, i) => {
-    if (!text(f?.claim)) return [];
+    if (!trimmed(f?.claim)) return [];
     return [{
       id: `${reviewer}-${i + 1}`, reviewer,
       severity: SEV.includes(f.severity as (typeof SEV)[number]) ? f.severity as Finding['severity'] : 'minor',
-      file: text(f.file), line: typeof f.line === 'number' ? f.line : null,
-      claim: text(f.claim), evidence: text(f.evidence), suggestedFix: text(f.suggestedFix),
+      file: trimmed(f.file), line: typeof f.line === 'number' ? f.line : null,
+      claim: trimmed(f.claim), evidence: trimmed(f.evidence), suggestedFix: trimmed(f.suggestedFix),
     }];
   });
 }
@@ -56,7 +53,7 @@ export function checkRulings(raw: unknown, findings: readonly Finding[], written
     if (!r) return { id: f.id, status: 'dropped', method: 'none', testFile: null, trace: '', reason: 'The verifier gave no ruling.', harnessNote: 'no ruling' };
     const ruling: Ruling = {
       id: f.id, status: r.status === 'verified' ? 'verified' : 'dropped', method: r.method === 'test' || r.method === 'trace' ? r.method : 'none',
-      testFile: text(r.testFile) || null, trace: text(r.trace), reason: text(r.reason),
+      testFile: trimmed(r.testFile) || null, trace: trimmed(r.trace), reason: trimmed(r.reason),
     };
     if (ruling.status !== 'verified') return ruling;
     if (ruling.method === 'test' && !(ruling.testFile && written.includes(ruling.testFile))) {
@@ -86,9 +83,9 @@ export function fixBrief(f: Finding, r: Ruling | undefined, testSource: string |
 
 /** A fix agent's report (fix.json) as a record; the harness fills in the commit. */
 export function readFix(id: string, resultPath: string): FixRecord {
-  const out = structured(resultPath) as Record<string, unknown> | null;
+  const out = structuredOutput(resultPath) as Record<string, unknown> | null;
   if (!out) return { id, status: 'agent-error', summary: 'The fix agent returned no valid report.', tests: [], commit: null, kept: null };
-  return { id, status: out.status === 'fixed' ? 'fixed' : 'not-fixed', summary: text(out.summary), tests: Array.isArray(out.tests) ? out.tests.map(text).filter(Boolean) : [], commit: null, kept: null };
+  return { id, status: out.status === 'fixed' ? 'fixed' : 'not-fixed', summary: trimmed(out.summary), tests: Array.isArray(out.tests) ? out.tests.map(trimmed).filter(Boolean) : [], commit: null, kept: null };
 }
 
 export type ReviewState = { reviewers: Record<string, 'ok' | 'failed' | 'skipped'>; findings: Finding[]; rulings: Ruling[]; fixes: FixRecord[]; notes: string[] };

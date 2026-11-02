@@ -30,6 +30,7 @@
 //   spec <claude-result.json> <spec.md> <date> <mode> <backlogId|-> <meta.json>
 //                                                      locks spec.md, prints (and records) its sha256
 //   feedback <gates.json>                              failed-gate text for the retry prompt
+//   structured <claude-result.json>                    the agent's structured output as JSON, or null
 //   redact <dir>...                                    token on stdin; exit 1 if it couldn't be scrubbed
 //   result <run-dir> <outcome> [reason]                writes <run-dir>/result.json
 //   report <run-dir>                                   markdown dry-run report
@@ -39,7 +40,7 @@ import { runWindows } from './time.ts';
 import { checkDiff } from './allowlist.ts';
 import { chooseWork, parseBacklog, prState, type DailyPr } from './picker.ts';
 import { redact } from './redact.ts';
-import { extractSpec, lockSpec, renderSpec, validateSpec, type SpecMode } from './spec.ts';
+import { lockSpec, renderSpec, structuredOutput, validateSpec, type SpecMode } from './spec.ts';
 import { buildResult, gateFeedback, prBody, readJson, report } from './journal.ts';
 import { existingWork, fileOverlap, openFiles, renderOverlap, type GhPr, type OpenFiles } from './existing.ts';
 import { checkAudit, renderAudit, reviseBrief, type Audit } from './audit.ts';
@@ -62,6 +63,7 @@ const [cmd, ...args] = process.argv.slice(2);
 const skip = args.find((x) => x.startsWith('--skip='))?.slice(7).split(',').filter(Boolean) ?? [];
 const a = args.filter((x) => !x.startsWith('--skip='));
 const review = (path: string): ReviewState => readJson<ReviewState>(path) ?? { reviewers: {}, findings: [], rulings: [], fixes: [], notes: [] };
+const specOutput = (result: string): unknown => structuredOutput(result) ?? (() => { throw new Error('ideate result has no structured output'); })();
 const lines = (path: string): string[] => (existsSync(path) ? readFileSync(path, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean) : []);
 if (import.meta.main) {
   switch (cmd) {
@@ -91,7 +93,7 @@ if (import.meta.main) {
     }
     case 'spec': {
       const [result, out, date, mode, id, meta] = a as [string, string, string, SpecMode, string, string];
-      const specSha256 = lockSpec(out, renderSpec(validateSpec(extractSpec(readJson(result)), mode, id === '-' ? null : id), date, mode));
+      const specSha256 = lockSpec(out, renderSpec(validateSpec(specOutput(result), mode, id === '-' ? null : id), date, mode));
       merge(meta, { specSha256 });
       console.log(specSha256);
       break;
@@ -106,7 +108,7 @@ if (import.meta.main) {
     case 'draft': {
       const [result, dir, , mode, id, open] = a as [string, string, string, SpecMode, string, string];
       let spec: Spec;
-      try { spec = validateSpec(extractSpec(readJson(result)), mode, id === '-' ? null : id); } catch (e) { console.error(String(e)); process.exit(1); }
+      try { spec = validateSpec(specOutput(result), mode, id === '-' ? null : id); } catch (e) { console.error(String(e)); process.exit(1); }
       const overlap = fileOverlap(spec.expectedFiles ?? [], readJson<OpenFiles[]>(open) ?? []);
       json(join(dir, 'draft.json'), spec);
       writeFileSync(join(dir, 'draft.md'), renderSpec(spec, a[2]!, mode));
@@ -118,9 +120,7 @@ if (import.meta.main) {
     }
     case 'audit': {
       const [result, count, round, out, md] = a as [string, string, string, string, string];
-      let raw: unknown = null;
-      try { raw = extractSpec(readJson(result)); } catch { /* invalid output: checkAudit rejects it */ }
-      const audit = checkAudit(raw, Number(count));
+      const audit = checkAudit(structuredOutput(result), Number(count)); // invalid output: a reject
       json(out, audit);
       writeFileSync(md, renderAudit(audit, Number(round)));
       vars({ VERDICT: audit.verdict, WAITS_ON: audit.waitsOn ?? '' });
@@ -160,8 +160,8 @@ if (import.meta.main) {
     case 'rulings': {
       const [state, result, written, max, queue] = a as [string, string, string, string, string];
       const s = review(state);
-      let raw: unknown = null;
-      try { raw = extractSpec(readJson(result)); } catch { s.notes.push('The verifier returned no valid output, so every finding was dropped.'); }
+      const raw = structuredOutput(result);
+      if (raw === null) s.notes.push('The verifier returned no valid output, so every finding was dropped.');
       s.rulings = checkRulings(raw, s.findings, lines(written));
       const q = fixQueue(s.findings, s.rulings, Number(max));
       const verified = s.rulings.filter((r) => r.status === 'verified').length;
@@ -215,6 +215,9 @@ if (import.meta.main) {
     case 'metrics':
       if (a[1] === '--header') console.log(METRICS_COLUMNS.join(','));
       console.log(metricsRow(a[0]!));
+      break;
+    case 'structured':
+      console.log(JSON.stringify(structuredOutput(a[0]!)));
       break;
     case 'feedback':
       process.stdout.write(gateFeedback(a[0]!));

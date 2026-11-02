@@ -500,7 +500,8 @@ ts_node reviewmd "$RUN/review.json" >"$RUN/review.md"
 # review.md), then a check call that also gets review.md and the blind scores. Both isolated: their
 # workdir is a folder of copies, so the repo's CLAUDE.md never loads. The harness decides (PASS).
 judge_round() {
-  local r=$1 in="$WORK/judge-$r" chk="$WORK/judgecheck-$r"
+  local r=$1
+  local in="$WORK/judge-$r" chk="$WORK/judgecheck-$r"
   rm -rf "$in" "$chk"
   mkdir -p "$in/references"
   cp "$RUN/spec.md" "$RUN/existing-work.md" "$in/"

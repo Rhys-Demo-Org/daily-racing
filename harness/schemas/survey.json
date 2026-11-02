@@ -1,0 +1,44 @@
+{
+  "title": "Maintenance survey",
+  "description": "One read-only survey pass over one area of the codebase (plans/full-pipeline.md, the 7th day). New findings join the persistent cleanup list; confirmations re-check the list's items in this pass's area.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["findings", "confirmations"],
+  "properties": {
+    "findings": {
+      "description": "Cleanup worth doing that is not already on the list (or is on it only as closed and came back).",
+      "type": "array",
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "files", "line", "claim", "evidence", "suggestedFix", "worth", "estLines"],
+        "properties": {
+          "category": { "description": "test-pins-internals: an existing test imports or asserts an internal name, so the fix needs the owner (tests are append-only).", "type": "string", "enum": ["duplication", "dead-code", "simplify", "performance", "docs", "consistency", "tests", "test-pins-internals"] },
+          "files": { "description": "Repo paths the cleanup changes (src/**, tests/**, CLAUDE.md), most important first.", "type": "array", "minItems": 1, "maxItems": 12, "items": { "type": "string", "maxLength": 200 } },
+          "line": { "type": ["integer", "null"], "minimum": 1 },
+          "claim": { "description": "What is wrong, in one or two sentences.", "type": "string", "minLength": 10, "maxLength": 600 },
+          "evidence": { "description": "Code quoted with file:line, the copies side by side, or the measured numbers.", "type": "string", "minLength": 10, "maxLength": 2000 },
+          "suggestedFix": { "description": "The smallest behaviour-preserving change, reusing what exists.", "type": "string", "minLength": 5, "maxLength": 1000 },
+          "worth": { "type": "string", "enum": ["high", "medium", "low"] },
+          "estLines": { "description": "Changed lines you expect (added + deleted).", "type": ["integer", "null"], "minimum": 0, "maximum": 5000 }
+        }
+      }
+    },
+    "confirmations": {
+      "description": "For every open or stale item of your area on the cleanup list: is the problem still in the code?",
+      "type": "array",
+      "maxItems": 80,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "stillPresent", "note"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^C[0-9]{3,}$" },
+          "stillPresent": { "type": "boolean" },
+          "note": { "type": "string", "maxLength": 400 }
+        }
+      }
+    }
+  }
+}

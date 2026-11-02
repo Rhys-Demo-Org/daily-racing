@@ -20,10 +20,10 @@ describe('allowlist', () => {
     for (const s of ['A', 'M', 'D']) expect(ok(change(s, 'src/driver/index.ts'))).toBe(false);
   });
 
-  it('tests are append-only; edits only on maintenance days; baselines never', () => {
+  it('tests are append-only on every night, maintenance included; baselines never', () => {
     expect(ok(change('A', 'tests/sim/new.test.ts'))).toBe(true);
     expect(ok(change('M', 'tests/sim/car.test.ts'))).toBe(false);
-    expect(ok(change('M', 'tests/sim/car.test.ts'), sunday)).toBe(true);
+    expect(violation(change('M', 'tests/sim/car.test.ts'), sunday)).toMatch(/append-only/);
     expect(ok(change('D', 'tests/sim/car.test.ts'), sunday)).toBe(false);
     for (const s of ['A', 'M', 'D']) expect(violation(change(s, 'tests/baselines/bot-laps.json'), sunday)).toMatch(/harness only/);
   });

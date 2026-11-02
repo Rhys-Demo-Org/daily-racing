@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Runs the thin gate suite (G1, G2, G3, G8) on a committed branch SHA and writes
-# <out-dir>/gates.json, <out-dir>/summary.md and <out-dir>/logs/. Trust model: plans/phase0-plan.md.
+# Runs the thin gate suite (G1, G2, G3, G8; on maintenance nights also the behaviour-preservation
+# gates P1 and P2) on a committed branch SHA and writes <out-dir>/gates.json, <out-dir>/summary.md
+# and <out-dir>/logs/. Trust model: plans/phase0-plan.md.
 #
 #   harness/scripts/run-gates.sh [--maintenance] [--main-ref <ref>] --today <YYYY-MM-DD> \
 #       <repo-dir> <branch-sha> <out-dir>
@@ -13,6 +14,10 @@
 #            tests/baselines), node_modules read-only, no output mount: results leave over stdout,
 #            and the last line must carry this run's nonce.
 #   verdict  main's gate code over the measure output and both trees as data; writes only /out.
+# P1 and P2 (plans/full-pipeline.md "The 7th day") measure main's tree the same way (cached per main
+# SHA and image, like G1's test count), so the comparison is always against main as it is now:
+#   P1  every screen stage's DOM and computed styles (harness/screens/probe.ts dom)
+#   P2  every track's scene and every car's geometry hashes (harness/screens/scene.ts hash)
 # Exit 0 only when every gate passes; missing/malformed output, crash, timeout or zero tests fail.
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
@@ -44,8 +49,8 @@ rm -f "$out/gates.json" "$out/summary.md"
 started="$(date -u +%FT%TZ)"
 t0=$(date +%s%3N)
 deadline=$(( $(date +%s) + GATE_CAP_MIN * 60 ))
-maint=()
-(( maintenance )) && maint=(--maintenance)
+maint=() GATES=(G1 G2 G3 G8)
+(( maintenance )) && maint=(--maintenance) GATES+=(P1 P2)
 run_id="$$-$RANDOM"
 nonce="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 work="$(scratch "$DAILY_HOME/work" gates)"
@@ -55,7 +60,7 @@ mkdir -p "$work/io" "$work/res" "$work/results"
 fail_closed() {
   [[ -s "$out/gates.json" ]] && return
   local gates="" g
-  for g in G1 G2 G3 G8; do gates+="${gates:+,}{\"id\":\"$g\",\"name\":\"$g\",\"pass\":false,\"durationMs\":0,\"summary\":\"harness error: see logs/run-gates.log\",\"details\":\"\"}"; done
+  for g in "${GATES[@]}"; do gates+="${gates:+,}{\"id\":\"$g\",\"name\":\"$g\",\"pass\":false,\"durationMs\":0,\"summary\":\"harness error: see logs/run-gates.log\",\"details\":\"\"}"; done
   printf '{"branchSha":"%s","mainSha":"%s","startedAt":"%s","durationMs":%s,"pass":false,"maintenance":%s,"gates":[%s]}\n' \
     "$sha" "$main_sha" "$started" $(( $(date +%s%3N) - t0 )) "$( (( maintenance )) && echo true || echo false)" "$gates" >"$out/gates.json"
   printf '# Gates: FAIL\n\nHarness error before the report step; see logs/run-gates.log.\n' >"$out/summary.md"
@@ -129,13 +134,42 @@ verdict() {
 }
 
 # --- gates ---------------------------------------------------------------------------------------
-G1() { # main's test count (its unit tests only) is measured once per main SHA and image
-  local cache="$DAILY_HOME/cache/g1main-$main_sha-${IMAGE#*:}.json" pid=''
-  [[ -s $cache ]] || { measure g1main "$work/main" node guardrails/gates/g1-measure.ts /w --tests-only & pid=$!; }
+# The measuring code (main's harness/screens) is in the cache key too. main's SHA already fixes it
+# today; the hash keeps the cache honest if the screens ever come from elsewhere.
+screens="$(find "$work/main/harness/screens" -type f -print0 2>/dev/null | sort -z | xargs -0r cat | sha256sum | cut -c1-12)"
+# main_start <name> <cmd...>: main's measurement for this main SHA and image, unless cached, started
+# in the background (main_wait collects it into io/<name>main.json). Main's code is trusted, so its
+# output is cached across gate runs; the branch is measured fresh every time.
+main_start() {
+  local name=$1
+  shift
+  MAIN_CACHE="$DAILY_HOME/cache/${name}main-$main_sha-${IMAGE#*:}-$screens.json" MAIN_PID=''
+  [[ -s $MAIN_CACHE ]] || { measure "${name}main" "$work/main" "$@" & MAIN_PID=$!; }
+}
+main_wait() {
+  [[ -z $MAIN_PID ]] || { wait "$MAIN_PID"; [[ $(cat "$work/io/${1}main.exit") != 0 ]] || mv "$work/io/${1}main.out" "$MAIN_CACHE"; }
+  cp "$MAIN_CACHE" "$work/io/${1}main.json" 2>/dev/null || true
+}
+G1() { # main's test count (its unit tests only)
+  main_start g1 node guardrails/gates/g1-measure.ts /w --tests-only
   measure g1 "$work/m" node guardrails/gates/g1-measure.ts /w
-  [[ -z $pid ]] || { wait "$pid"; [[ $(cat "$work/io/g1main.exit") != 0 ]] || mv "$work/io/g1main.out" "$cache"; }
-  cp "$cache" "$work/io/g1main.json" 2>/dev/null || true
+  main_wait g1
   verdict G1 g1-verdict.ts g1 --main-measure /in/g1main.json --main /main --branch /branch
+}
+P1() { # the harness build of each tree (its own src/, main's harness/screens), then every stage's snapshot
+  local cmd=(sh -c 'node_modules/.bin/vite build --config harness/screens/vite.config.ts --outDir /tmp/p1-dist --emptyOutDir --logLevel error >&2 &&
+    node harness/screens/probe.ts dom /tmp/p1-dist')
+  main_start p1 "${cmd[@]}"
+  measure p1 "$work/m" "${cmd[@]}"
+  main_wait p1
+  verdict P1 p-verdict.ts p1 --kind dom --main-measure /in/p1main.json
+}
+P2() {
+  local cmd=(node --permission --allow-fs-read=/w harness/screens/scene.ts /w hash)
+  main_start p2 "${cmd[@]}"
+  measure p2 "$work/m" "${cmd[@]}"
+  main_wait p2
+  verdict P2 p-verdict.ts p2 --kind scene --main-measure /in/p2main.json
 }
 G2() {
   measure g2 "$work/m" node --permission --allow-fs-read=/w guardrails/gates/g2-measure.ts /w "$BOT_SEEDS"
@@ -160,7 +194,7 @@ timed() {
   echo $(( $(date +%s%3N) - s )) >"$work/results/$1.ms"
 }
 pids=()
-for g in G1 G2 G3 G8; do timed "$g" & pids+=($!); done
+for g in "${GATES[@]}"; do timed "$g" & pids+=($!); done
 wait "${pids[@]}" # not a bare wait: that would also wait for the log tee
 
 rc=0

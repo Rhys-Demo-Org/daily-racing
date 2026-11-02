@@ -1,0 +1,24 @@
+{
+  "title": "Refactor report",
+  "description": "The maintenance refactor agent's report per chosen cleanup item. Shown to the owner in the PR; reviewers and the judge check the diff, not this report.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items", "claudeMd"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "summary"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^C[0-9]{3,}$" },
+          "status": { "description": "done: applied in full. partial: part of it (say what is left). not-done: left alone (say why).", "type": "string", "enum": ["done", "partial", "not-done"] },
+          "summary": { "description": "What you changed for this item, in plain words.", "type": "string", "minLength": 5, "maxLength": 800 }
+        }
+      }
+    },
+    "claudeMd": { "description": "What you changed in CLAUDE.md and why, or null when nothing.", "type": ["string", "null"], "maxLength": 800 }
+  }
+}

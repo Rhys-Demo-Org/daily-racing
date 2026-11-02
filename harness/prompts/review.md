@@ -20,5 +20,7 @@ asks for: a list of findings, possibly empty.
 - `suggestedFix` is the smallest change that fixes it, reusing existing code where there is some.
 - Severity: `critical` breaks the game, determinism, the rules or the spec; `major` is a real bug
   or real duplication a player or the next night would hit; `minor` is a real but small problem.
-- An empty list is a fine answer when you find nothing real.
+- An empty list is a fine answer when you find nothing real. Either way, list in `checked` what you
+  checked and how (`target`, `how`: the Grep and what it found, the trace), so the owner can see
+  the ground an empty list covers.
 

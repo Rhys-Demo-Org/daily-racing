@@ -3,24 +3,31 @@
 // later script fills them from GitHub.
 
 import { join } from 'node:path';
-import { readJson, readPhases, reviewSummary } from './journal.ts';
+import { readJson, readPhases, reviewSummary, SURVEY_PHASES } from './journal.ts';
 import { AXES } from './judge.ts';
+import { doneItems, type MaintRecord } from './maintenance.ts';
 
 type Json = Record<string, unknown>;
 
 /** Phase groups with turns / tokens / wall-clock columns each. */
 const GROUPS: Record<string, string[]> = {
   ideate: ['ideate'], audit: ['audit'], build: ['build', 'retry'], review: ['r1', 'r2', 'r3', 'r4', 'r5'], verify: ['verify'], fix: ['fix'], judge: ['judge', 'judgecheck'],
+  survey: SURVEY_PHASES,
 };
+/** Parallel phases: their wall clock is first start to last end; others add up. */
+const PARALLEL = new Set(['review', 'survey']);
+/** Maintenance nights (plans/full-pipeline.md "The 7th day"): survey, list, choice, size, preservation. */
+const MAINTENANCE = ['surveyFindings', 'surveyNew', 'surveyStaled', 'listOpen', 'listSize', 'itemsEligible', 'itemsSkippedOverlap', 'itemsOwnerOnly', 'itemsChosen', 'itemsDone',
+  'netSrcLines', 'changedFiles', 'changedLines', 'preserveG2', 'preserveG3', 'preserveP1', 'preserveP2', 'limitsM1'];
 const OWNER = ['ownerOutcome', 'timeToMergeH', 'ownerRating', 'escapedDefects', 'duplicationScore', 'mutationScore'];
 
 export const METRICS_COLUMNS = [
   'date', 'dryRun', 'harnessSha', 'mode', 'backlogId', 'outcome', 'reason', 'attempts', 'retries',
   'auditVerdict', 'auditRounds', 'itemsTried',
   ...Object.keys(GROUPS).flatMap((g) => [`${g}Turns`, `${g}Tokens`, `${g}WallS`]),
-  'findingsR1', 'findingsR2', 'findingsR3', 'findingsR4', 'findingsR5', 'findingsVerified', 'findingsDropped', 'fixesKept', 'fixesDropped',
+  'findingsR1', 'findingsR2', 'findingsR3', 'findingsR4', 'findingsR5', 'checkedR1', 'checkedR2', 'checkedR3', 'checkedR4', 'checkedR5', 'findingsVerified', 'findingsDropped', 'fixesKept', 'fixesDropped',
   'srcLinesBeforeReview', 'srcLinesAfterReview', 'judgePass', 'judgeOverall', ...AXES.map((a) => `judge_${a}`), 'judgeRounds', 'costUsd', 'wallS',
-  ...OWNER,
+  ...MAINTENANCE, ...OWNER,
 ];
 
 /** A CSV cell: quoted when it holds a comma, quote or newline. */
@@ -55,18 +62,29 @@ export function metricsRow(runDir: string): string {
     judgePass: judge ? judge.pass : null, judgeOverall: r.judgeScore, judgeRounds: judge?.round, costUsd: r.totalCostUsd,
     wallS: typeof meta.startedAt === 'number' && typeof meta.endedAt === 'number' ? meta.endedAt - meta.startedAt : null,
   };
-  for (const id of ['R1', 'R2', 'R3', 'R4', 'R5']) row[`findings${id}`] = per[id];
+  const m = (r.maintenance ?? null) as MaintRecord | null;
+  if (m) {
+    const head = (r.gates ?? {}) as Record<string, boolean>;
+    Object.assign(row, {
+      surveyFindings: m.survey?.findings, surveyNew: m.survey?.new, surveyStaled: m.survey ? m.survey.staled + m.survey.gone : null,
+      listOpen: m.list?.open, listSize: m.list?.size, itemsEligible: m.candidates?.eligible.length, itemsSkippedOverlap: m.candidates?.skipped.length,
+      itemsOwnerOnly: m.candidates?.ownerOnly.length, itemsChosen: m.chosen?.length, itemsDone: m.chosen ? doneItems(m).length : null,
+      netSrcLines: m.limits?.netSrc, changedFiles: m.limits?.files, changedLines: m.limits?.lines,
+      preserveG2: head.G2, preserveG3: head.G3, preserveP1: head.P1, preserveP2: head.P2, limitsM1: head.M1,
+    });
+  }
+  const checked = (review?.checked ?? {}) as Json;
+  for (const id of ['R1', 'R2', 'R3', 'R4', 'R5']) { row[`findings${id}`] = per[id]; row[`checked${id}`] = checked[id]; }
   for (const a of AXES) row[`judge_${a}`] = scores[a];
   for (const [g, names] of Object.entries(GROUPS)) {
     const ps = phases.filter((p) => names.includes(p.phase));
     if (!ps.length) continue;
     row[`${g}Turns`] = ps.reduce((n, p) => n + (Number(p.meta?.num_turns) || 0), 0);
     row[`${g}Tokens`] = ps.reduce((n, p) => n + tokens(p.meta?.usage), 0);
-    // The reviewers run in parallel: their wall clock is first start to last end; others add up.
     const starts = ps.map((p) => Number(p.harness?.startedAt)).filter(Number.isFinite);
     const ends = ps.map((p) => Number(p.harness?.endedAt)).filter(Number.isFinite);
     if (starts.length && starts.length === ends.length) {
-      row[`${g}WallS`] = g === 'review' ? Math.max(...ends) - Math.min(...starts) : ends.reduce((n, e, i) => n + e - starts[i]!, 0);
+      row[`${g}WallS`] = PARALLEL.has(g) ? Math.max(...ends) - Math.min(...starts) : ends.reduce((n, e, i) => n + e - starts[i]!, 0);
     }
   }
   return METRICS_COLUMNS.map((c) => cell(row[c])).join(',');

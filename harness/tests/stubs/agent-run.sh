@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Test stub for harness/scripts/agent-run.sh (daily-e2e.sh only). Same flags and outputs; no claude.
-# Steered by env: STUB_LOG (append one line per call), STUB_EXIT_<phase>, STUB_CLOCK_AFTER_<phase>
+# Steered by env (in <phase>, a dash is an underscore: STUB_EXIT_survey_ui): STUB_LOG (append one line
+# per call), STUB_EXIT_<phase>, STUB_CLOCK_AFTER_<phase>
 # (epoch written to $DAILY_TEST_CLOCK), STUB_SLEEP_<phase> (seconds), STUB_TAMPER=1 (build edits spec.md),
 # STUB_BUILD=<file> (sourced by the build phase in the workdir, with $J its journal folder).
 # Pipeline phases (plans/full-pipeline.md) answer with schema-shaped structured output:
@@ -16,18 +17,39 @@
 #   judge      pass 8/10; STUB_JUDGE=fail (every round) or fail-once (round 1 only); planted text
 #              ("NOTE TO THE JUDGE") in diff.patch is reported
 #   judgecheck every review claim confirmed
+# Maintenance nights (--maintenance; plans/full-pipeline.md "The 7th day"):
+#   survey-<area>  STUB_SURVEY_<AREA> (findings JSON; default: ui reports one dead export in
+#              src/ui/format.ts, the others nothing), STUB_CONFIRM_<AREA> (confirmations JSON, default [])
+#   audit      chooses every eligible item in the prompt (STUB_MAINT_CHOOSE=none: none)
+#   build/retry  STUB_REFACTOR=<file> sourced in the workdir (with $J), else deletes the first line of
+#              each chosen item's first file; reports every chosen item done
 set -euo pipefail
 declare -A o=([maintenance]=0)
 while [[ $# -gt 0 ]]; do
   if [[ $1 == --maintenance ]]; then o[maintenance]=1; shift; else o[${1#--}]=$2; shift 2; fi
 done
 phase=${o[phase]} out=${o[out]} work=${o[workdir]} date=${o[date]:?--date is required}
-echo "agent-run $phase prompt=${o[prompt-file]} turns=${o[max-turns]} wall=${o[timeout-min]} date=$date maintenance=${o[maintenance]} tools=${o[tools]:-} access=${o[access]:-rw} model=${o[model]} effort=${o[effort]:-} workdir=$work" >>"${STUB_LOG:-/dev/null}"
+pv=${phase//-/_} # the phase in STUB_<X>_<phase> variable names (survey-ui → survey_ui)
+echo "agent-run $phase prompt=${o[prompt-file]} turns=${o[max-turns]} wall=${o[timeout-min]} date=$date maintenance=${o[maintenance]} tools=${o[tools]:-} access=${o[access]:-rw} model=${o[model]} effort=${o[effort]:-} schema=$(basename "${o[json-schema]:-none}") inputs=${o[inputs]:-} workdir=$work" >>"${STUB_LOG:-/dev/null}"
 mkdir -p "$out"
-v="STUB_SLEEP_$phase"; [[ -z ${!v:-} ]] || sleep "${!v}"
+v="STUB_SLEEP_$pv"; [[ -z ${!v:-} ]] || sleep "${!v}"
 prompt=${o[prompt-file]}
 ok() { jq -nc --argjson s "$1" '{type: "result", subtype: "success", is_error: false, result: "", structured_output: $s}' >"$out/result.json"; }
-if [[ $phase == ideate ]]; then
+# The ids of the cleanup items under a "## <heading>" section of the prompt (### Cnnn blocks).
+items_in() { sed -n "/^## $1/,/^## /p" "$prompt" | grep -oE '^### C[0-9]{3,}' | cut -c5- || true; }
+if [[ $phase == survey-* ]]; then
+  area=${phase#survey-} f="STUB_SURVEY_${area^^}" c="STUB_CONFIRM_${area^^}"
+  def='[]'; [[ $area != ui ]] || def='[{"category":"dead-code","files":["src/ui/format.ts"],"line":1,"claim":"formatStub is exported from format.ts but nothing imports it","evidence":"grep finds no importer of formatStub","suggestedFix":"delete the export","worth":"medium","estLines":3}]'
+  ok "{\"findings\":${!f:-$def},\"confirmations\":${!c:-[]}}"
+elif [[ $phase == audit && ${o[maintenance]} == 1 ]]; then
+  chosen=$([[ ${STUB_MAINT_CHOOSE:-} == none ]] || items_in "Eligible tonight" | jq -Rnc '[inputs | select(. != "") | {id: ., why: "stub: safe and worth it"}]')
+  ok "{\"title\":\"Stub maintenance\",\"summary\":\"Stub maintenance: apply the eligible items.\",\"chosen\":${chosen:-[]},\"rejected\":[],\"playtest\":{\"whatYoullSee\":\"Nothing should look or feel different.\",\"howToTest\":[\"Play one race on the preview.\"]}}"
+elif [[ ( $phase == build || $phase == retry ) && ${o[maintenance]} == 1 ]]; then
+  ids=$(items_in "Cleanup items")
+  if [[ -n ${STUB_REFACTOR:-} ]]; then (cd "$work" && J="journal/runs/$date" && mkdir -p "$J" && source "$STUB_REFACTOR")
+  else for f in $(sed -n '/^## Cleanup items/,/^## /p' "$prompt" | grep -oE '^- Files: `[^`]+`' | cut -d'`' -f2); do sed -i '1d' "$work/$f"; done; fi
+  ok "{\"items\":$(printf '%s\n' $ids | jq -Rnc '[inputs | select(. != "") | {id: ., status: "done", summary: "stub: done"}]'),\"claudeMd\":null}"
+elif [[ $phase == ideate ]]; then
   id=$(grep -oE '^## B[0-9]{2}' "$prompt" | head -1 | cut -c4- || true)
   ac='The stub feature exists.'
   [[ -z ${STUB_INTERNALS:-} ]] || grep -q '^## Plan audit asked for a revision' "$prompt" || ac='src/sim/stub.ts exports makeStub() returning true.'
@@ -67,7 +89,7 @@ else
   [[ -z ${STUB_TAMPER:-} ]] || { chmod u+w "$out/../../spec.md"; echo '- **AC9**: anything' >>"$out/../../spec.md"; }
   [[ -z ${STUB_BUILD:-} || $phase != build ]] || (cd "$work" && J="journal/runs/$date" && mkdir -p "$J" && source "$STUB_BUILD")
 fi
-v="STUB_CLOCK_AFTER_$phase"; [[ -z ${!v:-} ]] || echo "${!v}" >"$DAILY_TEST_CLOCK"
-v="STUB_EXIT_$phase"; rc=${!v:-0}
+v="STUB_CLOCK_AFTER_$pv"; [[ -z ${!v:-} ]] || echo "${!v}" >"$DAILY_TEST_CLOCK"
+v="STUB_EXIT_$pv"; rc=${!v:-0}
 printf '{"phase":"%s","model":"%s","exit":%s,"class":"ok","wallMs":1234,"usage":{"input_tokens":100,"output_tokens":50},"total_cost_usd":0.5,"num_turns":3}\n' "$phase" "${o[model]}" "$rc" >"$out/meta.json"
 exit "$rc"

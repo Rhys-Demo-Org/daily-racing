@@ -50,9 +50,14 @@ function ownerReason(pr: GhPr, owner: string): string {
   return inline(own.at(-1)?.body ?? '');
 }
 
-/** Open daily PRs' changed files (drafts included). PRs by other logins count, but only as numbers. */
-export function openFiles(prs: readonly GhPr[], owner: string): OpenFiles[] {
-  return prs.filter((p) => p.state === 'OPEN' && isDaily(p))
+/**
+ * Changed files of every open PR a night must not collide with (drafts included): the daily PRs
+ * (`prs`; other logins count, but only as numbers) and every other open PR of the owner's
+ * (`ownerPrs`, `gh pr list --author <owner>`; exact login), once each.
+ */
+export function openFiles(prs: readonly GhPr[], owner: string, ownerPrs: readonly GhPr[] = []): OpenFiles[] {
+  const seen = new Set<number>();
+  return [...prs.filter(isDaily), ...ownerPrs.filter((p) => byOwner(owner, p))].filter((p) => p.state === 'OPEN' && !seen.has(p.number) && seen.add(p.number))
     .map((p) => ({ number: p.number, title: byOwner(owner, p) ? inline(p.title ?? '', 120) : '(PR by another account)', files: (p.files ?? []).map((f) => f.path) }));
 }
 
@@ -67,7 +72,7 @@ export function fileOverlap(expected: readonly string[], open: readonly OpenFile
 
 /** Markdown for the overlap, as the plan auditor gets it. */
 export function renderOverlap(overlap: ReturnType<typeof fileOverlap>): string {
-  if (!overlap.length) return 'None: no open daily PR changes any of the expected files.\n';
+  if (!overlap.length) return 'None: no open PR (daily, or the owner\'s own) changes any of the expected files.\n';
   return overlap.map((o) => `- #${o.number} ${o.title}: ${o.files.map((f) => `\`${f}\``).join(', ')}`).join('\n') + '\n';
 }
 

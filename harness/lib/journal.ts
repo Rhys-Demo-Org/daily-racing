@@ -2,6 +2,7 @@
 //   meta.json  spec.md  run.log  gates-<n>.json  phases/<phase>-<n>/{meta.json,harness.json}  diffstat.txt
 //   and, on feature nights (plans/full-pipeline.md): audit.json  review.json  review.md
 //   judge-<round>.json  judge.md  loc.json  existing-work.md
+//   and on maintenance nights also maintenance.json (lib/maintenance.ts MaintRecord), cleanup.md
 // Builds result.json, the gate feedback for a retry, the morning report and the PR body.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -9,9 +10,11 @@ import { join } from 'node:path';
 import { zonedParts } from './time.ts';
 import { HARNESS_MARKER } from './existing.ts';
 import { renderPlaytest, type Playtest } from './spec.ts';
+import { AREAS, cleanupMarker } from './cleanup.ts';
+import { doneItems, type MaintRecord } from './maintenance.ts';
 
 type Json = Record<string, unknown>;
-type GateRow = { id: string; name?: string; pass: boolean; durationMs?: number; summary?: string; details?: string };
+type GateRow = { id: string; name?: string; pass: boolean; durationMs?: number; summary?: string; details?: string; limits?: MaintRecord['limits'] };
 type Gates = { pass: boolean; durationMs?: number; gates: GateRow[] };
 /** One agent phase: agent-run's meta.json plus the harness's own timing. */
 type Phase = { name: string; phase: string; attempt: number; meta: Json | null; harness: Json | null };
@@ -34,8 +37,12 @@ export function gateFeedback(path: string): string {
   return g.gates.filter((x) => !x.pass).map((x) => `### ${x.id} · ${x.name ?? ''}\n${x.summary ?? ''}\n\n${x.details ?? ''}\n`).join('\n');
 }
 
-/** Agent phases (agent-run.sh --phase) in pipeline order; parallel reviewers share a step. */
-export const PHASE_ORDER: Record<string, number> = { ideate: 0, audit: 1, build: 2, retry: 2, r1: 3, r2: 3, r3: 3, r4: 3, r5: 3, verify: 4, fix: 5, judge: 6, judgecheck: 7 };
+/** Survey passes of a maintenance night (lib/cleanup.ts AREAS, the one list), as agent-run.sh phases. */
+export const SURVEY_PHASES = AREAS.map((a) => `survey-${a}`);
+/** Agent phases (agent-run.sh --phase) in pipeline order; parallel reviewers and surveyors share a step. */
+export const PHASE_ORDER: Record<string, number> = {
+  ...Object.fromEntries(SURVEY_PHASES.map((p) => [p, 0])), ideate: 0, audit: 1, build: 2, retry: 2, r1: 3, r2: 3, r3: 3, r4: 3, r5: 3, verify: 4, fix: 5, judge: 6, judgecheck: 7,
+};
 const PHASE_DIR = new RegExp(`^(${Object.keys(PHASE_ORDER).join('|')})-(\\d+)$`);
 
 /** Agent phases in run order: by start time (ideate and audit alternate), then pipeline order. */
@@ -66,6 +73,25 @@ export function diffSize(numstat: string): { files: number; added: number; delet
 
 const gateMap = (g: Gates | null): Record<string, boolean> | null => (g ? Object.fromEntries(g.gates.map((x) => [x.id, x.pass])) : null);
 
+/** The gate run of the branch's final commit: meta.headGateRun, else the last run. */
+function headGates(runDir: string): Gates | null {
+  const meta = readJson(join(runDir, 'meta.json')) ?? {};
+  const runs = readGateRuns(runDir);
+  return (runs.find((r) => r.attempt === meta.headGateRun) ?? runs.at(-1))?.gates ?? null;
+}
+
+/**
+ * maintenance.json with the size numbers of HEAD's gate run (its M1 row, cli.ts limits), so a fix
+ * reverted after failing its gates never reports its limits. (Runs from before M1 rows carried
+ * them kept the last run's numbers in maintenance.json; those are used only when the row has none.)
+ */
+export function readMaint(runDir: string): MaintRecord | null {
+  const m = readJson<MaintRecord>(join(runDir, 'maintenance.json'));
+  if (!m) return null;
+  const head = headGates(runDir)?.gates.find((g) => g.id === 'M1')?.limits;
+  return head ? { ...m, limits: head } : m;
+}
+
 /**
  * result.json: HANDOVER §9 fields. The thin harness has no judge, perf or lap-time capture, so
  * those are null; `gates` is the gate run of the branch's final commit (meta.headGateRun, else the
@@ -92,7 +118,7 @@ export function buildResult(runDir: string, outcome: string, reason: string | nu
     claudeCodeVersion: meta.claudeCodeVersion ?? null,
     ideaType: meta.ideaType ?? null,
     backlogId: meta.backlogId ?? null,
-    gates: gateMap((runs.find((r) => r.attempt === meta.headGateRun) ?? runs.at(-1))?.gates ?? null),
+    gates: gateMap(headGates(runDir)),
     gateRuns: runs.map((r) => ({ attempt: r.attempt, pass: r.gates?.pass ?? false, gates: gateMap(r.gates) })),
     retries: phases.filter((p) => p.phase === 'retry').length,
     judgeScore: (judge?.blind as Json | null)?.overall ?? null,
@@ -100,6 +126,7 @@ export function buildResult(runDir: string, outcome: string, reason: string | nu
     audit: readJson(join(runDir, 'audit.json')),
     review: reviewSummary(readJson(join(runDir, 'review.json'))),
     loc: readJson(join(runDir, 'loc.json')),
+    maintenance: readMaint(runDir),
     medianLapTimes: null,
     p95FrameTimeMs: null,
     triangleCount: null,
@@ -127,7 +154,7 @@ export function reviewSummary(s: Json | null): Json | null {
   const rulings = (s.rulings ?? []) as { status: string }[];
   const fixes = (s.fixes ?? []) as { kept: boolean | null }[];
   const perReviewer = Object.fromEntries(Object.keys((s.reviewers ?? {}) as Json).map((r) => [r, findings.filter((f) => f.reviewer === r).length]));
-  return { reviewers: s.reviewers ?? {}, findings: findings.length, perReviewer, verified: rulings.filter((r) => r.status === 'verified').length,
+  return { reviewers: s.reviewers ?? {}, findings: findings.length, perReviewer, checked: s.checked ?? {}, verified: rulings.filter((r) => r.status === 'verified').length,
     dropped: rulings.filter((r) => r.status !== 'verified').length, fixesKept: fixes.filter((f) => f.kept === true).length, fixesDropped: fixes.filter((f) => f.kept === false).length };
 }
 
@@ -160,30 +187,87 @@ const text = (runDir: string, f: string): string | null => (existsSync(join(runD
  * PR body, in the order of plans/full-pipeline.md "PR": how to play-test and what you'll see (when
  * the spec has them), the preview link and outcome (with the hidden harness marker), any CLAUDE.md
  * or rule change, then the spec with its audit, the review, the judge, the gate table and usage.
+ * A maintenance night (maintenance.json) has its own layout: see maintenanceSections.
  */
 export function prBody(runDir: string, tz: string, previewUrl: string): string {
   const result = readJson(join(runDir, 'result.json'));
+  const maint = readMaint(runDir);
   const specJson = readJson<{ playtest?: Playtest | null }>(join(runDir, 'spec.json'));
   let spec = text(runDir, 'spec.md')?.replace(/^# .*\n/, '') ?? 'No spec was locked.\n';
   if (specJson?.playtest) spec = spec.replace(/^## What you'll see\n[\s\S]*?^## How to play-test\n[\s\S]*?(?=^## |(?![\s\S]))/m, ''); // shown first instead
   const date = String(result?.date ?? '');
   const lines: string[] = [];
+  if (maint) lines.push(...changedByItem(maint));
   if (specJson?.playtest) lines.push(...renderPlaytest(specJson.playtest).map((l) => defang(l)));
   lines.push(
     `**Preview:** ${previewUrl} (live once the deploy check passes)`,
     `**Outcome:** ${String(result?.outcome ?? '?')}${result?.reason ? ` (${String(result.reason)})` : ''}`,
     HARNESS_MARKER,
   );
-  if (result?.outcome !== 'pass') lines.push('', '> Gates or judge did not pass. Kept as a draft so the attempt is on record; close it to drop the item.');
+  if (maint) lines.push(cleanupMarker(doneItems(maint)));
+  if (result?.outcome !== 'pass') lines.push('', `> Gates or judge did not pass. Kept as a draft so the attempt is on record; close it to drop the ${maint ? 'night' : 'item'}.`);
   const rules = text(runDir, 'rule-changes.md');
   if (rules?.trim()) lines.push('', '> [!WARNING]', '> **Rule change.** This PR changes text that every later agent loads as instructions. Read it before merging.', '', defang(rules.trim()));
-  const parts = [...lines, '', defang(spec.trim())];
+  const parts = maint ? [...lines, ...maintenanceSections(runDir, maint, spec)] : [...lines, '', defang(spec.trim())];
   for (const f of ['review.md', 'judge.md']) { const t = text(runDir, f); if (t?.trim()) parts.push('', defang(t.trim())); }
   const shots = readJson<unknown[]>(join(runDir, 'screenshots', 'index.json'));
   if (Array.isArray(shots) && shots.length) parts.push('', `Screenshots: ${shots.length} in the run folder (\`runs/${date}/screenshots/\` on the VM); the reviewers and judge saw them.`);
   const body = [...parts, '', report(runDir, tz).replace(/^# .*\n/, '').replace(/^## /gm, '### ').trim(), '',
     `Journal: \`journal/runs/${date}/\`. Built and reviewed unattended; play-test the preview before merging.`].join('\n');
   return (body.length > BODY_MAX ? `${body.slice(0, BODY_MAX)}\n\n…truncated; see the journal.` : body) + '\n';
+}
+
+/** A maintenance PR's opening: what changed and why, by cleanup item, with the refactor's own report. */
+function changedByItem(m: MaintRecord): string[] {
+  const out = ['## What changed (by cleanup item)', ''];
+  if (!m.chosen?.length) out.push('No cleanup item was chosen.', '');
+  for (const c of m.chosen ?? []) {
+    const r = m.refactor?.find((x) => x.id === c.id);
+    out.push(`### ${c.id} · ${c.category}`, '', defang(`${c.claim}`), '', `- Files: ${c.files.map((f) => `\`${f}\``).join(', ')}`, defang(`- Why tonight (plan audit): ${c.why || '-'}`),
+      defang(`- Refactor agent's report: ${r ? `${r.status}. ${r.summary}` : 'none'}`), '');
+  }
+  out.push('The refactor agent\'s report is its own account; the review, the judge and the gates below check the diff itself.', '');
+  return out;
+}
+
+/**
+ * The rest of a maintenance PR, after the preview and any rule change: net src lines, the
+ * behaviour-preservation table (HEAD's gate run), items that need the owner, then the plan audit.
+ */
+function maintenanceSections(runDir: string, m: MaintRecord, spec: string): string[] {
+  const out = ['', '## Net `src/` lines', ''];
+  const l = m.limits;
+  out.push(l ? `**${l.netSrc > 0 ? '+' : l.netSrc < 0 ? '−' : '±'}${Math.abs(l.netSrc)}** (src/: +${l.srcAdded} −${l.srcDeleted}) · ${l.files} files and ${l.lines} lines changed in all (tests and CLAUDE.md included, journal excluded)` : 'Not measured (no gate run).', '');
+  const head = headGates(runDir);
+  const want: [string, string][] = [['G2', 'Bot laps identical'], ['G3', 'Physics replays identical'], ['P1', 'Every screen stage: DOM + computed styles identical'], ['P2', 'Every track scene and car: geometry identical'], ['M1', 'Size limits, no net src growth, tests append-only']];
+  out.push('## Behaviour preservation', '', 'Compared with `main` as it is now, on the final commit:', '', '| Check | Result | Detail |', '|---|---|---|');
+  for (const [id, what] of want) {
+    const g = head?.gates.find((x) => x.id === id);
+    out.push(`| ${id} ${what} | ${g ? (g.pass ? 'pass' : '**FAIL**') : '-'} | ${(g?.summary ?? 'not run').replace(/\|/g, '\\|').replace(/\n/g, ' ')} |`);
+  }
+  out.push('');
+  if (m.ownerOnly?.length) {
+    out.push('## Needs the owner: tests that pin internals', '', 'Tests are append-only until mutation testing exists, so no night can do these:', '',
+      ...m.ownerOnly.map((o) => defang(`- ${o.id}: ${o.claim} (${o.files.map((f) => `\`${f}\``).join(', ')})`)), '');
+  }
+  const audit = /^## Plan audit\n[\s\S]*$/m.exec(spec)?.[0];
+  if (audit) out.push(defang(audit.trim()), '');
+  return out;
+}
+
+/** One line on a maintenance night: survey, list, choice, refactor, size. */
+export function maintLine(m: MaintRecord): string {
+  const sv = m.survey;
+  const passes = sv ? Object.entries(sv.passes).filter(([, v]) => v !== 'ok').map(([k]) => k) : [];
+  const parts = [
+    sv ? `survey ${sv.findings} findings (${sv.new} new, ${sv.merged} repeats; ${sv.confirmed} confirmed, ${sv.staled + sv.gone} gone stale)${passes.length ? `, failed passes: ${passes.join(', ')}` : ''}` : 'no survey',
+    m.list ? `list ${m.list.open ?? 0} open, ${m.list['in-pr'] ?? 0} in PR, ${m.list.stale ?? 0} stale, ${m.list.closed ?? 0} closed` : '',
+    m.candidates ? `${m.candidates.eligible.length} eligible, ${m.candidates.skipped.length} skipped (open PRs), ${m.candidates.ownerOnly.length} for the owner` : '',
+    m.chosen ? `chosen ${m.chosen.map((c) => c.id).join(', ') || 'none'}` : '',
+    m.refactor ? `done ${m.refactor.filter((r) => r.status === 'done').map((r) => r.id).join(', ') || 'none'}` : '',
+    m.limits ? `net src ${m.limits.netSrc >= 0 ? '+' : ''}${m.limits.netSrc} lines, ${m.limits.files} files, ${m.limits.lines} lines changed` : '',
+  ];
+  return `- Maintenance: ${parts.filter(Boolean).join('; ')}`;
 }
 
 /** Markdown morning report: item, outcome, phases against the deadlines, usage, gate table per attempt. */
@@ -220,10 +304,12 @@ export function report(runDir: string, tz: string): string {
   const audit = result?.audit as Json | null | undefined;
   const review = result?.review as Json | null | undefined;
   const judge = result?.judge as Json | null | undefined;
-  if (audit || review || judge) {
+  const maint = result?.maintenance as MaintRecord | null | undefined;
+  if (audit || review || judge || maint) {
     out.push('', '## Pipeline', '');
+    if (maint) out.push(maintLine(maint));
     if (audit) out.push(`- Plan audit: ${String(audit.verdict ?? '-')} after ${String(audit.rounds ?? '-')} round(s); items tried: ${((audit.items ?? []) as Json[]).map((i) => `${String(i.id)} ${String(i.verdict)}`).join(', ') || '-'}`);
-    if (review) out.push(`- Review: ${String(review.findings)} findings (${Object.entries((review.perReviewer ?? {}) as Json).map(([k, v]) => `${k} ${String(v)}`).join(', ')}), ${String(review.verified)} verified, ${String(review.dropped)} dropped; fixes kept ${String(review.fixesKept)}, dropped by gates ${String(review.fixesDropped)}`);
+    if (review) out.push(`- Review: ${String(review.findings)} findings (${Object.entries((review.perReviewer ?? {}) as Json).map(([k, v]) => `${k} ${String(v)}`).join(', ')}), ${String(review.verified)} verified, ${String(review.dropped)} dropped; fixes kept ${String(review.fixesKept)}, dropped by gates ${String(review.fixesDropped)}${Object.keys((review.checked ?? {}) as Json).length ? `; checked ${Object.entries(review.checked as Json).map(([k, v]) => `${k} ${String(v)}`).join(', ')}` : ''}`);
     if (judge) out.push(`- Judge: ${judge.pass ? 'pass' : 'fail'}${result?.judgeScore !== null && result?.judgeScore !== undefined ? ` (${String(result.judgeScore)}/10)` : ''}${(judge.reasons as string[] | undefined)?.length ? `: ${(judge.reasons as string[]).join('; ')}` : ''}`);
   }
   return out.join('\n') + '\n';

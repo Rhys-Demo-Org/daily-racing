@@ -17,14 +17,11 @@ runs the gates and decides the result; only the gates count, not your summary.
 - Acceptance tests go through public seams (the DOM by role and text, `RaceView`,
   `window.__racer`, exported content data), never internal class or function names.
 - Touch only `src/**` (not `src/driver/**`), **new** files under `tests/**` (not
-  `tests/baselines/`) and `journal/runs/<today>/**`; `CLAUDE.md` only on a maintenance night.
-  Everything else is read-only.
+  `tests/baselines/`) and `journal/runs/<today>/**`. Everything else is read-only.
 - Never commit, push, call `gh` or try to reach GitHub or the web. There is no token and no network
   beyond the model API. `node_modules` is installed and read-only; add no dependencies.
 - Backlog night: for every `AC<n>` in the spec, add at least one test named `AC<n>: …` in a **new**
   test file. Each must fail on `main` and pass with your change. Never edit or delete an existing test.
-- Maintenance night: change no behaviour. Bot lap times and physics replays must stay identical and
-  existing visual baselines unchanged. Tests may be clarified, never weakened.
 - Build the spec and nothing more: about 800 changed lines in `src/` (excluding tests and track
   JSON) and at most 20 changed files.
 - If `UI_RULES.md` doesn't cover a visual decision, don't invent one: describe it in

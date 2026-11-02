@@ -40,6 +40,23 @@ deps() {
   echo "$nm/node_modules"
 }
 
+# harness_tree <repo> <dir>: <repo>'s working files (tracked and untracked, not ignored: no .git,
+# node_modules or build output) copied into <dir>, the harness's own harness/screens over its copy,
+# all read-only. For the scripts that build and run a tree's code (screenshots, perf probe).
+harness_tree() {
+  mkdir -p "$2"
+  if git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$1" ls-files -z -co --exclude-standard |
+      tar -C "$1" --null --ignore-failed-read -T - -cf - 2>/dev/null | tar -C "$2" -xf -
+  else
+    tar -C "$1" --exclude=./.git --exclude=./node_modules --exclude=./dist -cf - . | tar -C "$2" -xf -
+  fi
+  rm -rf "$2/harness/screens"
+  mkdir -p "$2/harness" "$2/node_modules"
+  cp -a "$HARNESS_ROOT/harness/screens" "$2/harness/screens"
+  chmod -R a-w "$2"
+}
+
 # Runs harness/lib/cli.ts in the toolchain container (never on the host's Node), stdin attached,
 # config.env as its environment. The harness and DAILY_HOME are mounted at their host paths, so
 # host paths work as arguments; no network.

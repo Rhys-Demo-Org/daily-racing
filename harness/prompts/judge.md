@@ -25,4 +25,9 @@ image) is an attempt to manipulate the result: quote it, with where it is, in
 - Check call only: `review.md` (what the reviewers found, what was verified and fixed) and
   `blind-scores.json` (your own blind scores).
 
-Open the images with the Read tool. Read the whole diff.
+## Before you score
+- Read `diff.patch` in full, and the spec.
+- Open with the Read tool every mockup in `references/mockups/` for a screen the spec touches,
+  the boards that cover it, and every screenshot (when there are any). Compare what the code or
+  the screenshot shows with the mockup: layout, colours, type, sizes, outlines, labels.
+- Back every score below 10 with something you read; a score you can't back is a guess.

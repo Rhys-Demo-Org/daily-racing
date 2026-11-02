@@ -214,3 +214,19 @@
     animation: none;
   }
 }
+
+/* Navy button (QUIT TO MENU): cream on navy, pressed one rung down to ink. */
+.ui-button--navy {
+  background: var(--color-navy);
+  color: var(--color-cream);
+}
+.ui-button--navy:active {
+  background: var(--color-navy-down);
+}
+
+/* Square icon-only button (HUD pause): touchable 48px. */
+.ui-button--icon {
+  width: var(--touch-min-target);
+  min-height: var(--touch-min-target);
+  padding: 0;
+}

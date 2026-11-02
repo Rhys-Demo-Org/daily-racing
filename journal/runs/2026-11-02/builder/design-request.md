@@ -1,3 +1,5 @@
+> **Superseded (rework onto main):** B02's results screen now answers these questions (cream row panels, the player's row in rally-red, rows dealt 40ms apart). The roster names go in its DRIVER column; the finish-panel list was dropped.
+
 # Design request · B03 finish-panel driver list
 
 The finish panel now lists the drivers by position ("KOSKI · #7") as plain caps labels (`ui-label`,

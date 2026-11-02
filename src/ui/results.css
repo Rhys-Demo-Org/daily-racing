@@ -1,0 +1,119 @@
+/* Results screen (S5). Tokens only. The navy menu ground is shared with the start screen
+   (screens.css); rows and the roundel use .ui-value type. */
+
+.ui-results {
+  gap: var(--space-s4);
+}
+.ui-results__column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-s2);
+}
+.ui-results__label {
+  margin: 0;
+  color: var(--color-mustard);
+}
+.ui-results__track {
+  font-size: var(--type-title-size);
+}
+/* Screen change: the stripes sweep in left→right, 40ms apart. */
+.ui-results .ui-stripe {
+  animation: ui-wipe-in var(--duration-wipe) var(--ease-sweep) both;
+}
+.ui-results .ui-stripe:nth-child(2) {
+  animation-delay: var(--duration-stagger);
+}
+.ui-results .ui-stripe:nth-child(3) {
+  animation-delay: calc(var(--duration-stagger) * 2);
+}
+
+.ui-results__main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-s5);
+}
+.ui-results__main .ui-results__column {
+  gap: var(--space-s3);
+}
+
+/* Placing roundel: rally-red with a cream ordinal at hud-l; stamps (from 1.25) once the rows are
+   dealt. */
+.ui-results__roundel {
+  --ui-deal-shadow: var(--shadow-button);
+  --ui-drop-scale: 1.25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--space-s7) * 2);
+  height: calc(var(--space-s7) * 2);
+  border: var(--outline-default) solid var(--color-ink);
+  border-radius: var(--radius-round);
+  box-shadow: var(--ui-deal-shadow);
+  background: var(--color-rally-red);
+  color: var(--color-cream);
+  animation: ui-results-deal var(--duration-stamp) var(--ease-stamp) both;
+  animation-delay: calc(var(--ui-deal-count, 0) * var(--duration-stagger) + var(--duration-slide));
+}
+.ui-results__best {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-s1) var(--space-s2);
+}
+
+/* Table: header labels on navy, rows are cream HUD panels (player in rally-red) dealt 40ms apart. */
+.ui-results__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s2);
+}
+.ui-results__row {
+  display: grid;
+  grid-template-columns: var(--space-s6) calc(var(--space-s7) * 3) repeat(2, calc(var(--space-s7) * 2 + var(--space-s4)));
+  align-items: center;
+  gap: var(--space-s3);
+  padding: var(--space-s1) var(--space-s3);
+}
+/* The header has no outline, so it pads by one to line its columns up with the rows'. */
+.ui-results__header {
+  padding: calc(var(--space-s1) + var(--outline-default)) calc(var(--space-s3) + var(--outline-default));
+}
+.ui-results__row.ui-panel {
+  --ui-deal-shadow: var(--shadow-hud);
+  background: var(--color-cream);
+  color: var(--color-ink);
+  animation: ui-results-deal var(--duration-slide) var(--ease-snap) both;
+  animation-delay: calc(var(--ui-deal-index, 0) * var(--duration-stagger));
+}
+.ui-results__row--player.ui-panel {
+  background: var(--color-rally-red);
+  color: var(--color-cream);
+}
+
+.ui-results__actions {
+  display: flex;
+  gap: var(--space-s4);
+}
+
+/* Drops in along its own shadow (like ui-drop), hidden until its stagger delay is up. */
+@keyframes ui-results-deal {
+  from {
+    transform: translateY(calc(var(--ui-drop) * -1)) scale(var(--ui-drop-scale, 1));
+    box-shadow: var(--ui-shadow-none);
+    visibility: hidden;
+  }
+  to {
+    transform: none;
+    box-shadow: var(--ui-deal-shadow);
+    visibility: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-results .ui-stripe,
+  .ui-results__roundel,
+  .ui-results__row.ui-panel {
+    animation: none;
+  }
+}

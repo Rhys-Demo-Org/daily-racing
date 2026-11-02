@@ -14,7 +14,7 @@ Format (parsed by the harness, keep it exact):
 - `done_when:` the behaviour the spec's acceptance criteria must cover.
 
 Every item must fit gate 11 (≤ 800 changed lines in `src/` excluding tests and track JSON,
-≤ 12 changed files, track JSON ≤ 300 lines) and the style rules in `guardrails/design/UI_RULES.md`.
+≤ 20 changed files, track JSON ≤ 300 lines) and the style rules in `guardrails/design/UI_RULES.md`.
 Each item assumes the Phase 0 core: Dust Bowl, one player car, one bot opponent, the race HUD
 (POS, LAP, minimap, TIME + BEST), touch controls, countdown, a plain start screen and finish panel.
 

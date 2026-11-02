@@ -1,0 +1,8 @@
+7	0	src/content/tracks.ts
+7	3	src/game.ts
+13	0	src/ui/format.ts
+30	10	src/ui/race-ui.ts
+147	0	src/ui/results-screen.ts
+145	0	src/ui/results.css
+15	0	tests/content/next-track.test.ts
+128	0	tests/ui/results-screen.test.ts

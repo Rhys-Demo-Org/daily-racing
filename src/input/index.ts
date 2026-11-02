@@ -13,6 +13,8 @@ export interface InputOptions {
   touchZones?: () => readonly TouchZone[];
   /** Notified on touch press/release, e.g. the touch-controls state machine. */
   touchListener?: TouchListener;
+  /** The pause key went down (see keyboard.ts). */
+  onPause?: () => void;
 }
 
 export interface Input {
@@ -26,7 +28,7 @@ export interface Input {
 export function createInput(opts: InputOptions = {}): Input {
   const keyTarget = opts.keyTarget ?? window;
   const pointerTarget = opts.pointerTarget ?? window;
-  const keyboard = createKeyboard(keyTarget);
+  const keyboard = createKeyboard(keyTarget, opts);
   const touch = createTouchInput(pointerTarget, {
     zones: opts.touchZones ?? (() => []),
     ...(opts.touchListener ? { listener: opts.touchListener } : {}),

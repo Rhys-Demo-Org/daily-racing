@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { buildResult, diffSize, gateFeedback, readPhases, report } from '../lib/journal.ts';
+import { buildResult, defang, diffSize, gateFeedback, prBody, readPhases, report } from '../lib/journal.ts';
 
 let dir = '';
 const put = (rel: string, data: unknown): void => {
@@ -74,5 +74,36 @@ describe('journal', () => {
     expect(md).toContain('| build-1 | 02:03 | 02:53 | 1m30s | 3h36m | 0 ok | 7 | 10/20/- | 4 |');
     expect(md).toContain('| 1 | FAIL | FAIL | ok | 1m01s |');
     expect(md).toContain('- attempt 1 G1: 2 tests failed');
+  });
+});
+
+describe('prBody', () => {
+  it('leads with the preview and outcome, then the spec and the gate table', () => {
+    put('spec.md', '# B01 · Pause\n\n## Summary\n\nPause it.\n');
+    put('result.json', buildResult(dir, 'pass', null));
+    const md = prBody(dir, 'Europe/London', 'https://daily-2026-11-02.daily-racing.pages.dev');
+    expect(md.split('\n').slice(0, 2)).toEqual(['**Preview:** https://daily-2026-11-02.daily-racing.pages.dev (live once the deploy check passes)', '**Outcome:** pass']);
+    expect(md).not.toContain('# B01 · Pause');
+    expect(md).toContain('## Summary\n\nPause it.');
+    expect(md).toContain('### Gates');
+    expect(md).not.toContain('Kept as a draft');
+  });
+
+  it('flags a failed run as a draft record and stays under the size limit', () => {
+    put('spec.md', `# B01 · Pause\n\n${'x'.repeat(70_000)}\n`);
+    put('result.json', buildResult(dir, 'fail', 'gates failed after 2 retries'));
+    const md = prBody(dir, 'Europe/London', 'https://p');
+    expect(md).toContain('**Outcome:** fail (gates failed after 2 retries)');
+    expect(md).toContain('Kept as a draft');
+    expect(md.length).toBeLessThan(65_536);
+    expect(md).toMatch(/truncated; see the journal\.\n$/);
+  });
+});
+
+describe('defang', () => {
+  it('breaks mentions, closing keywords and HTML comments in builder text', () => {
+    expect(defang('ping @octocat, Fixes #3 and closes: owner/repo#4 <!-- hidden -->'))
+      .toBe('ping @\u200boctocat, Fixes\u200b #3 and closes\u200b: owner/repo#4 &lt;!-- hidden -->');
+    expect(defang('a@b.c fixed the fix, 2 @ 3')).toBe('a@\u200bb.c fixed the fix, 2 @ 3');
   });
 });

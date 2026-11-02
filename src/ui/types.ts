@@ -18,9 +18,3 @@ export interface MinimapState {
   outline: [number, number][];
   cars: { x: number; z: number; colour: PaletteName; player: boolean }[];
 }
-
-/** A driver as named on results: "<name> · #<number>". */
-export interface DriverLabel {
-  name: string;
-  number: number;
-}

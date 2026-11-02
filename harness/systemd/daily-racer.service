@@ -1,4 +1,4 @@
-# Nightly dry run of the Daily AI Racer harness (HANDOVER §6.1). Started by daily-racer.timer.
+# Nightly run of the Daily AI Racer harness (HANDOVER §6.1). Started by daily-racer.timer.
 #
 # A system unit with User= rather than a user unit: it runs whether or not the owner is logged in
 # without enabling linger, and its logs land in the system journal (`journalctl -u daily-racer`).
@@ -9,7 +9,7 @@
 # Install (SETUP.md): replace __USER__ and __REPO__ (the dedicated harness checkout of main,
 # ~/.daily-racer/harness, that the owner updates; never the work clone).
 [Unit]
-Description=Daily AI Racer nightly dry run
+Description=Daily AI Racer nightly run
 Wants=network-online.target
 After=network-online.target docker.service
 Requires=docker.service
@@ -18,7 +18,7 @@ Requires=docker.service
 Type=exec
 User=__USER__
 WorkingDirectory=__REPO__
-ExecStart=__REPO__/harness/daily.sh --dry-run
+ExecStart=__REPO__/harness/daily.sh --live
 # daily.sh kills itself at 06:30 London; this backstop covers 02:00 -> 06:30 (4h30) plus 30 min.
 RuntimeMaxSec=5h
 KillMode=control-group

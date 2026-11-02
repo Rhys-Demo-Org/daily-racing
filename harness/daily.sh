@@ -216,12 +216,13 @@ maint=(); [[ $MODE != maintenance ]] || maint=(--maintenance)
 log "work: $MODE ${ITEM_ID:+$ITEM_ID · $ITEM_TITLE}"
 # The existing-work list (merged / in flight / rejected daily PRs, the backlog) for ideate, the plan
 # audit and the judge, and each open PR's files for the overlap check. The owner's in-flight diffs
-# go to the plan auditor as files.
+# go to the plan auditor as files, without their journal/ sections (journal masking).
 ts_node existing "${prs[0]:--}" "$CLONE/guardrails/BACKLOG.md" "$OWNER_LOGIN" "$RUN/existing-work.md" "$WORK/open-files.json"
 mkdir -p "$WORK/inflight"
 if (( ${#prs[@]} )); then
   for pr in $(jq -r --arg o "$OWNER_LOGIN" '.[] | select(.state == "OPEN" and .author.login == $o) | .number' "$PRS"); do
-    gh_ pr diff "$pr" -R "$(repo_slug "$CLONE")" >"$WORK/inflight/pr-$pr.diff" 2>>"$RUN_LOG" || log "could not fetch the diff of #$pr"
+    gh_ pr diff "$pr" -R "$(repo_slug "$CLONE")" 2>>"$RUN_LOG" | ts_node nojournal >"$WORK/inflight/pr-$pr.diff" 2>>"$RUN_LOG" ||
+      { log "could not fetch the diff of #$pr"; rm -f "$WORK/inflight/pr-$pr.diff"; }
   done
 fi
 
@@ -289,18 +290,21 @@ gates() { commit_tree "daily $DATE: attempt $1 (harness commit)"; run_gates "$1"
 loc_json() { git -C "$CLONE" diff --numstat "$MAIN_SHA" HEAD -- src | awk '{a += $1; d += $2; f++} END {printf "{\"files\":%d,\"added\":%d,\"deleted\":%d}", f, a, d}'; }
 branch_diff() { git -C "$CLONE" diff "$MAIN_SHA" HEAD -- . ':(exclude)journal'; }
 # screenshots <dir>: stage and race screenshots of the work tree via scripts/screenshots.sh
-# (`screenshots.sh <repo> <outdir>` → <outdir>/index.json = [{name, kind, viewport, path}]). Optional:
-# without the script, or when it fails, the night goes on without them. Only the index reaches the
-# journal (G8 allows no image files).
+# (`screenshots.sh <repo> <outdir>` → <outdir>/index.json = [{name, kind, viewport, path}]). That
+# folder ran the builder's code, so only the PNGs a harness-validated index lists reach <dir>
+# (`cli.ts shots`: index shape and length, regular files, PNG signature, size). Optional: without
+# the script, or when it fails, the night goes on without them. Only the index reaches the journal
+# (G8 allows no image files).
 screenshots() {
-  local s="$here/scripts/screenshots.sh"
-  rm -rf "$1"
+  local s="$SCRIPTS/screenshots.sh" raw="$1.raw" n
+  rm -rf "$1" "$raw"
   [[ -x $s ]] || { log "screenshots: no $s; going on without them"; return 0; }
-  mkdir -p "$1"
-  if timeout "${SCREENSHOT_MIN}m" "$s" "$CLONE" "$1" >>"$RUN_LOG" 2>&1 && jq -e 'type == "array"' "$1/index.json" >/dev/null 2>&1; then
+  mkdir -p "$raw"
+  if timeout "${SCREENSHOT_MIN}m" "$s" "$CLONE" "$raw" >>"$RUN_LOG" 2>&1 && n="$(ts_node shots "$raw" "$1" 2>>"$RUN_LOG")"; then
     mkdir -p "$RUN/screenshots" && cp "$1/index.json" "$RUN/screenshots/index.json"
-    log "screenshots: $(jq length "$1/index.json") in $1"
-  else log "screenshots: failed (see run.log); going on without them"; rm -rf "$1"; fi
+    log "screenshots: $n in $1"
+  else log "screenshots: failed or invalid (see run.log); going on without them"; rm -rf "$1"; fi
+  rm -rf "$raw"
 }
 
 # ---- Spec: ideate ⇄ plan audit (feature nights), plain ideate (maintenance) -----------------------

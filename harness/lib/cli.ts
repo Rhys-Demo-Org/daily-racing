@@ -30,6 +30,8 @@
 //   spec <claude-result.json> <spec.md> <date> <mode> <backlogId|-> <meta.json>
 //                                                      locks spec.md, prints (and records) its sha256
 //   feedback <gates.json>                              failed-gate text for the retry prompt
+//   shots <raw-dir> <out-dir>                          copies the PNGs a valid index lists; prints the count
+//   nojournal                                          a diff on stdin without its journal/ file sections
 //   structured <claude-result.json>                    the agent's structured output as JSON, or null
 //   redact <dir>...                                    token on stdin; exit 1 if it couldn't be scrubbed
 //   result <run-dir> <outcome> [reason]                writes <run-dir>/result.json
@@ -42,13 +44,14 @@ import { chooseWork, parseBacklog, prState, type DailyPr } from './picker.ts';
 import { redact } from './redact.ts';
 import { lockSpec, renderSpec, structuredOutput, validateSpec, type SpecMode } from './spec.ts';
 import { buildResult, gateFeedback, prBody, readJson, report } from './journal.ts';
-import { existingWork, fileOverlap, openFiles, renderOverlap, type GhPr, type OpenFiles } from './existing.ts';
+import { dropJournal, existingWork, fileOverlap, openFiles, renderOverlap, type GhPr, type OpenFiles } from './existing.ts';
 import { checkAudit, renderAudit, reviseBrief, type Audit } from './audit.ts';
 import { internalsLint, type Spec } from './spec.ts';
 import { checkRulings, fixBrief, fixQueue, readFindings, readFix, reviewMd, verifierTest, type ReviewState } from './review.ts';
 import { judgeBrief, judgeVerdict, readBlind, readCheck, renderJudge, scanPlanted, type JudgeVerdict } from './judge.ts';
 import { cloneReport, exportInventory, sourceFiles } from './inventory.ts';
 import { METRICS_COLUMNS, metricsRow } from './metrics.ts';
+import { keepShots } from './screens.ts';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -214,6 +217,17 @@ if (import.meta.main) {
     case 'metrics':
       if (a[1] === '--header') console.log(METRICS_COLUMNS.join(','));
       console.log(metricsRow(a[0]!));
+      break;
+    case 'shots': {
+      try {
+        const { kept, dropped } = keepShots(a[0]!, a[1]!);
+        for (const d of dropped) console.error(`screenshot dropped: ${d}`);
+        console.log(kept.length);
+      } catch (e) { console.error(String(e)); process.exit(1); }
+      break;
+    }
+    case 'nojournal':
+      process.stdout.write(dropJournal(readFileSync(0, 'utf8')));
       break;
     case 'structured':
       console.log(JSON.stringify(structuredOutput(a[0]!)));

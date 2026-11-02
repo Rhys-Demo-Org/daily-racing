@@ -123,3 +123,16 @@ export function existingWork(prs: readonly GhPr[], backlog: readonly BacklogItem
     '',
   ].join('\n');
 }
+
+/**
+ * A PR's unified diff without its `journal/` file sections: an in-flight PR carries its night's
+ * journal (agent notes, transcripts), which must not reach a later night's agents (journal masking).
+ */
+export function dropJournal(diff: string): string {
+  let skip = false;
+  return diff.split(/(?<=\n)/).filter((line) => {
+    const m = /^diff --git a\/(\S+) b\/(\S+)/.exec(line);
+    if (m) skip = m[1]!.startsWith('journal/') || m[2]!.startsWith('journal/');
+    return !skip;
+  }).join('');
+}

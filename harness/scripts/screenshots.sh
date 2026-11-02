@@ -20,19 +20,7 @@ need_image
 work="$(scratch "$DAILY_HOME/work" shots)"
 trap 'chmod -R u+w "$work" 2>/dev/null || true; rm -rf "$work"' EXIT
 
-# The tree: <repo>'s working files (no .git, node_modules or build output), then the harness's
-# capture code over its harness/screens.
-mkdir -p "$work/tree"
-if git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  git -C "$repo" ls-files -z -co --exclude-standard |
-    tar -C "$repo" --null --ignore-failed-read -T - -cf - 2>/dev/null | tar -C "$work/tree" -xf -
-else
-  tar -C "$repo" --exclude=./.git --exclude=./node_modules --exclude=./dist -cf - . | tar -C "$work/tree" -xf -
-fi
-rm -rf "$work/tree/harness/screens"
-mkdir -p "$work/tree/harness" "$work/tree/node_modules"
-cp -a "$HARNESS_ROOT/harness/screens" "$work/tree/harness/screens"
-chmod -R a-w "$work/tree"
+harness_tree "$repo" "$work/tree"
 nm="$(deps "$work/tree")"
 
 timeout -k 10 600 docker run "${DOCKER_BASE[@]}" --network none --read-only --pids-limit 4096 --memory 8g --shm-size 1g \

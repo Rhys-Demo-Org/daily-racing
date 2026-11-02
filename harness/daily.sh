@@ -132,11 +132,23 @@ discard() { log "discarding uncommitted work: $*"; git -C "$CLONE" reset -q --ha
 # meta_set <key> <json value>: records a value in meta.json.
 meta_set() { local t; t="$(jq --arg k "$1" --argjson v "$2" '.[$k] = $v' "$RUN/meta.json")" && printf '%s\n' "$t" >"$RUN/meta.json"; }
 # notes_out [subdir]: moves the agents' journal files out of the tree into $RUN/builder[/subdir], so
-# no later agent (reviewer, verifier, judge) reads the builder's self-assessment.
+# no later agent (reviewer, verifier, judge) reads the builder's self-assessment. Files main already
+# has under journal/runs/<date>/ (an earlier run of that date, merged) are not the agents': they stay,
+# restored to main's version.
 notes_out() {
+  local rel="journal/runs/$DATE" f to
   sanitize
   [[ -n $(ls -A "$J" 2>/dev/null) ]] || return 0
-  mkdir -p "$RUN/builder/${1:-}" && cp -rT "$J" "$RUN/builder/${1:-}" && rm -rf "$J" && mkdir -p "$J"
+  declare -A onmain=()
+  while IFS= read -r -d '' f; do onmain[$f]=1; done < <(git -C "$CLONE" ls-tree -r -z --name-only "$MAIN_SHA" -- "$rel/")
+  while IFS= read -r -d '' f; do
+    [[ -z ${onmain[$rel/$f]:-} ]] || continue
+    to="$RUN/builder/${1:-}/$f"
+    mkdir -p "$(dirname "$to")" && mv -f "$J/$f" "$to"
+  done < <(find "$J" -type f -printf '%P\0')
+  find "$J" -mindepth 1 -type d -empty -delete
+  (( ${#onmain[@]} == 0 )) || git -C "$CLONE" checkout -q "$MAIN_SHA" -- "$rel/"
+  mkdir -p "$J"
 }
 # metrics: appends tonight's row to METRICS_CSV (with the header when the file is new). A file whose
 # header isn't today's columns (a harness change) is first moved aside to metrics-<date>.csv.

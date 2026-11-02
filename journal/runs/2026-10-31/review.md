@@ -63,3 +63,24 @@ Before review: +349 / −13. After: +314 / −19. `results-screen.ts` 147 → 12
 The branch predated main's live-mode harness (PR #8), so G8 first failed on 17 protected files
 that main had changed. `origin/main` was merged in (no conflicts); `run-gates.sh` against
 origin/main `8fd4fa8` then passed G1 (393/393 tests), G2, G3 and G8.
+
+## Merge with B01 (2026-11-02)
+
+PR #9 (B01 pause screen) landed on main first, so `origin/main` (51b2ae2) was merged in.
+
+- **Conflicts:** `src/game.ts`, `src/ui/race-ui.ts`, `src/ui/dom.ts` (`screens.css` auto-merged).
+  - `game.ts`: kept B01's `restart` / `setPaused` wiring and added NEXT RACE. RESTART RACE (pause)
+    and RETRY (results) are the same `restart` action, so they reset identical state.
+  - `race-ui.ts`: builds the HUD (with the PAUSE button), results screen and pause screen; one
+    `RaceUiOptions` covers both screens' callbacks. The finish panel is no longer built.
+  - `dom.ts`: both helpers kept (`stripes()`, `hatch()`). `stripes()` takes an optional extra
+    class, and the pause card now uses it instead of its own copy of the stripe markup.
+- **Interactions:** pausing was already refused once the player has finished (the same condition
+  that shows the results), and the real-time loop is stopped while paused, so results can't open
+  under the pause card in play. The one gap was a driver `play()`/`step()` that finishes the race
+  while paused: it now drops the pause first, so the results screen replaces the pause card.
+- **Tests:** `tests/game/pause-results.test.ts` (5): Esc / PAUSE ignored on the results screen;
+  no results while paused, results after resume + finish; driver finish while paused swaps the
+  screens; RESTART RACE and RETRY give equal state; RETRY'd race can pause again, NEXT RACE
+  loads the next track unpaused.
+- **Gates:** G1 (413/413), G2, G3, G8 pass against main 51b2ae2.

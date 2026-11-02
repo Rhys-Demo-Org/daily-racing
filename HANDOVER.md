@@ -135,7 +135,7 @@ Only the owner changes protected files, by hand, in separate PRs.
    - No new binary, image or font files outside the allowed paths.
    - `journal/` changes are limited to `journal/runs/<today>/`.
 10. **Acceptance tests are real (red/green)**: the new test files are run against **`main`'s `src/`**, where they must **fail**, and against the branch, where they must pass. Each acceptance criterion in the spec must map to at least one such test. This catches tests that always pass. Purely visual features still need at least one test that proves they exist (for example "the scene graph on track X contains the new mesh" or "the HUD contains the new widget"). Maintenance days are exempt from this gate, since behaviour must not change.
-11. **Size**: at most **800 changed lines** in `src/`, excluding tests and pure-data track files, at most **12 changed files**, and each track data file at most 300 lines. Limits live in `budgets.json`.
+11. **Size**: at most **800 changed lines** in `src/`, excluding tests and pure-data track files, at most **20 changed files** (owner, 2026-11-02; a guide for ideate, not a reason to cut a feature), and each track data file at most 300 lines. Limits live in `budgets.json`.
 
 Every new track, car or screen must register itself so gates 2, 5 and 6 pick it up automatically. Registration works **by file convention** (for example `import.meta.glob` over `src/content/tracks/*`), never through a shared hand-edited index file. That way PRs that each add content don't conflict with each other. Output one machine-readable `gates.json` plus a human summary.
 

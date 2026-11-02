@@ -79,3 +79,58 @@
   justify-content: center;
   padding: var(--space-s1) var(--space-s2);
 }
+
+/* Pause (S4): hatch over the frozen race, a cream overlay card drops in. Navy header with PAUSED
+   and the lap/time line, the triple stripe across the card, then the button column. */
+.ui-pause__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: calc(var(--space-s7) * 6);
+  overflow: hidden;
+}
+.ui-pause__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-s4);
+  padding: var(--space-s3) var(--space-s4);
+  background: var(--color-navy);
+  color: var(--color-cream);
+}
+.ui-pause__title {
+  margin: 0;
+  font-family: var(--type-title-font);
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  font-style: var(--type-title-style);
+  line-height: 1;
+  text-transform: uppercase;
+}
+.ui-pause__status {
+  color: var(--color-mustard);
+  font-variant-numeric: var(--font-numeric);
+}
+/* Full-width stripe band (4:2:1), ink rule above and below, no side outlines. */
+.ui-pause__stripes .ui-stripe {
+  flex: 1;
+  width: auto;
+  height: var(--space-s3);
+  border-width: var(--outline-default) 0;
+}
+.ui-pause__stripes .ui-stripe--red {
+  flex: 4;
+}
+.ui-pause__stripes .ui-stripe--mustard {
+  flex: 2;
+}
+.ui-pause__buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-s3);
+  padding: var(--space-s4);
+}
+.ui-pause__buttons .ui-button {
+  justify-content: flex-start;
+}

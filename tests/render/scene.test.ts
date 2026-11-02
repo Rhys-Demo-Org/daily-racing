@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Box3, type Material, type Mesh, type Texture } from 'three';
 import { paletteIndex } from '@tokens';
 import { allNormalsUp, CELL_SIZE, CHUNK_ROWS, createRaceScene, isFactoryMaterial, LAYER, playerLivery, type CarLivery, type PlacedProp } from '../../src/render/index.ts';
-import { at, carView, classicLayout as layout, linesOf, meshesOf } from './helpers.ts';
+import { at, carView, classicLayout, layout, linesOf, meshesOf } from './helpers.ts';
 
 const liveries: CarLivery[] = [playerLivery(1), { body: 'mustard', stripe: 'navy', number: 7, player: false }];
 
@@ -12,9 +12,9 @@ const named = (race: ReturnType<typeof build>, group: string, name: string): Mes
 
 describe('race scene from the Dust Bowl TrackLayout', () => {
   it('prop cells list every prop and ramp by kind; plus cars, track chunks and car shadows', () => {
-    const race = build();
-    const expected: Record<string, number> = { ramp: layout.ramps.length };
-    for (const p of layout.props) expected[p.kind] = (expected[p.kind] ?? 0) + 1;
+    const race = createRaceScene(classicLayout, liveries);
+    const expected: Record<string, number> = { ramp: classicLayout.ramps.length };
+    for (const p of classicLayout.props) expected[p.kind] = (expected[p.kind] ?? 0) + 1;
     const got: Record<string, number> = {};
     const cells = named(race, 'props', 'prop-cell');
     for (const cell of cells) {
@@ -28,12 +28,12 @@ describe('race scene from the Dust Bowl TrackLayout', () => {
       }
     }
     expect(got).toEqual(expected);
-    expect(layout.props).toHaveLength(398);
+    expect(classicLayout.props).toHaveLength(398);
     expect(expected['hay-bale']).toBeGreaterThan(20);
     expect(expected['tyre-stack']).toBeGreaterThan(20);
     expect(expected['cone-tree']).toBeGreaterThan(10);
     expect(cells.length).toBeGreaterThan(10);
-    expect(cells.length).toBeLessThan(layout.props.length / 4);
+    expect(cells.length).toBeLessThan(classicLayout.props.length / 4);
     expect(race.scene.getObjectByName('cars')?.children).toHaveLength(2);
     expect(named(race, 'shadows', 'car-shadow')).toHaveLength(2);
     expect(race.scene.getObjectByName('dust')).toBeDefined();

@@ -1,6 +1,7 @@
 // Dust Bowl, reworked: the same oval-with-a-kink layout and ramp, scaled down so the turns are
 // tight for the car's speed (it is no longer flat out), and widened so three cars fit abreast.
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getTrack } from '../../src/content/tracks.ts';
 import { CAR_WIDTH, COUNTDOWN_TICKS, SURFACES, createBot, createWorld, stepWorld, validateTrack } from '../../src/sim/index.ts';
@@ -35,7 +36,7 @@ function flyingLapShares(seed: number): { slow: number; lifting: number; steerin
 
 describe('Dust Bowl, tighter', () => {
   it('validates and keeps its id, name, 3 laps and its 5 × 1.0 ramp', () => {
-    const raw: unknown = JSON.parse(readFileSync('src/content/tracks/dust-bowl.json', 'utf8'));
+    const raw: unknown = JSON.parse(readFileSync(join(import.meta.dirname, '../../src/content/tracks/dust-bowl.json'), 'utf8'));
     const track = validateTrack(raw);
     expect(track.id).toBe('dust-bowl');
     expect(track.name).toBe('Dust Bowl');

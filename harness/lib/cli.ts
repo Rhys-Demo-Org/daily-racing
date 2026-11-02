@@ -47,7 +47,8 @@
 //   candidates <list> <open-files.json> <date> <out.md> <maint>   tonight's eligible items; ELIGIBLE
 //   maintspec <list> <audit-result.json> <spec.md> <spec.json> <date> <meta.json> <audit.json> <maint>
 //                                                      CHOSEN SPEC_SHA (spec locked only when CHOSEN > 0)
-//   limits <raw> <numstat> <gates.json> <summary.md> <today> <maint>   adds gate M1 to a gate run
+//   limits <raw> <numstat> <gates.json> <summary.md> <today> <src-grep>   adds gate M1 (with its numbers) to a gate run
+//                                                      (<src-grep>: `git grep -z -n tests/ HEAD -- src` output)
 //   refactor <result.json> <maint>                     records the refactor agent's per-item report
 //   cleanup-done <list> <run-dir> <branch>             items done tonight: in-PR (pr.json) or noted
 
@@ -354,10 +355,12 @@ if (import.meta.main) {
       break;
     }
     case 'limits': {
-      const [raw, numstat, gatesPath, summary, today, maint] = a as [string, string, string, string, string, string];
+      const [raw, numstat, gatesPath, summary, today, srcGrep] = a as [string, string, string, string, string, string];
       const lim = limits();
-      const r = checkLimits(readFileSync(raw, 'utf8'), readFileSync(numstat, 'utf8'), today, lim);
-      const row = limitsGate(r, lim);
+      const r = checkLimits(readFileSync(raw, 'utf8'), readFileSync(numstat, 'utf8'), today, lim, readFileSync(srcGrep, 'utf8'));
+      // The result rides on this gate run's M1 row: the journal reads HEAD's run (a fix reverted
+      // after failing its gates leaves a later run that is not HEAD's), never the last one.
+      const row = { ...limitsGate(r, lim), limits: r };
       const g = readJson<{ pass: boolean; gates: { id: string }[] }>(gatesPath);
       if (g && Array.isArray(g.gates)) {
         g.gates = [...g.gates.filter((x) => x.id !== 'M1'), row];
@@ -365,7 +368,6 @@ if (import.meta.main) {
         json(gatesPath, g);
       }
       writeFileSync(summary, `${existsSync(summary) ? readFileSync(summary, 'utf8') : ''}\n| M1 ${row.name} | ${row.pass ? 'pass' : '**FAIL**'} | - | ${row.summary} |\n${row.pass ? '' : `\n## M1 details\n\n\`\`\`\n${row.details}\n\`\`\`\n`}`);
-      merge(maint, { limits: r });
       break;
     }
     case 'refactor': { // a retry without a valid report keeps the earlier attempt's

@@ -15,7 +15,7 @@ export interface Change {
 export interface Rules {
   /** YYYY-MM-DD of the run (London), for `journal/runs/<today>/`. */
   today: string;
-  /** Sunday maintenance: existing tests and the root CLAUDE.md may be edited. */
+  /** Sunday maintenance: the root CLAUDE.md may be edited. Existing tests stay append-only every night. */
   maintenance: boolean;
 }
 
@@ -30,7 +30,7 @@ const inTests = (p: string): boolean => p.startsWith('tests/') && !p.startsWith(
 
 /**
  * True for files a nightly run may never touch and that only change in owner PRs, so their hashes
- * belong in the manifest. Existing tests (append-only, gate 1), journal folders and the root
+ * belong in the manifest. Existing tests (append-only, below and gate 1), journal folders and the root
  * CLAUDE.md (gate 8 diff rules) are policed elsewhere because daily merges legitimately add to them.
  */
 export function isProtected(path: string): boolean {
@@ -53,8 +53,9 @@ export function violation(c: Change, rules: Rules): string | null {
   if (path === 'CLAUDE.md') return null; // maintenance edit, allowed above
   if (inSrc(path)) return null;
   if (inTests(path)) {
-    if (status === 'A' || (status === 'M' && rules.maintenance)) return null;
-    return status === 'M' ? 'existing tests are append-only (edits only on maintenance days)' : 'existing tests may not be deleted';
+    // Append-only on every night, maintenance included, until mutation testing exists (plans/full-pipeline.md, M1b deviations).
+    if (status === 'A') return null;
+    return status === 'M' ? 'existing tests are append-only (no edits, maintenance nights included)' : 'existing tests may not be deleted';
   }
   if (path.startsWith(`journal/runs/${rules.today}/`)) return null;
   if (path.startsWith('tests/baselines/')) return 'baselines are written by the harness only';

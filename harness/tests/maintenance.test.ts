@@ -86,12 +86,11 @@ describe('gate M1: maintenance limits', () => {
     const r = checkLimits(d.raw, d.numstat, 'd', LIMITS);
     expect(r.pass).toBe(false);
     expect(r.problems).toEqual([
-      'tests/ui/old.test.ts: existing tests may not be deleted',
       'harness/daily.sh: protected path',
       'tests/ui/screens.test.ts: existing tests are append-only on maintenance nights (until mutation testing exists)',
       'tests/ui/old.test.ts: existing tests are append-only on maintenance nights (until mutation testing exists)',
     ]);
-    expect(limitsGate(r, LIMITS).summary).toMatch(/^4 limit violation\(s\): /);
+    expect(limitsGate(r, LIMITS).summary).toMatch(/^3 limit violation\(s\): /);
   });
 });
 

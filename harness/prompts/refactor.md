@@ -20,9 +20,10 @@ your report.
   `createMaterials`, `playerLivery`), `src/sim/index.ts` (`validateTrack`, `trackLayout`), the
   screen stages (`src/ui/stages/*.stage.ts`, same names) and `window.__racer`.
 - **Limits** (gate M1): at most the spec's file and line counts, and **net `src/` lines must not
-  grow** (added − deleted ≤ 0; tests don't count). Prefer deleting code to adding it.
-- **Tests are append-only tonight**, until mutation testing exists: never edit or delete an existing
-  test, never `.skip`/`.only`/`.todo`, `@ts-ignore`, `@ts-nocheck` or `eslint-disable`. You may add
+  grow** (added − deleted ≤ 0; tests don't count). Prefer deleting code to adding it. No file in
+  `src/` may import from `tests/` (moving code there to shrink `src/` fails M1).
+- **Tests and screen stages are append-only tonight**, until mutation testing exists: never edit or
+  delete an existing test or `src/**/*.stage.ts` stage (P1's fixtures), never `.skip`/`.only`/`.todo`, `@ts-ignore`, `@ts-nocheck` or `eslint-disable`. You may add
   **new** test files, e.g. to pin a behaviour before you refactor it. If an item can't be done
   without changing an existing test, leave it (`not-done`) and say which test.
 - Touch only `src/**` (not `src/driver/**`), **new** files under `tests/**` (not `tests/baselines/`),

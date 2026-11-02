@@ -3,6 +3,7 @@
 // limits (gate M1, added to every maintenance gate run so per-fix gating enforces them too) and the
 // refactor agent's per-item report.
 
+import { posix } from 'node:path';
 import { checkDiff, parseNumstat, parseRaw } from './allowlist.ts';
 import { itemBlock, type Candidates, type CleanupItem, type CleanupList, type syncPrs } from './cleanup.ts';
 import type { Playtest } from './spec.ts';
@@ -54,7 +55,8 @@ export function renderMaintSpec(a: MaintAudit, list: CleanupList, date: string, 
     '## Limits', '',
     `- At most ${limits.maxFiles} changed files and ${limits.maxLines} changed lines (journal excluded).`,
     `- Net \`src/\` lines must not grow (added − deleted ≤ ${limits.maxNetSrc}); tests don't count.`,
-    '- Existing tests are append-only tonight: add new test files, never edit or delete one.',
+    '- Existing tests and screen stages (`src/**/*.stage.ts`) are append-only tonight: add new files, never edit or delete one.',
+    '- No `src/` file may import from `tests/`.',
     '- `CLAUDE.md` may change only to stay accurate about the code.',
     '- The gates check behaviour: exact bot laps and replays, every screen stage\'s DOM and computed styles, and every track\'s and car\'s scene geometry against `main`.', '',
     '## Expected files', '', ...[...new Set(a.chosen.flatMap((c) => item(c.id).files))].map((f) => `- \`${f}\``), '',
@@ -67,17 +69,46 @@ export function renderMaintSpec(a: MaintAudit, list: CleanupList, date: string, 
 
 export type LimitsResult = { pass: boolean; files: number; lines: number; srcAdded: number; srcDeleted: number; netSrc: number; problems: string[] };
 
+/** A screen stage: P1's fixture, so existing ones are append-only like tests. */
+const isStage = (p: string): boolean => p.startsWith('src/') && p.endsWith('.stage.ts');
+
+/**
+ * Quoted specifiers in `src/` files that point into `tests/` (`from '../../tests/x.ts'`, `import()`,
+ * `@import`, `import.meta.glob`, `new URL(...)`), from `git grep -z -n` output (`<rev>:<path>\0<line>\0<text>`).
+ * Moving src code into tests/ would dodge the net src/ limit, so any src → tests reference fails M1.
+ */
+export function srcTestImports(grep: string): string[] {
+  const out: string[] = [];
+  for (const row of grep.split('\n')) {
+    const [where = '', line = '', text = ''] = row.split('\0');
+    const file = where.replace(/^[^:]*:/, '');
+    if (!file.startsWith('src/')) continue;
+    for (const m of text.matchAll(/(['"`])([^'"`\n]*tests\/[^'"`\n]*)\1/g)) {
+      const spec = m[2]!;
+      const base = spec.startsWith('.') ? posix.normalize(posix.join(posix.dirname(file), spec)) : spec.replace(/^\/+/, '');
+      if (base === 'tests' || base.startsWith('tests/')) out.push(`${file}:${line}: src/ may not import from tests/ (${spec})`);
+    }
+  }
+  return [...new Set(out)];
+}
+
 /**
  * Gate M1 over the branch's diff against main (`git diff --raw -z --no-renames` and `--numstat -z`):
- * the allowlist (G8's rules), no existing test edited or deleted (append-only until mutation testing
- * exists), at most `maxFiles` files and `maxLines` changed lines outside journal/, and net src/
- * lines (added − deleted) at most `maxNetSrc`.
+ * the allowlist (G8's rules), no existing test or screen stage (`src/**\/*.stage.ts`, P1's fixtures)
+ * edited or deleted (append-only until mutation testing exists), no src/ file importing from tests/
+ * (`srcToTests`, git grep output over HEAD's src/), at most `maxFiles` files and `maxLines` changed
+ * lines outside journal/, and net src/ lines (added − deleted) at most `maxNetSrc`.
  */
-export function checkLimits(raw: string, numstat: string, today: string, l: Limits): LimitsResult {
-  const problems = checkDiff(raw, numstat, { today, maintenance: true });
+export function checkLimits(raw: string, numstat: string, today: string, l: Limits, srcToTests = ''): LimitsResult {
+  const own = new Map<string, string>();
   for (const c of parseRaw(raw)) {
-    if (c.path.startsWith('tests/') && (c.status === 'M' || c.status === 'D')) problems.push(`${c.path}: existing tests are append-only on maintenance nights (until mutation testing exists)`);
+    if (c.status !== 'M' && c.status !== 'D') continue;
+    if (c.path.startsWith('tests/')) own.set(c.path, 'existing tests are append-only on maintenance nights (until mutation testing exists)');
+    else if (isStage(c.path)) own.set(c.path, 'existing screen stages are fixtures for P1 and append-only, like tests');
   }
+  // G8's rules, less its own line for a path flagged above (one message per file).
+  const problems = checkDiff(raw, numstat, { today, maintenance: true }).filter((p) => ![...own.keys()].some((f) => p.startsWith(`${f}: `)));
+  problems.push(...[...own].map(([f, why]) => `${f}: ${why}`), ...srcTestImports(srcToTests));
   const rows = parseNumstat(numstat).filter((r) => !r.path.startsWith('journal/'));
   const lines = rows.reduce((n, r) => n + r.added + r.deleted, 0);
   const src = rows.filter((r) => r.path.startsWith('src/'));

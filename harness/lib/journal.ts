@@ -14,7 +14,7 @@ import { cleanupMarker } from './cleanup.ts';
 import { doneItems, type MaintRecord } from './maintenance.ts';
 
 type Json = Record<string, unknown>;
-type GateRow = { id: string; name?: string; pass: boolean; durationMs?: number; summary?: string; details?: string };
+type GateRow = { id: string; name?: string; pass: boolean; durationMs?: number; summary?: string; details?: string; limits?: MaintRecord['limits'] };
 type Gates = { pass: boolean; durationMs?: number; gates: GateRow[] };
 /** One agent phase: agent-run's meta.json plus the harness's own timing. */
 type Phase = { name: string; phase: string; attempt: number; meta: Json | null; harness: Json | null };
@@ -73,6 +73,25 @@ export function diffSize(numstat: string): { files: number; added: number; delet
 
 const gateMap = (g: Gates | null): Record<string, boolean> | null => (g ? Object.fromEntries(g.gates.map((x) => [x.id, x.pass])) : null);
 
+/** The gate run of the branch's final commit: meta.headGateRun, else the last run. */
+function headGates(runDir: string): Gates | null {
+  const meta = readJson(join(runDir, 'meta.json')) ?? {};
+  const runs = readGateRuns(runDir);
+  return (runs.find((r) => r.attempt === meta.headGateRun) ?? runs.at(-1))?.gates ?? null;
+}
+
+/**
+ * maintenance.json with the size numbers of HEAD's gate run (its M1 row, cli.ts limits), so a fix
+ * reverted after failing its gates never reports its limits. (Runs from before M1 rows carried
+ * them kept the last run's numbers in maintenance.json; those are used only when the row has none.)
+ */
+export function readMaint(runDir: string): MaintRecord | null {
+  const m = readJson<MaintRecord>(join(runDir, 'maintenance.json'));
+  if (!m) return null;
+  const head = headGates(runDir)?.gates.find((g) => g.id === 'M1')?.limits;
+  return head ? { ...m, limits: head } : m;
+}
+
 /**
  * result.json: HANDOVER §9 fields. The thin harness has no judge, perf or lap-time capture, so
  * those are null; `gates` is the gate run of the branch's final commit (meta.headGateRun, else the
@@ -99,7 +118,7 @@ export function buildResult(runDir: string, outcome: string, reason: string | nu
     claudeCodeVersion: meta.claudeCodeVersion ?? null,
     ideaType: meta.ideaType ?? null,
     backlogId: meta.backlogId ?? null,
-    gates: gateMap((runs.find((r) => r.attempt === meta.headGateRun) ?? runs.at(-1))?.gates ?? null),
+    gates: gateMap(headGates(runDir)),
     gateRuns: runs.map((r) => ({ attempt: r.attempt, pass: r.gates?.pass ?? false, gates: gateMap(r.gates) })),
     retries: phases.filter((p) => p.phase === 'retry').length,
     judgeScore: (judge?.blind as Json | null)?.overall ?? null,
@@ -107,7 +126,7 @@ export function buildResult(runDir: string, outcome: string, reason: string | nu
     audit: readJson(join(runDir, 'audit.json')),
     review: reviewSummary(readJson(join(runDir, 'review.json'))),
     loc: readJson(join(runDir, 'loc.json')),
-    maintenance: readJson(join(runDir, 'maintenance.json')),
+    maintenance: readMaint(runDir),
     medianLapTimes: null,
     p95FrameTimeMs: null,
     triangleCount: null,
@@ -172,7 +191,7 @@ const text = (runDir: string, f: string): string | null => (existsSync(join(runD
  */
 export function prBody(runDir: string, tz: string, previewUrl: string): string {
   const result = readJson(join(runDir, 'result.json'));
-  const maint = readJson<MaintRecord>(join(runDir, 'maintenance.json'));
+  const maint = readMaint(runDir);
   const specJson = readJson<{ playtest?: Playtest | null }>(join(runDir, 'spec.json'));
   let spec = text(runDir, 'spec.md')?.replace(/^# .*\n/, '') ?? 'No spec was locked.\n';
   if (specJson?.playtest) spec = spec.replace(/^## What you'll see\n[\s\S]*?^## How to play-test\n[\s\S]*?(?=^## |(?![\s\S]))/m, ''); // shown first instead
@@ -219,9 +238,7 @@ function maintenanceSections(runDir: string, m: MaintRecord, spec: string): stri
   const out = ['', '## Net `src/` lines', ''];
   const l = m.limits;
   out.push(l ? `**${l.netSrc > 0 ? '+' : l.netSrc < 0 ? '−' : '±'}${Math.abs(l.netSrc)}** (src/: +${l.srcAdded} −${l.srcDeleted}) · ${l.files} files and ${l.lines} lines changed in all (tests and CLAUDE.md included, journal excluded)` : 'Not measured (no gate run).', '');
-  const meta = readJson(join(runDir, 'meta.json')) ?? {};
-  const runs = readGateRuns(runDir);
-  const head = (runs.find((r) => r.attempt === meta.headGateRun) ?? runs.at(-1))?.gates ?? null;
+  const head = headGates(runDir);
   const want: [string, string][] = [['G2', 'Bot laps identical'], ['G3', 'Physics replays identical'], ['P1', 'Every screen stage: DOM + computed styles identical'], ['P2', 'Every track scene and car: geometry identical'], ['M1', 'Size limits, no net src growth, tests append-only']];
   out.push('## Behaviour preservation', '', 'Compared with `main` as it is now, on the final commit:', '', '| Check | Result | Detail |', '|---|---|---|');
   for (const [id, what] of want) {

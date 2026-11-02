@@ -19,7 +19,8 @@ Choose from **the eligible items only** (below). For each, check:
    screen stage's DOM and computed styles stay identical, every track's and car's scene geometry,
    palette indices, materials and transforms stay identical. A fix that can't promise that is
    rejected.
-3. **Possible tonight.** It needs no edit or deletion of an existing test (tests are append-only
+3. **Possible tonight.** It needs no edit or deletion of an existing test or screen stage
+   (`src/**/*.stage.ts`), and no `src/` import from `tests/` (tests and stages are append-only
    until mutation testing exists), no owner-only path (`src/driver/`, `guardrails/`, `harness/`,
    configs), and keeps the names the gates build through: `src/render/index.ts` (`createRaceScene`,
    `buildCar`, `createMaterials`, `playerLivery`), `src/sim/index.ts` (`validateTrack`,

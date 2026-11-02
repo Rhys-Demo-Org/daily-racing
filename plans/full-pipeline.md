@@ -170,16 +170,19 @@ Weeknight reviewers still deduplicate inside the files each feature touches. The
 
 ### As built in M1b (deviations)
 - **Tests stay append-only on Sundays** until mutation testing exists (M2). Step 6's test rewrites
-  are deferred: gate M1 fails any edit or deletion of an existing test on a maintenance night, even
-  though G1/G8 still allow it there. Fixes that need one are filed as "needs owner: test pins
+  are deferred: gate M1, G8's allowlist and the publish check fail any edit or deletion of an
+  existing test on a maintenance night as on any other (G1's own test-file check still allows the
+  edit there; the others catch it). Existing screen stages (`src/**/*.stage.ts`, P1's fixtures) are
+  append-only the same way under M1, and M1 fails any `src/` file that imports from `tests/` (moving
+  code there would dodge the net `src/` limit). Fixes that need one are filed as "needs owner: test pins
   internals" and listed in the PR for the owner (e.g. `src/ui/finish-panel.ts`, dead code only
   `tests/ui/screens.test.ts` and `tests/ui/no-inline-colour.test.ts` import).
 - **Conflicts: skip.** Items whose files an open daily PR changes are skipped tonight (noted on the
   item), never scheduled ahead of the PR.
 - **No ideate on Sundays.** The maintenance plan auditor picks from the list and its choice is the
   spec; the harness checks it (eligible items only, at most `MAINT_MAX_ITEMS`).
-- **Limits fail, they don't trim.** Gate M1 (40 files, 1,500 lines, net `src/` ≤ 0, tests
-  append-only, the allowlist; config values) runs in every maintenance gate run, so the refactor
+- **Limits fail, they don't trim.** Gate M1 (40 files, 1,500 lines, net `src/` ≤ 0, tests and
+  screen stages append-only, no `src/` → `tests/` import, the allowlist; config values) runs in every maintenance gate run, so the refactor
   gets the usual retries with the violations as feedback, and a review fix that breaks a limit is
   reverted like any failing fix.
 - **Preservation checks are gates P1/P2**, run on maintenance nights only (a feature changes the DOM

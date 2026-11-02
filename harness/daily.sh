@@ -324,13 +324,15 @@ run_gates() {
 }
 gates() { commit_tree "daily $DATE: attempt $1 (harness commit)"; run_gates "$1"; }
 # limits <gate-out-dir>: gate M1 (maintenance nights) over HEAD's diff against main, added to that
-# gate run's gates.json and summary.md: the size limits, no net src/ growth, tests append-only,
-# the allowlist. Fails closed: if the check can't run, the gate run fails.
+# gate run's gates.json and summary.md: the size limits, no net src/ growth, tests and screen stages
+# append-only, no src/ file importing from tests/, the allowlist. Fails closed: if the check can't
+# run, the gate run fails.
 limits() {
-  local d=(-C "$CLONE" -c core.quotePath=false diff --no-renames --no-ext-diff --no-textconv --ignore-submodules=none -z) t
+  local d=(-C "$CLONE" -c core.quotePath=false diff --no-renames --no-ext-diff --no-textconv --ignore-submodules=none -z) t rc=0
   git "${d[@]}" --raw "$MAIN_SHA" HEAD >"$1/diff-raw"
   git "${d[@]}" --numstat "$MAIN_SHA" HEAD >"$1/diff-numstat"
-  ts_node limits "$1/diff-raw" "$1/diff-numstat" "$1/gates.json" "$1/summary.md" "$DATE" "$MAINT" 2>>"$RUN_LOG" && return
+  git -C "$CLONE" -c core.quotePath=false grep -z -n -I -F 'tests/' HEAD -- src >"$1/src-tests" || rc=$? # 1: no match
+  if (( rc <= 1 )) && ts_node limits "$1/diff-raw" "$1/diff-numstat" "$1/gates.json" "$1/summary.md" "$DATE" "$1/src-tests" 2>>"$RUN_LOG"; then return; fi
   log "gate M1 could not run; this gate run fails"
   t="$(jq '.pass = false' "$1/gates.json" 2>/dev/null)" && printf '%s\n' "$t" >"$1/gates.json"
 }

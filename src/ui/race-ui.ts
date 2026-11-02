@@ -7,7 +7,7 @@ import { createCountdown, type CountdownStep } from './countdown.ts';
 import { createFinishPanel } from './finish-panel.ts';
 import { createHud } from './hud.ts';
 import { createTouchControls, type TouchControls } from './touch-controls.ts';
-import type { HudState } from './types.ts';
+import type { DriverLabel, HudState } from './types.ts';
 
 /** GO! is cleared this many ticks after the start, in sim time, so staged frames are deterministic. */
 export const GO_HIDE_TICKS = TICK_HZ;
@@ -16,8 +16,11 @@ const ticksToMs = (ticks: number): number => (ticks * 1000) / TICK_HZ;
 
 export interface RaceUi {
   readonly touch: TouchControls;
-  /** Prepares for a new race. `colours` are the car body colours, index-aligned with the cars (0 = player). */
-  reset(laps: number, outline: [number, number][], colours: readonly PaletteName[]): void;
+  /**
+   * Prepares for a new race. `colours` are the car body colours and `drivers` (optional) the driver
+   * labels, both index-aligned with the cars (0 = player). With drivers, the finish panel lists them by position.
+   */
+  reset(laps: number, outline: [number, number][], colours: readonly PaletteName[], drivers?: readonly DriverLabel[]): void;
   /** Pushes the latest race state into the UI. */
   sync(view: RaceView, cars: readonly CarView[]): void;
 }
@@ -31,10 +34,12 @@ export function createRaceUi(root: HTMLElement, opts: { onRaceAgain: () => void 
   let lastStep = -1;
   let lapsSeen = 0;
   let finishShown = false;
+  let labels: readonly DriverLabel[] = [];
 
   return {
     touch,
-    reset(laps, outline, colours) {
+    reset(laps, outline, colours, drivers = []) {
+      labels = drivers;
       state = {
         position: 1,
         carCount: colours.length,
@@ -81,7 +86,10 @@ export function createRaceUi(root: HTMLElement, opts: { onRaceAgain: () => void 
       if (step === 0 && view.raceTick >= GO_HIDE_TICKS && countdown.current !== null) countdown.hide();
       if (view.phase === 'finished' && !finishShown) {
         finishShown = true;
-        finish.show({ timeMs: state.timeMs ?? 0, bestLapMs: state.bestLapMs });
+        // Car indices in race-position order; only cars that have a label are listed.
+        const order = view.racers.map((r, i) => ({ i, position: r.position })).sort((a, b) => a.position - b.position);
+        const standings = order.flatMap(({ i }) => labels[i] ?? []);
+        finish.show({ timeMs: state.timeMs ?? 0, bestLapMs: state.bestLapMs, standings });
       }
     },
   };

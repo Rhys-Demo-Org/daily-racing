@@ -1,12 +1,13 @@
 // Finish panel: the ink hatch dims the frozen race, then a navy overlay card drops in with
-// FINISHED, the final time, the best lap chip and a RACE AGAIN button (existing components only;
-// the full results screen is backlog B02).
+// FINISHED, the final time, the best lap chip, the drivers by position (when known) and a RACE
+// AGAIN button (existing components only; the full results screen is backlog B02).
 import { tokens } from '@tokens';
 import './components.css';
 import './screens.css';
 import { button, h, overlay, s, type Overlay } from './dom.ts';
 import { formatOptionalTime, formatTime } from './format.ts';
 import { icon } from './icons.ts';
+import type { DriverLabel } from './types.ts';
 
 export interface FinishPanelOptions {
   onRaceAgain: () => void;
@@ -17,7 +18,12 @@ export interface FinishResult {
   timeMs: number;
   /** Best lap in ms, or null. */
   bestLapMs: number | null;
+  /** Drivers in finishing (race-position) order; empty or absent shows no list. */
+  standings?: readonly DriverLabel[];
 }
+
+/** "KOSKI · #7". */
+export const driverText = (d: DriverLabel): string => `${d.name} · #${d.number}`;
 
 export interface FinishPanel extends Omit<Overlay, 'show'> {
   show(result: FinishResult): void;
@@ -42,6 +48,7 @@ function hatch(): SVGSVGElement {
 export function createFinishPanel(root: HTMLElement, opts: FinishPanelOptions): FinishPanel {
   const time = h('span', 'ui-value');
   const best = h('span', 'ui-value');
+  const drivers = h('ol', 'ui-finish__drivers', [], { 'aria-label': 'Results' });
   const again = button('ui-button--primary', [icon('restart'), 'Race again'], opts.onRaceAgain);
   const card = h(
     'div',
@@ -52,6 +59,7 @@ export function createFinishPanel(root: HTMLElement, opts: FinishPanelOptions): 
         h('div', 'ui-finish__stat', [h('span', 'ui-label', ['Time']), time]),
         h('div', 'ui-panel ui-panel--mustard ui-finish__stat', [h('span', 'ui-label', ['Best lap']), best]),
       ]),
+      drivers,
       again,
     ],
     { role: 'dialog', 'aria-label': 'Finished' },
@@ -63,6 +71,9 @@ export function createFinishPanel(root: HTMLElement, opts: FinishPanelOptions): 
     show(result) {
       time.textContent = formatTime(result.timeMs);
       best.textContent = formatOptionalTime(result.bestLapMs);
+      const standings = result.standings ?? [];
+      drivers.replaceChildren(...standings.map((d) => h('li', 'ui-label ui-finish__driver', [driverText(d)])));
+      drivers.hidden = standings.length === 0;
       screen.show();
     },
   };

@@ -1,6 +1,6 @@
 // Run journal (HANDOVER §9) from a run folder written by daily.sh:
 //   meta.json  spec.md  run.log  gates-<n>.json  phases/<phase>-<n>/{meta.json,harness.json}  diffstat.txt
-// Builds result.json, the gate feedback for a retry, and the morning dry-run report.
+// Builds result.json, the gate feedback for a retry, the morning report and the PR body.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -107,13 +107,39 @@ const mins = (ms: number): string => {
 };
 const row = (cells: unknown[]): string => `| ${cells.map((c) => String(c ?? '-')).join(' | ')} |`;
 
+/** GitHub's PR body limit is 65,536 characters; stay under it. */
+const BODY_MAX = 60_000;
+
+/**
+ * Builder-written text made inert in a PR: no @mentions, no closing keywords (`Fixes #3` would close
+ * an issue on merge), no hidden HTML comments. A zero-width space breaks each.
+ */
+export function defang(md: string): string {
+  return md.replace(/@(?=[\w-])/g, '@\u200b').replace(/\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)(\s*:?\s*)(?=[\w./-]*#\d)/gi, '$1\u200b$2').replace(/<!--/g, '&lt;!--');
+}
+
+/** PR body: preview link and outcome, the locked spec, then the report's phases and gates. */
+export function prBody(runDir: string, tz: string, previewUrl: string): string {
+  const result = readJson(join(runDir, 'result.json'));
+  const spec = existsSync(join(runDir, 'spec.md')) ? readFileSync(join(runDir, 'spec.md'), 'utf8').replace(/^# .*\n/, '') : 'No spec was locked.\n';
+  const date = String(result?.date ?? '');
+  const lines = [
+    `**Preview:** ${previewUrl} (live once the deploy check passes)`,
+    `**Outcome:** ${String(result?.outcome ?? '?')}${result?.reason ? ` (${String(result.reason)})` : ''}`,
+  ];
+  if (result?.outcome !== 'pass') lines.push('', '> Gates did not pass. Kept as a draft so the attempt is on record; close it to drop the item.');
+  const body = [...lines, '', defang(spec.trim()), '', report(runDir, tz).replace(/^# .*\n/, '').replace(/^## /gm, '### ').trim(), '',
+    `Journal: \`journal/runs/${date}/\`. Built unattended; no judge or style gates yet, so review before merging.`].join('\n');
+  return (body.length > BODY_MAX ? `${body.slice(0, BODY_MAX)}\n\n…truncated; see the journal.` : body) + '\n';
+}
+
 /** Markdown morning report: item, outcome, phases against the deadlines, usage, gate table per attempt. */
 export function report(runDir: string, tz: string): string {
   const meta = readJson(join(runDir, 'meta.json')) ?? {};
   const result = readJson(join(runDir, 'result.json'));
   const hard = Number(meta.hardDeadlineAt);
   const out = [
-    `# Dry run ${String(meta.date)} · ${String(meta.ideaType ?? '?')} ${String(meta.backlogId ?? '')} · ${String(result?.outcome ?? 'unfinished')}`,
+    `# ${meta.dryRun === false ? 'Run' : 'Dry run'} ${String(meta.date)} · ${String(meta.ideaType ?? '?')} ${String(meta.backlogId ?? '')} · ${String(result?.outcome ?? 'unfinished')}`,
     '',
     `Started ${clock(meta.startedAt, tz)} · no new phase after ${clock(meta.noNewPhaseAt, tz)} · hard deadline ${clock(hard, tz)}${meta.manual ? ' (manual run)' : ''}`,
   ];

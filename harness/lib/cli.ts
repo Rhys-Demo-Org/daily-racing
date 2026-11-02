@@ -4,7 +4,11 @@
 // condition failed, 2 = usage error.
 //
 //   windows <nowSec> [--manual]                        DATE SUNDAY REFUSED NO_NEW_PHASE_AT HARD_AT
-//   pick <sunday 0|1> <backlog.md> <ledger.json> <item-out.md> <meta.json>   KIND ITEM_ID ITEM_TITLE
+//   pick <sunday 0|1> <backlog.md> <ledger.json> <item-out.md> <meta.json> [<prs.json>]
+//                                                      KIND ITEM_ID ITEM_TITLE; with prs.json (live)
+//                                                      state comes from the daily PRs, ledger untouched
+//   allowed <diff-raw> <numstat> <today> <maintenance 0|1>   G8's diff rules; exit 1 + reasons on a violation
+//   prbody <run-dir> <preview-url>                     markdown PR body
 //   spec <claude-result.json> <spec.md> <date> <mode> <backlogId|-> <meta.json>
 //                                                      locks spec.md, prints (and records) its sha256
 //   feedback <gates.json>                              failed-gate text for the retry prompt
@@ -14,10 +18,11 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { runWindows } from './time.ts';
-import { chooseWork, parseBacklog } from './picker.ts';
+import { checkDiff } from './allowlist.ts';
+import { chooseWork, parseBacklog, prState, type DailyPr } from './picker.ts';
 import { redact } from './redact.ts';
 import { extractSpec, lockSpec, renderSpec, validateSpec, type SpecMode } from './spec.ts';
-import { buildResult, gateFeedback, readJson, report } from './journal.ts';
+import { buildResult, gateFeedback, prBody, readJson, report } from './journal.ts';
 
 /** Single-quotes a value for bash `eval`. */
 export const q = (v: unknown): string => `'${String(v).replace(/'/g, `'\\''`)}'`;
@@ -36,13 +41,14 @@ if (import.meta.main) {
       break;
     }
     case 'pick': {
-      const [sunday, backlog, ledger, itemOut, meta] = a as [string, string, string, string, string];
-      const tried = readJson<{ tried?: string[] }>(ledger)?.tried ?? [];
-      // Thin dry runs read no GitHub state, so nothing counts as merged.
-      const w = chooseWork(sunday === '1', parseBacklog(readFileSync(backlog, 'utf8')), new Set(), tried);
+      const [sunday, backlog, ledger, itemOut, meta, prs] = a as [string, string, string, string, string, string?];
+      // Dry runs read no GitHub state, so nothing counts as merged and the ledger rotates.
+      const live = prs === undefined ? null : prState(readJson<DailyPr[]>(prs) ?? (() => { throw new Error(`${prs}: not a PR list`); })());
+      const tried = live?.tried ?? readJson<{ tried?: string[] }>(ledger)?.tried ?? [];
+      const w = chooseWork(sunday === '1', parseBacklog(readFileSync(backlog, 'utf8')), live?.merged ?? new Set(), tried, !live);
       const id = w.kind === 'backlog' ? w.item.id : '';
       if (w.kind === 'backlog') {
-        json(ledger, { tried: w.tried });
+        if (!live) json(ledger, { tried: w.tried });
         writeFileSync(itemOut, w.item.text + '\n');
       }
       merge(meta, { phase: 1, ideaType: w.kind, backlogId: id || null });
@@ -67,6 +73,15 @@ if (import.meta.main) {
     }
     case 'result':
       json(`${a[0]!}/result.json`, buildResult(a[0]!, a[1]!, a[2] || null));
+      break;
+    case 'allowed': {
+      const bad = checkDiff(readFileSync(a[0]!, 'utf8'), readFileSync(a[1]!, 'utf8'), { today: a[2]!, maintenance: a[3] === '1' });
+      for (const b of bad) console.error(b);
+      process.exit(bad.length ? 1 : 0);
+      break;
+    }
+    case 'prbody':
+      process.stdout.write(prBody(a[0]!, env('TZ_NAME'), a[1]!));
       break;
     case 'report':
       process.stdout.write(report(a[0]!, env('TZ_NAME')));

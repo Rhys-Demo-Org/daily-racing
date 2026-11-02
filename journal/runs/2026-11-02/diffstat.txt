@@ -1,0 +1,8 @@
+29	0	src/content/drivers.ts
+8	6	src/game.ts
+13	2	src/ui/finish-panel.ts
+13	5	src/ui/race-ui.ts
+16	0	src/ui/screens.css
+6	0	src/ui/types.ts
+82	0	tests/content/drivers.test.ts
+67	0	tests/ui/finish-drivers.test.ts

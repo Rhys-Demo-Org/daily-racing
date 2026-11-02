@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { checkRulings, fixBrief, fixQueue, readFindings, readFix, reviewMd, type Finding } from '../lib/review.ts';
+import { checkRulings, fixBrief, fixQueue, readFindings, readFix, reviewMd, verifierTest, type Finding } from '../lib/review.ts';
 import { structuredOutput } from '../lib/spec.ts';
 
 let dir = '';
@@ -98,6 +99,45 @@ describe('fixes and review.md', () => {
     expect(md).toContain('Reused formatTime. Dropped: the gates failed with it.');
     expect(md).toContain('### R4-1 · minor · dropped');
     expect(md).toContain('### Judge fix round\n\nFix: fixed in `fedcba987654`. Judge: fixed the label. Kept');
+  });
+});
+
+describe('the verifier\'s test file reaches a fixer only from verify-tests/', () => {
+  const secret = 'github_pat_SECRET0123456789';
+  const traceRuling = (testFile: string) => ({ id: 'R2-1', status: 'verified', method: 'trace', testFile, trace, reason: 'Reproduced.' });
+
+  it('nulls a claimed testFile the verifier did not write, on any ruling', () => {
+    const findings = [f('R2-1', 'major')];
+    expect(checkRulings({ results: [traceRuling('../../../github-token')] }, findings, ['tests/verify/R2-1.test.ts'])[0]).toMatchObject({ status: 'verified', method: 'trace', testFile: null });
+    expect(checkRulings({ results: [traceRuling('tests/verify/R2-1.test.ts')] }, findings, ['tests/verify/R2-1.test.ts'])[0]?.testFile).toBe('tests/verify/R2-1.test.ts');
+  });
+
+  it('reads only a regular file whose real path is inside the folder', () => {
+    const home = join(dir, 'home');
+    const tests = join(home, 'runs', '2026-11-02', 'verify-tests');
+    mkdirSync(join(tests, 'tests', 'verify'), { recursive: true });
+    writeFileSync(join(home, 'github-token'), secret);
+    writeFileSync(join(tests, 'tests', 'verify', 'R2-1.test.ts'), "it('fails', () => {});");
+    symlinkSync(join(home, 'github-token'), join(tests, 'tests', 'verify', 'link.test.ts'));
+    expect(verifierTest(tests, 'tests/verify/R2-1.test.ts')).toBe("it('fails', () => {});");
+    for (const bad of ['../../../github-token', `${home}/github-token`, 'tests/verify/link.test.ts', 'tests/verify', 'tests/verify/none.test.ts', '', null]) {
+      expect(verifierTest(tests, bad), String(bad)).toBeNull();
+    }
+  });
+
+  it('cli fixbrief never puts a file outside verify-tests/ in the brief (regression: PAT leak)', () => {
+    const home = join(dir, 'home2');
+    const run = join(home, 'runs', '2026-11-02');
+    mkdirSync(join(run, 'verify-tests'), { recursive: true });
+    writeFileSync(join(home, 'github-token'), secret);
+    const finding = f('R2-1', 'major');
+    // A review.json written before this fix (or by hand) still carries the traversal: fixbrief must refuse it.
+    const state = { reviewers: { R2: 'ok' }, findings: [finding], rulings: [{ ...traceRuling('../../../github-token'), method: 'trace', harnessNote: undefined }], fixes: [], notes: [] };
+    writeFileSync(join(run, 'review.json'), JSON.stringify(state));
+    const out = spawnSync(process.execPath, ['harness/lib/cli.ts', 'fixbrief', join(run, 'review.json'), 'R2-1', join(run, 'verify-tests')], { encoding: 'utf8' });
+    expect(out.status).toBe(0);
+    expect(out.stdout).toContain('## Finding R2-1');
+    expect(out.stdout).not.toContain(secret);
   });
 });
 

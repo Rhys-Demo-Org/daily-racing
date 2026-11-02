@@ -45,7 +45,7 @@ import { buildResult, gateFeedback, prBody, readJson, report } from './journal.t
 import { existingWork, fileOverlap, openFiles, renderOverlap, type GhPr, type OpenFiles } from './existing.ts';
 import { checkAudit, renderAudit, reviseBrief, type Audit } from './audit.ts';
 import { internalsLint, type Spec } from './spec.ts';
-import { checkRulings, fixBrief, fixQueue, readFindings, readFix, reviewMd, type ReviewState } from './review.ts';
+import { checkRulings, fixBrief, fixQueue, readFindings, readFix, reviewMd, verifierTest, type ReviewState } from './review.ts';
 import { judgeBrief, judgeVerdict, readBlind, readCheck, renderJudge, scanPlanted, type JudgeVerdict } from './judge.ts';
 import { cloneReport, exportInventory, sourceFiles } from './inventory.ts';
 import { METRICS_COLUMNS, metricsRow } from './metrics.ts';
@@ -176,8 +176,7 @@ if (import.meta.main) {
       const s = review(state);
       const f = s.findings.find((x) => x.id === id) ?? (() => { throw new Error(`no finding ${id}`); })();
       const r = s.rulings.find((x) => x.id === id);
-      const src = r?.testFile && existsSync(join(tests, r.testFile)) ? readFileSync(join(tests, r.testFile), 'utf8') : null;
-      process.stdout.write(fixBrief(f, r, src));
+      process.stdout.write(fixBrief(f, r, verifierTest(tests, r?.testFile)));
       break;
     }
     case 'fixrecord': {

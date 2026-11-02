@@ -4,6 +4,8 @@
 // call and the harness commits each fix on its own, so the gates can drop exactly the fixes that
 // break them. review.md is assembled from those records for the judge and the PR.
 
+import { readFileSync, realpathSync, statSync } from 'node:fs';
+import { sep } from 'node:path';
 import { structuredOutput, trimmed } from './spec.ts';
 
 export const REVIEWERS = {
@@ -42,7 +44,8 @@ export function readFindings(reviewer: string, resultPath: string): Finding[] | 
 /**
  * Agent V's rulings, held to the rules: every finding gets exactly one ruling (missing = dropped);
  * a `test` ruling needs a test file V actually wrote (`written`), a `trace` ruling a real trace.
- * A ruling that fails its proof is dropped with a harness note.
+ * A ruling that fails its proof is dropped with a harness note. `testFile` is kept only when V
+ * really wrote that file (on any ruling): it is later read into a fixer's brief.
  */
 export function checkRulings(raw: unknown, findings: readonly Finding[], written: readonly string[]): Ruling[] {
   const out = (raw as { results?: unknown } | null)?.results;
@@ -51,14 +54,16 @@ export function checkRulings(raw: unknown, findings: readonly Finding[], written
   return findings.map((f): Ruling => {
     const r = given.get(f.id);
     if (!r) return { id: f.id, status: 'dropped', method: 'none', testFile: null, trace: '', reason: 'The verifier gave no ruling.', harnessNote: 'no ruling' };
+    const claimed = trimmed(r.testFile);
     const ruling: Ruling = {
       id: f.id, status: r.status === 'verified' ? 'verified' : 'dropped', method: r.method === 'test' || r.method === 'trace' ? r.method : 'none',
-      testFile: trimmed(r.testFile) || null, trace: trimmed(r.trace), reason: trimmed(r.reason),
+      testFile: claimed && written.includes(claimed) ? claimed : null, trace: trimmed(r.trace), reason: trimmed(r.reason),
     };
     if (ruling.status !== 'verified') return ruling;
-    if (ruling.method === 'test' && !(ruling.testFile && written.includes(ruling.testFile))) {
-      if (ruling.trace.length >= 80) return { ...ruling, method: 'trace', harnessNote: `test file ${ruling.testFile ?? '(none)'} was not written; kept on its trace` };
-      return { ...ruling, status: 'dropped', harnessNote: `test file ${ruling.testFile ?? '(none)'} was not written and there is no trace` };
+    if (ruling.method === 'test' && !ruling.testFile) {
+      const note = `test file ${claimed.slice(0, 200) || '(none)'} was not written`;
+      if (ruling.trace.length >= 80) return { ...ruling, method: 'trace', harnessNote: `${note}; kept on its trace` };
+      return { ...ruling, status: 'dropped', harnessNote: `${note} and there is no trace` };
     }
     if (ruling.method === 'trace' && ruling.trace.length < 80) return { ...ruling, status: 'dropped', harnessNote: 'trace too short to be concrete' };
     if (ruling.method === 'none') return { ...ruling, status: 'dropped', harnessNote: 'verified without a test or trace' };
@@ -70,6 +75,21 @@ export function checkRulings(raw: unknown, findings: readonly Finding[], written
 export function fixQueue(findings: readonly Finding[], rulings: readonly Ruling[], max: number): Finding[] {
   const ok = new Set(rulings.filter((r) => r.status === 'verified').map((r) => r.id));
   return findings.filter((f) => ok.has(f.id)).sort((a, b) => SEV.indexOf(a.severity) - SEV.indexOf(b.severity)).slice(0, max);
+}
+
+/**
+ * The source of the verifier's test `testFile` as the harness kept it under `dir` ($RUN/verify-tests),
+ * or null. Only a regular file whose real path is inside `dir` is read, so no `..` or symlink can
+ * pull another file (a token) into a fixer's prompt.
+ */
+export function verifierTest(dir: string, testFile: string | null | undefined): string | null {
+  if (!testFile) return null;
+  try {
+    const root = realpathSync(dir);
+    const path = realpathSync(`${root}${sep}${testFile}`);
+    if (!path.startsWith(root + sep) || !statSync(path).isFile()) return null;
+    return readFileSync(path, 'utf8');
+  } catch { return null; }
 }
 
 /** The brief one fix agent gets: its finding, the verifier's proof and the test V wrote. */

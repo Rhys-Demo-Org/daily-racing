@@ -1,6 +1,6 @@
 // Assembles gates.json and summary.md from the verdict results run-gates.sh collected. Fails
 // closed: a gate with no result file, malformed JSON or a harness note (timeout, cap) fails.
-// Exit 0 only when every gate passed.
+// Maintenance nights add the behaviour-preservation gates P1 and P2. Exit 0 only when every gate passed.
 //
 //   node report.ts --results <dir> --out <dir> --branch-sha <sha> --main-sha <sha>
 //                  --started <ISO> --duration-ms <n> [--maintenance]
@@ -9,14 +9,19 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cli, flag, isResult, readText, type GateResult } from './lib.ts';
 
-const GATES = [
+const GATES: (readonly [string, string])[] = [
   ['G1', 'Build, types & unit tests'],
   ['G2', 'Bot laps'],
   ['G3', 'Physics replays'],
   ['G8', 'Protected files'],
-] as const;
+];
+const PRESERVATION: (readonly [string, string])[] = [
+  ['P1', 'Screens unchanged (DOM + styles)'],
+  ['P2', 'Scene geometry unchanged'],
+];
 
 const { flags } = cli();
+if (flags['maintenance'] === true) GATES.push(...PRESERVATION);
 const dir = flag(flags, 'results');
 const read = (name: string): string | null => readText(join(dir, name));
 

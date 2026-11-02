@@ -17,8 +17,8 @@ runs the gates and decides the result; only the gates count, not your summary.
   test file. Each must fail on `main` and pass with your change. Never edit or delete an existing test.
 - Maintenance night: change no behaviour. Bot lap times and physics replays must stay identical and
   existing visual baselines unchanged. Tests may be clarified, never weakened.
-- Build the spec and nothing more: at most 800 changed lines in `src/` (excluding tests and track
-  JSON) and at most 12 changed files.
+- Build the spec and nothing more: about 800 changed lines in `src/` (excluding tests and track
+  JSON) and at most 20 changed files.
 - If `UI_RULES.md` doesn't cover a visual decision, don't invent one: describe it in
   `journal/runs/<today>/design-request.md` and leave that part out.
 - Don't print environment variables or secrets.

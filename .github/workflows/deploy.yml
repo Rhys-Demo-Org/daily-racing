@@ -51,6 +51,10 @@ jobs:
         with:
           name: dist
           path: dist
+      - name: Static files only (branch code wrote dist; no Pages Functions, workers or routing files)
+        run: |
+          bad=$(find dist \( -name _worker.js -o -name _routes.json -o -name _redirects -o -name _headers -o -path dist/functions \) -print)
+          if [ -n "$bad" ]; then echo "refusing to deploy: $bad"; exit 1; fi
       - name: Preview branch name (sanitised; branch names are never interpolated raw)
         id: branch
         env:

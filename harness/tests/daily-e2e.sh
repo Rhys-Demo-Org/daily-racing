@@ -348,6 +348,9 @@ ok "journal: maintenance.json, perf numbers and a read-only copy of the list" 'g
 ok "a dry run notes the branch on the item, which stays open" '[[ $(cl ".items[0].status" a) == open ]] && cl ".items[0].history[].event" a | grep "done on the dry-run branch daily/2026-12-13" >/dev/null'
 ok "result.json and metrics.csv carry the maintenance numbers" '[[ $(res .maintenance.limits.netSrc 2026-12-13) == -1 ]] && awk -F, -v c="$(head -1 "$D/metrics.csv")" "/^2026-12-13,/ { n = split(c, h, \",\"); for (i = 1; i <= n; i++) v[h[i]] = \$i; print v[\"mode\"], v[\"surveyFindings\"], v[\"itemsChosen\"], v[\"itemsDone\"], v[\"netSrcLines\"], v[\"preserveP1\"], v[\"limitsM1\"] }" "$D/metrics.csv" | grep -qx "maintenance 1 1 1 -1 true true"'
 ok "the morning report has the maintenance line" '"$ROOT/harness/scripts/dry-run-report.sh" 2026-12-13 >"$T/report-m" && grep -q "^- Maintenance: survey 1 findings (1 new" "$T/report-m"'
+ok "R1, R3, R4 and R5 get their maintenance focus; the review logs what each reviewer checked" 'grep -q "^## Your focus: R3, duplication and dead code (maintenance)" "$W/review-R3.md" && grep -q "^## Your focus: R4, what the screen gate can.t see (maintenance)" "$W/review-R4.md" && grep -q "^## Your focus: R5, is every changed line exercised" "$W/review-R5.md" && grep -q "^## Your focus: R2, correctness" "$W/review-R2.md" && grep -q "review: 0 findings; checked: R1 0, R2 0, R3 0, R4 0, R5 0" "$R/run.log"'
+ok "the refactor gets main's perf numbers in /inputs" 'grep -q "agent-run build .*inputs=$W/refactor-in " "$STUB_LOG" && [[ -s $W/refactor-in/perf-main.json ]]'
+ok "the judge gets the inventory and clone report of the branch and of main" 'for f in inventory-branch.md inventory-main.md clones-branch.md clones-main.md; do [[ -s $W/judge-1/$f ]] || exit 1; done && grep -q "formatTime" "$W/judge-1/inventory-main.md" && [[ ! -e $W/judge-1/perf-branch.json ]]'
 
 echo "maintenance on any day with --maintenance; a survey pass's agent error is dropped (Fri 2026-12-18)"
 daily_args 2026-12-18T02:00:00Z --maintenance -- CLEANUP_LIST="$D/cl-i.json" STUB_EXIT_survey_render=13
@@ -402,6 +405,35 @@ MODE=--dry-run
 daily 2027-02-14T02:00:00Z CLEANUP_LIST="$D/cl-a.json" STUB_PRS="$merged"
 ok "the merged PR closed C001 with its number; the repeat is a new item that says so" '[[ $(cl ".items[0].status" a) == closed && $(cl ".items[0].pr" a) == 1 && $(cl ".items[0].closedOn" a) == 2027-02-14 && $(cl ".items[1].id" a) == C002 ]] && cl ".items[1].history[0].event" a | grep "resembles C001, closed in #1" >/dev/null && grep -q "1 item(s) closed by merged maintenance PRs" "$D/runs/2027-02-14/run.log"'
 ok "the survey was shown C001 as closed" 'sed -n "/^## Closed/,\$p" "$D/work/2027-02-14/survey-in/cleanup.md" | grep "^### C001" >/dev/null'
+
+echo "live: a maintenance night that fails opens a draft and leaves its items open (Sun 2027-02-21)"
+MODE=--live
+daily 2027-02-21T02:00:00Z CLEANUP_LIST="$D/cl-j.json" STUB_GATES=fail
+ok "draft PR; the item is noted, not locked in-PR" '[[ $(res .outcome 2027-02-21) == fail && $(cl ".items[0].status" j) == open && $(cl ".items[0].pr" j) == null ]] && grep -q "pr create .*--draft .*--label maintenance --label failed$" "$STUB_LOG" && cl ".items[0].history[].event" j | grep "attempted in draft PR #1 (night fail); stays open" >/dev/null'
+MODE=--dry-run
+
+echo "an item touching a file of the owner's open non-daily PR is skipped (Sun 2027-02-28)"
+owner_pr='[{"number":12,"title":"harness: next milestone","state":"OPEN","isDraft":false,"labels":[],"author":{"login":"rhyscharris"},"files":[{"path":"src/ui/format.ts"}]}]'
+daily 2027-02-28T02:00:00Z CLEANUP_LIST="$D/cl-k.json" STUB_OWNER_PRS="$owner_pr"
+ok "C001 skipped for #12, nothing eligible" '[[ $(res .outcome 2027-02-28) == skip && $(jq -c ".candidates.skipped" "$D/runs/2027-02-28/maintenance.json") == "[{\"id\":\"C001\",\"prs\":[12]}]" ]] && grep -q "pr list .*--state open --author rhyscharris" "$STUB_LOG" && jq -e "any(.[]; .number == 12)" "$D/work/2027-02-28/open-files.json" >/dev/null'
+
+echo "a performance item: the judge gets main's and the branch's perf numbers (Sun 2027-03-07)"
+perf='[{"category":"performance","files":["src/ui/hud.ts"],"line":1,"claim":"hud sync rebuilds the lap label string every frame","evidence":"perf.json: 2 DOM mutations per tick","suggestedFix":"update only on change","worth":"high","estLines":4}]'
+daily 2027-03-07T02:00:00Z CLEANUP_LIST="$D/cl-l.json" STUB_SURVEY_UI='[]' STUB_SURVEY_PERFORMANCE="$perf"
+ok "pass; perf-main.json and perf-branch.json in the judge's folder; the probe ran on main and on the branch" '[[ $(res .outcome 2027-03-07) == pass && -s $D/work/2027-03-07/judge-1/perf-main.json && -s $D/work/2027-03-07/judge-1/perf-branch.json && $(grep -c "^perf-probe " "$STUB_LOG") == 2 ]] && grep -q "^## Extra files on a maintenance night" "$D/work/2027-03-07/judge-1.md"'
+
+echo "the last fix is reverted by P1: result.json and metrics report HEAD's limits, not its (Sun 2027-03-28)"
+printf '%s\n' 'if [[ $FIX_ID == R2-1 ]]; then sed -i "1d" src/ui/countdown.ts; else sed -i "1,3d" src/ui/hud.css; sed -i "1d" src/ui/results-screen.ts; fi' >"$T/lastfix.sh"
+daily 2027-03-28T02:00:00Z CLEANUP_LIST="$D/cl-n.json" STUB_FINDINGS_R2="[$(finding 1 major 1)]" STUB_FINDINGS_R3="[$(finding 2 minor 2)]" STUB_FIX="$T/lastfix.sh"
+ok "HEAD is gate run 2 (R2-1 kept); run 3 (R3-1) failed and was reverted; the numbers are run 2's" '[[ $(res .outcome 2027-03-28) == pass && $(jq .headGateRun "$D/runs/2027-03-28/meta.json") == 2 && $(gate P1 .pass 2027-03-28 3) == false && $(gate M1 .limits.files 2027-03-28 3) == 4 && $(res .maintenance.limits.files 2027-03-28) == $(gate M1 .limits.files 2027-03-28 2) && $(res .maintenance.limits.files 2027-03-28) == 2 ]] && awk -F, -v c="$(head -1 "$D/metrics.csv")" "/^2027-03-28,/ { n = split(c, h, \",\"); for (i = 1; i <= n; i++) v[h[i]] = \$i; print v[\"changedFiles\"] }" "$D/metrics.csv" | grep -qx 2'
+
+echo "a corrupt cleanup list stops the night and is left as it was (Sun 2027-03-14)"
+echo '{"version":1,"nextId":2,"updatedAt":null,"items":[{"id":"C001","status":"bogus"}]}' >"$D/cl-m.json"
+cp "$D/cl-m.json" "$T/cl-m.before"
+daily 2027-03-14T02:00:00Z CLEANUP_LIST="$D/cl-m.json"
+ok "abort before any survey agent; the list untouched" '[[ $(res .outcome 2027-03-14) == abort && $(res .reason 2027-03-14) == *"cleanup list"*"corrupt"* && $(grep -c "^agent-run survey-" "$STUB_LOG") == 0 ]] && cmp -s "$D/cl-m.json" "$T/cl-m.before"'
+daily 2027-03-21T02:00:00Z CLEANUP_LIST="$D/repo/cleanup.json"
+ok "a cleanup list inside the clone is refused" '[[ $rc != 0 && ! -e $D/runs/2027-03-21 ]] && grep -q "must not be under" "$T/out"'
 
 echo
 (( fails == 0 )) && echo "daily-e2e: all passed" || echo "daily-e2e: $fails failed"

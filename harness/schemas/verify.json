@@ -1,0 +1,26 @@
+{
+  "title": "Verified findings",
+  "description": "Agent V's ruling on every reviewer finding (plans/full-pipeline.md, step 8).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["results"],
+  "properties": {
+    "results": {
+      "type": "array",
+      "maxItems": 80,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "method", "testFile", "trace", "reason"],
+        "properties": {
+          "id": { "description": "The finding's ID as given (e.g. R2-3).", "type": "string", "pattern": "^R[1-5]-[0-9]+$" },
+          "status": { "type": "string", "enum": ["verified", "dropped"] },
+          "method": { "description": "test: a new test file you wrote fails because of it. trace: a concrete step-by-step trace through the code. none: dropped.", "type": "string", "enum": ["test", "trace", "none"] },
+          "testFile": { "description": "method test: the new tests/** file you wrote that fails now.", "type": ["string", "null"], "maxLength": 200 },
+          "trace": { "description": "method trace: the concrete trace (inputs, calls, values). Otherwise what you ran.", "type": "string", "maxLength": 3000 },
+          "reason": { "description": "Why it is verified or dropped, in one or two sentences.", "type": "string", "minLength": 5, "maxLength": 800 }
+        }
+      }
+    }
+  }
+}

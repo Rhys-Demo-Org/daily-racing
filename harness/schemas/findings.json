@@ -1,0 +1,27 @@
+{
+  "title": "Review findings",
+  "description": "One reviewer's findings (plans/full-pipeline.md, step 7). Each is checked by the verifier before anything is changed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["findings"],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "severity", "file", "line", "claim", "evidence", "suggestedFix"],
+        "properties": {
+          "id": { "description": "Your own short ID, e.g. F1.", "type": "string", "pattern": "^[A-Za-z0-9-]{1,12}$" },
+          "severity": { "type": "string", "enum": ["critical", "major", "minor"] },
+          "file": { "description": "Repo path the finding is about.", "type": "string", "maxLength": 200 },
+          "line": { "type": ["integer", "null"], "minimum": 1 },
+          "claim": { "description": "What is wrong, in one or two sentences.", "type": "string", "minLength": 10, "maxLength": 600 },
+          "evidence": { "description": "Code quoted from the diff or tree, a concrete input or sequence of steps, or the screenshot and mockup compared.", "type": "string", "minLength": 10, "maxLength": 2000 },
+          "suggestedFix": { "type": "string", "minLength": 5, "maxLength": 1000 }
+        }
+      }
+    }
+  }
+}

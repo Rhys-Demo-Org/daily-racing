@@ -1,0 +1,13 @@
+{
+  "title": "Fix report",
+  "description": "Agent F's report on the one finding it was given (plans/full-pipeline.md, step 9).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "status", "summary", "tests"],
+  "properties": {
+    "id": { "type": "string", "maxLength": 20 },
+    "status": { "description": "fixed: changed and tested. not-fixed: left alone, with the reason in summary.", "type": "string", "enum": ["fixed", "not-fixed"] },
+    "summary": { "description": "What you changed and why it fixes the finding (or why you didn't).", "type": "string", "minLength": 10, "maxLength": 1500 },
+    "tests": { "description": "New tests/** files that fail without the fix and pass with it.", "type": "array", "maxItems": 5, "items": { "type": "string", "maxLength": 200 } }
+  }
+}

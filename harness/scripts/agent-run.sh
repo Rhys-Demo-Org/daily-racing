@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Runs one `claude -p --output-format json` call in a fresh sandbox container (HANDOVER §4.1, §8).
 #
-#   agent-run.sh --phase <ideate|build|retry> --workdir <dir> --prompt-file <file> --model <id>
+#   agent-run.sh --phase <phase> --workdir <dir> --prompt-file <file> --model <id>
 #     --max-turns <n> --timeout-min <m> --out <dir> --date <YYYY-MM-DD> [--json-schema <file>]
-#     [--tools <list>] [--maintenance] [--fake-claude <script>]
+#     [--tools <list>] [--access rw|verify|ro|isolated] [--inputs <dir>] [--effort <level>]
+#     [--maintenance] [--fake-claude <script>]
+#
+# Phases: ideate audit build retry r1..r5 verify fix judge judgecheck (plans/full-pipeline.md).
 #
 # Writes <out>/result.json (claude's stdout, verbatim), <out>/stderr.log, <out>/meta.json.
-# Exit: 0 ok · 10 usage/rate limit or unrecognised error · 11 max turns · 12 wall-clock timeout ·
-# 2 harness/usage error (classification: harness/lib/classify.ts).
+# Exit: 0 ok · 10 usage/rate limit · 11 max turns · 12 wall-clock timeout · 13 any other agent
+# error · 2 harness/usage error (classification: harness/lib/classify.ts).
 #
 # Mount scheme: the workdir is mounted at /work READ-ONLY, then only the allowlist (plan deviation
 # 2) is bound read-write over it: src/, tests/, journal/runs/<date>/ (and CLAUDE.md with
@@ -18,6 +21,18 @@
 # build/test caches (node_modules/.vite*, .vitest-cache, dist/, dev-dist/) are tmpfs, so pnpm
 # test/typecheck/build work unchanged.
 #
+# Journal masking (plans/full-pipeline.md "Security additions"): journal/ is an empty read-only
+# tmpfs and only journal/runs/<date>/ is bound back in, so no agent reads an earlier night's notes
+# or transcripts (they could carry instructions to every later night).
+#
+# --access       rw (default): the builder allowlist above (build, retry, fix).
+#                verify: as rw but src/ read-only; the verifier writes only new tests.
+#                ro: the whole repo read-only (ideate, audit, reviewers); still runs nothing.
+#                isolated: <workdir> is not the repo but a folder of copied inputs, mounted
+#                read-only with nothing else, and only user settings load (the judge, HANDOVER
+#                §6.2 step 5: the repo's CLAUDE.md and .claude/ never load).
+# --inputs       a folder of harness-copied inputs, mounted read-only at /inputs
+# --effort       claude --effort (low|medium|high|xhigh|max)
 # --date         today's journal folder
 # --maintenance  Sunday maintenance: CLAUDE.md is writable too
 # --fake-claude  TEST ONLY (self-test-sandbox.sh): mounts <script> as `claude` and passes a random
@@ -28,19 +43,23 @@ source "$(dirname "$0")/../lib/common.sh"
 proxy_url=http://daily-racer-proxy:3128
 
 phase='' workdir='' prompt='' model='' turns='' timeout_min='' out='' schema='' tools='' fake='' maintenance=0 date=''
+access=rw inputs='' effort=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --phase) phase="$2" ;; --workdir) workdir="$2" ;; --prompt-file) prompt="$2" ;;
     --model) model="$2" ;; --max-turns) turns="$2" ;; --timeout-min) timeout_min="$2" ;;
     --out) out="$2" ;; --json-schema) schema="$2" ;; --tools) tools="$2" ;; --date) date="$2" ;;
-    --fake-claude) fake="$2" ;;
+    --fake-claude) fake="$2" ;; --access) access="$2" ;; --inputs) inputs="$2" ;; --effort) effort="$2" ;;
     --maintenance) maintenance=1; shift; continue ;;
     *) die "unknown option $1" ;;
   esac
   [[ $# -ge 2 ]] || die "$1 needs a value"
   shift 2
 done
-[[ "$phase" =~ ^(ideate|build|retry)$ ]] || die "--phase must be ideate, build or retry"
+[[ "$phase" =~ ^(ideate|audit|build|retry|r[1-5]|verify|fix|judge|judgecheck)$ ]] || die "--phase must be one of ideate audit build retry r1..r5 verify fix judge judgecheck"
+[[ "$access" =~ ^(rw|verify|ro|isolated)$ ]] || die "--access must be rw, verify, ro or isolated"
+[[ -z "$inputs" || -d "$inputs" ]] || die "--inputs must be a directory"
+[[ -z "$effort" || "$effort" =~ ^(low|medium|high|xhigh|max)$ ]] || die "--effort must be low, medium, high, xhigh or max"
 [[ -d "$workdir" && -f "$prompt" && -n "$model" && -n "$out" ]] || die "--workdir, --prompt-file, --model and --out are required"
 [[ "$turns" =~ ^[1-9][0-9]*$ ]] || die "--max-turns must be a positive integer"
 [[ "$timeout_min" =~ ^[0-9]+(\.[0-9]+)?$ ]] || die "--timeout-min must be a number of minutes"
@@ -71,17 +90,24 @@ real_dir() { # <relative path> [file]: checks for symlinks, creates the director
   [[ "${2:-}" == file ]] || mkdir -p "$p"
 }
 bind() { real_dir "$2" "${3:-}"; mounts+=(-v "$w/$2:/work/$2:$1"); } # <mode> <relative path> [file]
-bind rw src; bind ro src/driver
-bind rw tests; bind ro tests/baselines
-bind rw "journal/runs/$date"
-(( maintenance )) && bind rw CLAUDE.md file
-if [[ -d "$w/.git" ]]; then mounts+=(--tmpfs /work/.git:ro); elif [[ -e "$w/.git" ]]; then mounts+=(-v /dev/null:/work/.git:ro); fi
-real_dir dist; real_dir dev-dist; real_dir node_modules
-nm="$(deps "$w")"
-mounts+=(-v "$nm:/work/node_modules:ro")
-for c in dist dev-dist node_modules/.vite node_modules/.vite-temp node_modules/.vitest-cache; do
-  mounts+=(--tmpfs "/work/$c:uid=$(id -u),gid=$(id -g)")
-done
+if [[ $access != isolated ]]; then
+  case $access in
+    rw) bind rw src; bind ro src/driver; bind rw tests; bind ro tests/baselines ;;
+    verify) bind ro src; bind rw tests; bind ro tests/baselines ;;
+  esac
+  real_dir "journal/runs/$date"
+  mounts+=(--tmpfs /work/journal:ro,mode=0555)
+  bind "$([[ $access == rw ]] && echo rw || echo ro)" "journal/runs/$date"
+  (( maintenance )) && [[ $access == rw ]] && bind rw CLAUDE.md file
+  if [[ -d "$w/.git" ]]; then mounts+=(--tmpfs /work/.git:ro); elif [[ -e "$w/.git" ]]; then mounts+=(-v /dev/null:/work/.git:ro); fi
+  real_dir dist; real_dir dev-dist; real_dir node_modules
+  nm="$(deps "$w")"
+  mounts+=(-v "$nm:/work/node_modules:ro")
+  for c in dist dev-dist node_modules/.vite node_modules/.vite-temp node_modules/.vitest-cache; do
+    mounts+=(--tmpfs "/work/$c:uid=$(id -u),gid=$(id -g)")
+  done
+fi
+[[ -z "$inputs" ]] || mounts+=(-v "$(realpath "$inputs"):/inputs:ro")
 
 tmp="$(mktemp -d)"
 name="daily-racer-agent-$phase-$$-$RANDOM"
@@ -97,6 +123,9 @@ args=(-p --output-format json --model "$model" --max-turns "$turns"
   --permission-mode bypassPermissions --disallowedTools WebFetch,WebSearch --no-session-persistence)
 [[ -n "$schema" ]] && args+=(--json-schema "$(cat "$schema")")
 [[ -n "$tools" ]] && args+=(--tools "$tools")
+[[ -n "$effort" ]] && args+=(--effort "$effort")
+[[ -n "$inputs" ]] && args+=(--add-dir /inputs)
+[[ $access == isolated ]] && args+=(--setting-sources user)
 [[ -n "$MAX_BUDGET_USD" ]] && args+=(--max-budget-usd "$MAX_BUDGET_USD")
 
 # In-container wrapper: refuses to start claude (with bypassPermissions) unless it's in this
@@ -131,5 +160,5 @@ docker rm -f "$name" >/dev/null 2>&1 || true
 code=0
 docker run "${DOCKER_BASE[@]}" --network none --read-only -v "$HARNESS_ROOT:/repo:ro" -v "$out:/out" "$IMAGE" \
   node /repo/harness/lib/classify.ts /out "$rc" "$phase" "$model" "$wall_ms" "${timed_out[@]}" >/dev/null || code=$?
-[[ "$code" =~ ^(0|10|11|12)$ ]] || die "classifier failed (exit $code)"
+[[ "$code" =~ ^(0|10|11|12|13)$ ]] || die "classifier failed (exit $code)"
 exit "$code"

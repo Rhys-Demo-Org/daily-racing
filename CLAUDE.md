@@ -45,7 +45,7 @@ on Sundays (maintenance). Everything else is protected and only the owner change
 src/sim          deterministic simulation; no Three.js, DOM, or global/time/random access
 src/render       Three.js scene and procedural meshes
 src/render/materials   the ONLY place that may construct a Three.js material or shader
-src/ui           DOM/CSS HUD and menus, tokens only
+src/ui           DOM/CSS HUD and menus, tokens only; src/ui/stages = screen stages (never shipped)
 src/content      tracks (src/content/tracks/*.json), cars, features: where most daily work lands
 src/input        touch, keyboard, gamepad
 src/driver       window.__racer test driver used by gates (protected)
@@ -73,6 +73,13 @@ spikes           Phase 0 throwaway experiments (deleted at handover)
   registered. Tracks are JSON data and must pass `validateTrack` (`src/sim/track.ts`: e.g. ramp
   slope ≤ `MAX_RAMP_SLOPE`, height ≤ `MAX_RAMP_HEIGHT`, 25 units of straight track after a lip); bots must finish every
   registered track (`tests/sim/bot.test.ts`).
+- **Screen stages:** every screen and overlay state has a stage. `src/ui/stages/<name>.stage.ts`
+  default-exports `{ '<state>': (root) => … } satisfies StageFile` (see `stage.ts`), rendering that
+  state with the real UI modules and fixed data; `raceStage()` sets up the race screen. Stages
+  register by glob (`registry.ts`) and nothing in the game may import them, so they never ship. A
+  new screen, or a new state of one, needs a new stage in the same PR.
+  `harness/scripts/screenshots.sh <repo> <outdir>` renders every stage plus race frames at 844×390
+  and 1440×900; compare yours with the mockup.
 - **Fonts:** self-hosted woff2 in `public/fonts/` (`fonts.css`), Barlow Condensed 800/900/900i and
   Atkinson Hyperlegible 400/700, Latin + Latin Extended only.
 

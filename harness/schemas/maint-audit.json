@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "required": ["title", "summary", "chosen", "rejected", "playtest"],
   "properties": {
-    "title": { "description": "Short title for tonight's maintenance, e.g. \"Shared HUD panel helpers, dead finish panel code\".", "type": "string", "minLength": 3, "maxLength": 80 },
+    "title": { "description": "Short title for tonight's maintenance, e.g. \"Shared HUD panel helpers, one lap-time formatter\".", "type": "string", "minLength": 3, "maxLength": 80 },
     "summary": { "description": "What tonight's refactor does and why it is safe, in two to four sentences.", "type": "string", "minLength": 10, "maxLength": 800 },
     "chosen": {
       "description": "Eligible items to apply tonight, in the order to apply them.",

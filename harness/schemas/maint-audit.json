@@ -1,0 +1,49 @@
+{
+  "title": "Maintenance plan audit",
+  "description": "Agent B's choice of tonight's cleanup items from the eligible ones (plans/full-pipeline.md, the 7th day), and the maintenance spec's text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "summary", "chosen", "rejected", "playtest"],
+  "properties": {
+    "title": { "description": "Short title for tonight's maintenance, e.g. \"Shared HUD panel helpers, dead finish panel code\".", "type": "string", "minLength": 3, "maxLength": 80 },
+    "summary": { "description": "What tonight's refactor does and why it is safe, in two to four sentences.", "type": "string", "minLength": 10, "maxLength": 800 },
+    "chosen": {
+      "description": "Eligible items to apply tonight, in the order to apply them.",
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "why"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^C[0-9]{3,}$" },
+          "why": { "description": "Why it is behaviour-preserving and worth it tonight.", "type": "string", "minLength": 5, "maxLength": 600 }
+        }
+      }
+    },
+    "rejected": {
+      "description": "Eligible items not chosen, each with the reason (they stay on the list).",
+      "type": "array",
+      "maxItems": 80,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^C[0-9]{3,}$" },
+          "reason": { "type": "string", "minLength": 5, "maxLength": 400 }
+        }
+      }
+    },
+    "playtest": {
+      "description": "For the owner's phone test of the preview: nothing should look or feel different, and what to check.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["whatYoullSee", "howToTest"],
+      "properties": {
+        "whatYoullSee": { "type": "string", "minLength": 10, "maxLength": 600 },
+        "howToTest": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string", "minLength": 5, "maxLength": 300 } }
+      }
+    }
+  }
+}

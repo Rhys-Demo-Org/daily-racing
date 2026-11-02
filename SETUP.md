@@ -53,7 +53,9 @@ harness/daily.sh --dry-run --manual
 ```
 `--manual` skips the 03:00 start cutoff and sets the limits to start + 3h15 (no new phase) and
 start + 4h30 (hard stop). One run per date: to run again the same day, delete
-`~/.daily-racer/runs/<date>` (the branch is recreated).
+`~/.daily-racer/runs/<date>` (the branch is recreated). Add `--maintenance` to run the Sunday
+maintenance night (survey, cleanup list, refactor) on any day; its cleanup list is
+`~/.daily-racer/cleanup.json`.
 
 ## 4. Read the report
 ```sh

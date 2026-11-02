@@ -168,6 +168,36 @@ cheap. Split it by module once it grows.
 Weeknight reviewers still deduplicate inside the files each feature touches. The PR is labelled
 `maintenance`.
 
+### As built in M1b (deviations)
+- **Tests stay append-only on Sundays** until mutation testing exists (M2). Step 6's test rewrites
+  are deferred: gate M1 fails any edit or deletion of an existing test on a maintenance night, even
+  though G1/G8 still allow it there. Fixes that need one are filed as "needs owner: test pins
+  internals" and listed in the PR for the owner (e.g. `src/ui/finish-panel.ts`, dead code only
+  `tests/ui/screens.test.ts` and `tests/ui/no-inline-colour.test.ts` import).
+- **Conflicts: skip.** Items whose files an open daily PR changes are skipped tonight (noted on the
+  item), never scheduled ahead of the PR.
+- **No ideate on Sundays.** The maintenance plan auditor picks from the list and its choice is the
+  spec; the harness checks it (eligible items only, at most `MAINT_MAX_ITEMS`).
+- **Limits fail, they don't trim.** Gate M1 (40 files, 1,500 lines, net `src/` ≤ 0, tests
+  append-only, the allowlist; config values) runs in every maintenance gate run, so the refactor
+  gets the usual retries with the violations as feedback, and a review fix that breaks a limit is
+  reverted like any failing fix.
+- **Preservation checks are gates P1/P2**, run on maintenance nights only (a feature changes the DOM
+  and the scene on purpose; G2/G3 already cover laps and replays every night). P1 snapshots every
+  screen stage at both viewports (DOM, box and 90-odd computed properties, plus pseudo-elements);
+  P2 hashes every track's scene after three posed frames, the camera, and every car livery, with
+  floats compared at 1e-6. Main is measured in the same gate run (cached per main SHA), so nothing
+  is stored and nothing needs a rebaseline. The gates build through the public seams
+  (`src/render/index.ts`, `src/sim/index.ts`, the stage registry), which the prompts tell the
+  refactor to keep.
+- **Survey passes:** sim, render, ui (with input), content, tests, seams (game loop, index files,
+  stages, `CLAUDE.md` accuracy), duplication and performance. The performance pass gets headless
+  counts (`scripts/perf-probe.sh`: draw calls, triangles, DOM mutations per tick, sampled
+  allocations per frame by function), not timings.
+- **The list is closed only by a live PR.** Dry runs note the branch on the item and leave it open.
+  A PR's items are its refactor's `done` items, carried in a hidden marker; the reviewers and judge
+  check the diff, not that report.
+
 ## Never building the same thing twice
 The existing-work list (HANDOVER §6.2) is built from GitHub:
 
@@ -258,6 +288,7 @@ is not needed.
 | G1/G9 exception: a night may delete exactly the tests of the modules in `supersedes`. Until then ideate, audit and build never retire a module an existing test imports | §5.2, M1a review | M2 |
 | CI reruns every gate on each PR (today: typecheck/test/build) | chat, §7.2 | M2 |
 | Mutation testing on changed lines (report-only, then gate), seed fuzz for sim/track changes | review | M2 → M3 |
+| Sunday test rewrites into public-seam tests, gated on the mutation score not dropping (until then tests stay append-only on Sundays too) | 7th day step 6, M1b | M2 |
 | G10 red/green, with a worked example in `build.md` and a valid-feature cheat that must pass | §5.2, chat | M3 |
 | G11 size, report-only (800 lines / 20 files; maintenance limit above) | §5.2, owner | M3 |
 | Rest of G9, plus G5, G6, G7, G4 | §5.2 | M3 |
@@ -292,7 +323,7 @@ Each milestone gets a spec audit and code review before merge.
   - a duplicate or overlapping spec;
   - a criterion naming internals.
 
-**M1b · Maintenance day**
+**M1b · Maintenance day** (built; deviations under "As built in M1b")
 - Survey, persistent cleanup list, the refactor flow.
 - DOM/computed-style snapshots and geometry hashes.
 

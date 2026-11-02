@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# Nightly loop (HANDOVER §6, plans/full-pipeline.md M1a): pre-flight, existing-work list, pick,
-# ideate ⇄ plan audit, build + gates + retries, review fan-out → verify → fix with per-fix gating,
-# blind judge (+ one fix round), journal and metrics. Sundays keep the thin maintenance flow
-# (ideate, build, gates). A dry run pushes nothing; a live run (plans/live-prs.md) then hands the
-# branch to scripts/publish.sh, which pushes it and opens the PR. Every agent is a fresh
-# `claude -p` in its own sandbox container (scripts/agent-run.sh); only harness-copied files pass
-# between them.
+# Nightly loop (HANDOVER §6, plans/full-pipeline.md M1a, M1b): pre-flight, existing-work list, pick,
+# then the spec: ideate ⇄ plan audit on feature nights; on Sunday's maintenance night (M1b) a survey
+# of the whole codebase into the persistent cleanup list and a plan audit that picks items from it.
+# Then build (the refactor, on maintenance nights) + gates + retries, review fan-out → verify → fix
+# with per-fix gating, blind judge (+ one fix round), journal and metrics. Maintenance gate runs add
+# the behaviour-preservation gates P1/P2 (run-gates.sh) and the size limits M1. A dry run pushes
+# nothing; a live run (plans/live-prs.md) then hands the branch to scripts/publish.sh, which pushes
+# it and opens the PR. Every agent is a fresh `claude -p` in its own sandbox container
+# (scripts/agent-run.sh); only harness-copied files pass between them.
 #
-#   harness/daily.sh --dry-run|--live [--manual]
+#   harness/daily.sh --dry-run|--live [--manual] [--maintenance]
 #
-#   --manual  owner-run daytime dry run: no start cutoff; the no-new-phase and hard limits are the
-#             start plus the nightly offsets from START_AT (+3h15, +4h30).
+#   --manual       owner-run daytime dry run: no start cutoff; the no-new-phase and hard limits are
+#                  the start plus the nightly offsets from START_AT (+3h15, +4h30).
+#   --maintenance  a maintenance night on any day (maintenance is otherwise Sunday, London time).
 #
 # Works in its own clone ($DAILY_HOME/repo, never the owner's working copy) on branch
 # daily/<London date>. Every harness script comes from this checkout. Logs go to
@@ -25,11 +28,11 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 source "$here/lib/common.sh"
 
-mode='' manual=0
+mode='' manual=0 force_maint=0
 for arg in "$@"; do
-  case $arg in --dry-run) mode=dry ;; --live) mode=live ;; --manual) manual=1 ;; *) mode=; break ;; esac
+  case $arg in --dry-run) mode=dry ;; --live) mode=live ;; --manual) manual=1 ;; --maintenance) force_maint=1 ;; *) mode=; break ;; esac
 done
-[[ -n $mode ]] || { echo "usage: daily.sh --dry-run|--live [--manual]" >&2; exit 2; }
+[[ -n $mode ]] || { echo "usage: daily.sh --dry-run|--live [--manual] [--maintenance]" >&2; exit 2; }
 
 # Test-only hooks, used by harness/tests/daily-e2e.sh and nothing else: a folder of stub
 # agent-run/run-gates/sandbox-net scripts and a file holding a fake epoch clock (DAILY_GH: common.sh).
@@ -51,6 +54,8 @@ disk() {
 command -v docker >/dev/null && docker info >/dev/null 2>&1 || die "docker is not available"
 need_image
 mkdir -p "$DAILY_HOME/runs" "$DAILY_HOME/work"
+# The harness's own commands (ts_node) only see DAILY_HOME, so the cleanup list must live there.
+[[ $(realpath -m "$CLEANUP_LIST") == "$(realpath "$DAILY_HOME")"/* ]] || die "CLEANUP_LIST ($CLEANUP_LIST) must be under DAILY_HOME"
 [[ ! -e $DAILY_HOME/STOP ]] || skip "kill switch $DAILY_HOME/STOP"
 
 # Time windows come from the first invocation, which re-execs itself under a hard `timeout`
@@ -138,6 +143,14 @@ metrics() {
   [[ -s $METRICS_CSV ]] || header=(--header)
   ts_node metrics "$RUN" "${header[@]}" >>"$METRICS_CSV" 2>>"$RUN_LOG" || log "metrics row failed"
 }
+# mirror_list: a copy of the persistent cleanup list (json and markdown) in the run folder, so the
+# journal shows the list as the night left it; made read-only once scrubbed. Agents never see the
+# original, and nothing reads the copy back.
+mirror_list() {
+  [[ -f $CLEANUP_LIST ]] || return 0
+  rm -f "$RUN/cleanup.json" "$RUN/cleanup.md"
+  cp "$CLEANUP_LIST" "$RUN/cleanup.json" && ts_node cleanup-md "$CLEANUP_LIST" "$RUN/cleanup.md" 2>>"$RUN_LOG" || log "could not mirror the cleanup list"
+}
 # scrub: redacts the token (when one exists) from the clone and the run folder; fails if it stays.
 scrub() { [[ ! -s $TOKEN_FILE ]] || tr -d '[:space:]' <"$TOKEN_FILE" | ts_node redact "$CLONE" "$RUN" 2>>"$RUN_LOG"; }
 
@@ -145,6 +158,7 @@ finish() {
   set +e
   trap - TERM INT
   log "outcome: $OUTCOME${REASON:+ ($REASON)}"
+  [[ ${MODE:-} != maintenance ]] || mirror_list # before the scrub, which redacts the copy too
   if (( on_branch )); then
     docker ps -q --filter name=daily-racer-agent- | xargs -r docker rm -f >/dev/null # nothing writes the tree now
     sanitize
@@ -158,10 +172,17 @@ finish() {
   meta_set endedAt "$(now)"
   ts_node result "$RUN" "$OUTCOME" "$REASON" 2>>"$RUN_LOG"
   metrics
+  chmod a-w "$RUN/cleanup.json" "$RUN/cleanup.md" 2>/dev/null
   if (( on_branch )); then
     notes_out
     cp -rT "$RUN" "$J" && "${GIT[@]}" add -A && "${GIT[@]}" commit -qm "journal: $DATE $mode run ($OUTCOME)" &&
       if [[ $mode == live ]]; then "$here/scripts/publish.sh" "$RUN" >>"$RUN_LOG" 2>&1 || log "publish failed (see run.log)"; fi
+  fi
+  # The cleanup items the night did: in a live PR they wait as in-PR #n (closed when it merges, read
+  # from GitHub next time); a dry run that passed only notes its branch.
+  if [[ ${MODE:-} == maintenance && ( -s $RUN/pr.json || ( $mode == dry && $OUTCOME == pass ) ) ]]; then
+    log "cleanup list: $(ts_node cleanup-done "$CLEANUP_LIST" "$RUN" "$BRANCH" 2>>"$RUN_LOG") item(s) marked done"
+    mirror_list && chmod a-w "$RUN/cleanup.json" "$RUN/cleanup.md" 2>/dev/null
   fi
   "$SCRIPTS/sandbox-net.sh" down >>"$RUN_LOG" 2>&1 || log "sandbox-net.sh down failed"
   # Thin disk cleanup: exited toolchain containers, dangling images, old local daily/* branches and
@@ -196,8 +217,8 @@ jq -n --arg date "$DATE" --argjson dryRun "$([[ $mode == dry ]] && echo true || 
   --arg claudeCodeVersion "$(docker run "${DOCKER_BASE[@]}" --network none --read-only "$IMAGE" claude --version)" \
   --arg ideate "$MODEL_IDEATE" --arg audit "$MODEL_AUDIT" --arg build "$MODEL_BUILD" --arg review "$MODEL_REVIEW" --arg reviewR2 "$MODEL_REVIEW_R2" \
   --arg reviewR2Effort "$EFFORT_REVIEW_R2" --arg verify "$MODEL_VERIFY" --arg fix "$MODEL_FIX" --arg judge "$MODEL_JUDGE" \
-  --arg harnessSha "$harness_sha" --argjson promptSha256 "$prompt_hashes" \
-  '{$date, $dryRun, $manual, $startedAt, $noNewPhaseAt, $hardDeadlineAt, $mainSha, $image, $claudeCodeVersion, $harnessSha, $promptSha256,
+  --arg harnessSha "$harness_sha" --argjson promptSha256 "$prompt_hashes" --argjson forcedMaintenance "$( ((force_maint)) && echo true || echo false)" \
+  '{$date, $dryRun, $manual, $forcedMaintenance, $startedAt, $noNewPhaseAt, $hardDeadlineAt, $mainSha, $image, $claudeCodeVersion, $harnessSha, $promptSha256,
     models: {$ideate, $audit, $build, $review, $reviewR2, $reviewR2Effort, $verify, $fix, $judge}}' >"$RUN/meta.json"
 
 git -C "$CLONE" checkout -qf -B "$BRANCH" origin/main
@@ -211,7 +232,7 @@ SKIPPED=() # backlog items tonight's plan audit deferred or rejected
 pick() {
   local skip=() p
   (( ${#SKIPPED[@]} == 0 )) || skip=("--skip=$(IFS=,; echo "${SKIPPED[*]}")")
-  p="$(ts_node pick "$SUNDAY" "$CLONE/guardrails/BACKLOG.md" "$DAILY_HOME/dry-runs.json" "$RUN/item.md" "$RUN/meta.json" "${prs[@]}" "${skip[@]}")"
+  p="$(ts_node pick "$(( SUNDAY || force_maint ))" "$CLONE/guardrails/BACKLOG.md" "$DAILY_HOME/dry-runs.json" "$RUN/item.md" "$RUN/meta.json" "${prs[@]}" "${skip[@]}")"
   eval "$p"
 }
 pick
@@ -294,6 +315,7 @@ run_gates() {
   meta_set headGateRun "$1"
   log "gates attempt $1 on $sha"
   "$SCRIPTS/run-gates.sh" "${maint[@]}" --today "$DATE" "$CLONE" "$sha" "$out" >>"$RUN_LOG" 2>&1 || rc=$?
+  [[ $MODE != maintenance ]] || limits "$out"
   cp "$out/gates.json" "$RUN/gates-$1.json" 2>/dev/null || log "gates attempt $1: no gates.json"
   cp "$out/summary.md" "$RUN/gates-$1.md" 2>/dev/null || true
   (( rc == 0 )) && jq -e '.pass == true' "$RUN/gates-$1.json" >/dev/null 2>&1 && return
@@ -301,6 +323,17 @@ run_gates() {
   return 1
 }
 gates() { commit_tree "daily $DATE: attempt $1 (harness commit)"; run_gates "$1"; }
+# limits <gate-out-dir>: gate M1 (maintenance nights) over HEAD's diff against main, added to that
+# gate run's gates.json and summary.md: the size limits, no net src/ growth, tests append-only,
+# the allowlist. Fails closed: if the check can't run, the gate run fails.
+limits() {
+  local d=(-C "$CLONE" -c core.quotePath=false diff --no-renames --no-ext-diff --no-textconv --ignore-submodules=none -z) t
+  git "${d[@]}" --raw "$MAIN_SHA" HEAD >"$1/diff-raw"
+  git "${d[@]}" --numstat "$MAIN_SHA" HEAD >"$1/diff-numstat"
+  ts_node limits "$1/diff-raw" "$1/diff-numstat" "$1/gates.json" "$1/summary.md" "$DATE" "$MAINT" 2>>"$RUN_LOG" && return
+  log "gate M1 could not run; this gate run fails"
+  t="$(jq '.pass = false' "$1/gates.json" 2>/dev/null)" && printf '%s\n' "$t" >"$1/gates.json"
+}
 # loc_json: changed src/ lines and files of the branch so far.
 loc_json() { git -C "$CLONE" diff --numstat "$MAIN_SHA" HEAD -- src | awk '{a += $1; d += $2; f++} END {printf "{\"files\":%d,\"added\":%d,\"deleted\":%d}", f, a, d}'; }
 branch_diff() { git -C "$CLONE" diff "$MAIN_SHA" HEAD -- . ':(exclude)journal'; }
@@ -322,7 +355,7 @@ screenshots() {
   rm -rf "$raw"
 }
 
-# ---- Spec: ideate ⇄ plan audit (feature nights), plain ideate (maintenance) -----------------------
+# ---- Spec: ideate ⇄ plan audit (feature nights), survey → cleanup list → plan audit (maintenance) ----
 # ideate_prompt <out> [<revise-brief> <previous-draft.md>]
 ideate_prompt() {
   { cat "$here/prompts/ideate.md"; tonight
@@ -351,7 +384,62 @@ record_audit() {
   printf '%s\n' "$t" >"$RUN/audit.json"
 }
 
-check_time ideate
+# ---- Maintenance: survey → cleanup list → plan audit (plans/full-pipeline.md "The 7th day") -------
+MAINT="$RUN/maintenance.json"
+# survey: closes the list's items whose maintenance PR merged, then one fresh read-only agent per area
+# (and the duplication and performance passes) in parallel, each with the list, the export inventory
+# and whole-codebase clone report, the existing work and the perf probe's numbers; their findings
+# are merged into the list. A pass that errors is dropped; the night goes on.
+survey() {
+  local sin="$WORK/survey-in" pids=() failed=() area rc i=0
+  local areas=(sim render ui content tests seams duplication performance)
+  eval "$(ts_node cleanup-sync "$CLEANUP_LIST" "${prs[0]:--}" "$OWNER_LOGIN" "$DATE" "$MAINT")"
+  log "cleanup list: $SYNC_CLOSED item(s) closed by merged maintenance PRs, $SYNC_REOPENED reopened"
+  mkdir -p "$sin"
+  cp "$RUN/existing-work.md" "$sin/"
+  git -C "$CLONE" ls-files -- src >"$WORK/all-src.txt"
+  ts_node inventory "$CLONE" "$WORK/all-src.txt" "$sin"
+  ts_node cleanup-md "$CLEANUP_LIST" "$sin/cleanup.md"
+  if [[ -x $SCRIPTS/perf-probe.sh ]] && timeout "${PERF_PROBE_MIN}m" "$SCRIPTS/perf-probe.sh" "$CLONE" "$sin/perf.json" >>"$RUN_LOG" 2>&1; then
+    cp "$sin/perf.json" "$RUN/perf.json" && log "perf probe: done"
+  else rm -f "$sin/perf.json"; log "perf probe: failed or missing; the performance pass reads the code only"; fi
+  "$SCRIPTS/sandbox-net.sh" up >>"$RUN_LOG" 2>&1 || stop abort "the sandbox network did not start"
+  for area in "${areas[@]}"; do
+    { cat "$here/prompts/survey.md" "$here/prompts/survey-$area.md"; tonight; } >"$WORK/survey-$area.md"
+    agent_run "survey-$area" 1 "$WORK/survey-$area.md" "$MODEL_SURVEY" "$MAX_TURNS_SURVEY" "$WALL_SURVEY_MIN" --access ro --inputs "$sin" \
+      --json-schema "$here/schemas/survey.json" --tools Read,Glob,Grep &
+    pids+=("$!")
+  done
+  for area in "${areas[@]}"; do
+    rc=0; wait "${pids[$i]}" || rc=$?; i=$((i + 1))
+    soft_rc "survey-$area-1" "$rc" || failed+=("$area")
+  done
+  eval "$(ts_node survey "$CLEANUP_LIST" "$RUN/phases" "$CLONE" "$DATE" "$MAINT" "--failed=$(IFS=,; echo "${failed[*]}")" 2>>"$RUN_LOG")"
+  log "survey: $SURVEY_FINDINGS findings, $SURVEY_NEW new on the cleanup list${failed[*]:+ (agent error, dropped: ${failed[*]})}"
+}
+# maintenance_spec: the survey, then tonight's eligible items (open, not owner-only, touching no open
+# PR's files) for a fresh plan auditor, whose choice the harness checks and locks as spec.md.
+maintenance_spec() {
+  survey
+  eval "$(ts_node candidates "$CLEANUP_LIST" "$WORK/open-files.json" "$DATE" "$WORK/candidates.md" "$MAINT")"
+  log "cleanup list: $ELIGIBLE item(s) eligible tonight"
+  (( ELIGIBLE > 0 )) || stop skip "no eligible cleanup item tonight (see cleanup.md)"
+  check_time audit-1
+  { cat "$here/prompts/maint-audit.md"; tonight
+    printf '\n## Limits\n\n- At most %s items; %s changed files and %s changed lines in all (journal excluded).\n' "$MAINT_MAX_ITEMS" "$MAINT_MAX_FILES" "$MAINT_MAX_LINES"
+    printf -- '- Net `src/` lines must not grow (added − deleted ≤ %s); tests don'"'"'t count.\n- Existing tests are append-only tonight.\n' "$MAINT_MAX_NET_SRC_LINES"
+    printf '\n## Tonight'"'"'s candidates from the cleanup list (data, from the harness)\n\n'; cat "$WORK/candidates.md"
+    printf '\n## In-flight diffs\n\nThe owner'"'"'s open daily PRs'"'"' diffs are in `/inputs/` (`pr-<n>.diff`), if any.\n'
+    printf '\n## Existing work (data, from the harness)\n\n'; cat "$RUN/existing-work.md"
+  } >"$WORK/maint-audit.md"
+  agent audit 1 "$WORK/maint-audit.md" "$MODEL_AUDIT" "$MAX_TURNS_MAINT_AUDIT" "$WALL_MAINT_AUDIT_MIN" \
+    --json-schema "$here/schemas/maint-audit.json" --tools Read,Glob,Grep --access ro --inputs "$WORK/inflight"
+  eval "$(ts_node maintspec "$CLEANUP_LIST" "$RUN/phases/audit-1/result.json" "$RUN/spec.md" "$RUN/spec.json" "$DATE" "$RUN/meta.json" "$RUN/audit.json" "$MAINT" 2>>"$RUN_LOG")"
+  log "plan audit: $CHOSEN cleanup item(s) chosen"
+  (( CHOSEN > 0 )) || stop skip "the plan audit chose no cleanup item"
+}
+
+check_time "$( [[ $MODE == backlog ]] && echo ideate || echo survey)"
 if [[ $MODE == backlog ]]; then
   n=0 items=0
   while :; do
@@ -392,22 +480,22 @@ if [[ $MODE == backlog ]]; then
   SPEC_SHA="$(ts_node lock "$d/draft.json" "$d/audit.md" "$RUN/spec.md" "$RUN/spec.json" "$DATE" "$MODE" "$RUN/meta.json" 2>>"$RUN_LOG")" ||
     stop fail "could not lock the approved spec (see run.log)"
 else
-  ideate_prompt "$WORK/ideate.md"
-  agent ideate 1 "$WORK/ideate.md" "$MODEL_IDEATE" "$MAX_TURNS_IDEATE" "$WALL_IDEATE_MIN" \
-    --json-schema "$here/schemas/spec.json" --tools Read,Glob,Grep --access ro
-  SPEC_SHA="$(ts_node spec "$RUN/phases/ideate-1/result.json" "$RUN/spec.md" "$DATE" "$MODE" "${ITEM_ID:--}" "$RUN/meta.json" 2>>"$RUN_LOG")" ||
-    stop fail "ideate produced no valid spec (see run.log)"
+  maintenance_spec
 fi
 log "spec locked: sha256 $SPEC_SHA"
 
 # ---- Build, gates, retries ------------------------------------------------------------------------------
-{ cat "$here/prompts/build.md"; tonight; printf '\n## Locked spec\n\n'; cat "$RUN/spec.md"; } >"$WORK/build.md"
+# Maintenance nights build with the refactor prompt, and the refactor reports per cleanup item.
+build_prompt=build build_args=()
+[[ $MODE != maintenance ]] || build_prompt=refactor build_args=(--json-schema "$here/schemas/refactor.json")
+{ cat "$here/prompts/$build_prompt.md"; tonight; printf '\n## Locked spec\n\n'; cat "$RUN/spec.md"; } >"$WORK/build.md"
 attempt=1 phase=build turns=$MAX_TURNS_BUILD wall=$WALL_BUILD_MIN prompt="$WORK/build.md"
 while :; do
   check_time "$phase-$attempt"
   verify_spec "$phase-$attempt"
   meta_set attempts "$attempt"
-  agent "$phase" "$attempt" "$prompt" "$MODEL_BUILD" "$turns" "$wall"
+  agent "$phase" "$attempt" "$prompt" "$MODEL_BUILD" "$turns" "$wall" "${build_args[@]}"
+  [[ $MODE != maintenance ]] || ts_node refactor "$RUN/phases/$phase-$attempt/result.json" "$MAINT" 2>>"$RUN_LOG" || log "no refactor report"
   gates "$attempt" && break
   (( attempt <= MAX_RETRIES )) || stop fail "gates failed after $MAX_RETRIES retries"
   (( $(now) < NO_NEW_PHASE_AT )) || stop fail "gates failed; no retry after $NO_NEW_PHASE_AFTER"
@@ -416,8 +504,6 @@ while :; do
   attempt=$((attempt + 1)) phase=retry turns=$MAX_TURNS_RETRY wall=$WALL_RETRY_MIN
 done
 gate_n=$attempt
-# Sunday maintenance keeps the thin flow until M1b (survey, cleanup list, refactor).
-[[ $MODE == backlog ]] || stop pass ''
 
 # ---- Review fan-out → verify → fix (plans/full-pipeline.md steps 7–10) ---------------------------------
 # The builder's notes leave the tree first: no later agent reads its self-assessment.
@@ -446,9 +532,10 @@ if soft_time review; then
   "$SCRIPTS/sandbox-net.sh" up >>"$RUN_LOG" 2>&1 || stop abort "the sandbox network did not start"
   pids=() rcs=() failed=()
   for r in R1 R2 R3 R4 R5; do
-    model=$MODEL_REVIEW effort=()
+    model=$MODEL_REVIEW effort=() focus="$here/prompts/review-${r,,}.md"
     [[ $r != R2 ]] || { model=$MODEL_REVIEW_R2; [[ -z $EFFORT_REVIEW_R2 ]] || effort=(--effort "$EFFORT_REVIEW_R2"); }
-    { cat "$here/prompts/review.md" "$here/prompts/review-${r,,}.md"; tonight; inputs_note; } >"$WORK/review-$r.md"
+    [[ $MODE != maintenance || $r != R1 ]] || focus="$here/prompts/review-r1-maintenance.md"
+    { cat "$here/prompts/review.md" "$focus"; [[ $MODE != maintenance ]] || cat "$here/prompts/review-maintenance.md"; tonight; inputs_note; } >"$WORK/review-$r.md"
     agent_run "${r,,}" 1 "$WORK/review-$r.md" "$model" "$MAX_TURNS_REVIEW" "$WALL_REVIEW_MIN" --access ro --inputs "$RIN" \
       --json-schema "$here/schemas/findings.json" --tools Read,Glob,Grep "${effort[@]}" &
     pids+=("$!")
@@ -463,6 +550,8 @@ else
   ts_node notreviewed "$RUN/review.json" "No time: the review would have started after $NO_NEW_PHASE_AFTER, so no reviewer, verifier or fixer ran."
 fi
 
+# fix_head: the fix agent's prompt (with the maintenance rules on maintenance nights) and tonight.
+fix_head() { cat "$here/prompts/fix.md"; [[ $MODE != maintenance ]] || cat "$here/prompts/fix-maintenance.md"; tonight; }
 # fix_one <id> <k> <prompt>: one fresh fix agent. Its change is committed only when it reports
 # `fixed`, then gated on its own; a fix that fails the gates is reverted (just that one), so a bad
 # early fix never costs the good ones after it. FIX_KEPT=1 when the fix is kept. (Always returns 0,
@@ -520,7 +609,7 @@ if (( review_ok && COUNT > 0 )); then
   for id in "${queue[@]}"; do
     soft_time "fix $id" || break
     k=$((k + 1))
-    { cat "$here/prompts/fix.md"; tonight; printf '\n## Locked spec\n\n'; cat "$RUN/spec.md"; printf '\n'; ts_node fixbrief "$RUN/review.json" "$id" "$RUN/verify-tests"; } >"$WORK/fix-$k.md"
+    { fix_head; printf '\n## Locked spec\n\n'; cat "$RUN/spec.md"; printf '\n'; ts_node fixbrief "$RUN/review.json" "$id" "$RUN/verify-tests"; } >"$WORK/fix-$k.md"
     fix_one "$id" "$k" "$WORK/fix-$k.md"
   done
 fi
@@ -542,7 +631,7 @@ judge_round() {
   git -C "$CLONE" archive "$MAIN_SHA" guardrails/design | tar -x -C "$in/references" --strip-components=2
   [[ ! -d $SHOTS ]] || cp -r "$SHOTS" "$in/screenshots"
   ts_node planted "$in/diff.patch" >"$WORK/planted-$r.txt"
-  { cat "$here/prompts/judge.md" "$here/prompts/judge-rubric.md"; tonight
+  { cat "$here/prompts/judge.md" "$here/prompts/judge-rubric$([[ $MODE != maintenance ]] || echo -maintenance).md"; tonight
     printf '\n## This call: blind scoring\n\nScore the build from the files in this folder. There is no review yet. Fill in the blind schema.\n'; } >"$WORK/judge-$r.md"
   agent judge "$r" "$WORK/judge-$r.md" "$MODEL_JUDGE" "$MAX_TURNS_JUDGE" "$WALL_JUDGE_MIN" \
     --workdir "$in" --access isolated --json-schema "$here/schemas/judge-blind.json" --tools Read,Glob,Grep
@@ -578,7 +667,7 @@ judge_round 1
 round=1
 if (( ! PASS )) && soft_time "judge fix round"; then
   k=$((k + 1))
-  { cat "$here/prompts/fix.md"; tonight; printf '\n## Locked spec\n\n'; cat "$RUN/spec.md"; printf '\n'; ts_node judgebrief "$RUN/judge-1.json"
+  { fix_head; printf '\n## Locked spec\n\n'; cat "$RUN/spec.md"; printf '\n'; ts_node judgebrief "$RUN/judge-1.json"
     printf '\nThis is the judge fix round: fix what the judge found (report id `J1`).\n'; } >"$WORK/fix-$k.md"
   fix_one J1 "$k" "$WORK/fix-$k.md"
   if (( FIX_KEPT )); then

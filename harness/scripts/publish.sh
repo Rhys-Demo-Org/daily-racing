@@ -10,6 +10,7 @@
 # a secret-shaped string. Pass → ready PR labelled daily + backlog:Bxx (or maintenance); else a draft
 # also labelled failed. The body carries the hidden harness marker (lib/existing.ts) and the PR then
 # requests the owner's review (GitHub refuses that while the PAT makes the owner the author; logged).
+# Writes <run-dir>/pr.json ({url, number}) once the PR exists.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 source "$here/../lib/common.sh"
@@ -63,4 +64,6 @@ GIT_ASKPASS="$here/git-askpass.sh" GIT_TERMINAL_PROMPT=0 \
   git -C "$CLONE" -c credential.helper= push -q origin "$squash:refs/heads/$BRANCH"
 url="$(gh_ pr create -R "$REPO" --base main --head "$BRANCH" --title "$title" --body-file "$work/body.md" "${args[@]}")"
 echo "$url"
+# The PR's number, for the cleanup list (a maintenance PR's items wait as in-PR #n until it merges).
+jq -n --arg url "$url" '{url: $url, number: ($url | capture("/pull/(?<n>[0-9]+)") | .n | tonumber)}' >"$RUN/pr.json" 2>/dev/null || rm -f "$RUN/pr.json"
 gh_ pr edit "$url" -R "$REPO" --add-reviewer "$OWNER_LOGIN" >/dev/null 2>&1 || echo "publish: could not request a review from $OWNER_LOGIN (the PR's author?)"

@@ -6,7 +6,8 @@
 #     [--tools <list>] [--access rw|verify|ro|isolated] [--inputs <dir>] [--effort <level>]
 #     [--maintenance] [--fake-claude <script>]
 #
-# Phases: ideate audit build retry r1..r5 verify fix judge judgecheck (plans/full-pipeline.md).
+# Phases: ideate audit build retry r1..r5 verify fix judge judgecheck, and on maintenance nights
+# survey-<area> (sim render ui content tests seams duplication performance) (plans/full-pipeline.md).
 #
 # Writes <out>/result.json (claude's stdout, verbatim), <out>/stderr.log, <out>/meta.json.
 # Exit: 0 ok · 10 usage/rate limit · 11 max turns · 12 wall-clock timeout · 13 any other agent
@@ -27,14 +28,14 @@
 #
 # --access       rw (default): the builder allowlist above (build, retry, fix).
 #                verify: as rw but src/ read-only; the verifier writes only new tests.
-#                ro: the whole repo read-only (ideate, audit, reviewers); still runs nothing.
+#                ro: the whole repo read-only (ideate, audit, reviewers, surveyors); still runs nothing.
 #                isolated: <workdir> is not the repo but a folder of copied inputs, mounted
 #                read-only with nothing else, and only user settings load (the judge, HANDOVER
 #                §6.2 step 5: the repo's CLAUDE.md and .claude/ never load).
 # --inputs       a folder of harness-copied inputs, mounted read-only at /inputs
 # --effort       claude --effort (low|medium|high|xhigh|max)
 # --date         today's journal folder
-# --maintenance  Sunday maintenance: CLAUDE.md is writable too
+# --maintenance  Sunday maintenance: CLAUDE.md is writable too (rw access only: the refactor and fixers)
 # --fake-claude  TEST ONLY (self-test-sandbox.sh): mounts <script> as `claude` and passes a random
 #                dummy token instead of TOKEN_FILE, so the sandbox can be exercised without a token.
 set -euo pipefail
@@ -56,7 +57,8 @@ while [[ $# -gt 0 ]]; do
   [[ $# -ge 2 ]] || die "$1 needs a value"
   shift 2
 done
-[[ "$phase" =~ ^(ideate|audit|build|retry|r[1-5]|verify|fix|judge|judgecheck)$ ]] || die "--phase must be one of ideate audit build retry r1..r5 verify fix judge judgecheck"
+[[ "$phase" =~ ^(ideate|audit|build|retry|r[1-5]|verify|fix|judge|judgecheck|survey-sim|survey-render|survey-ui|survey-content|survey-tests|survey-seams|survey-duplication|survey-performance)$ ]] ||
+  die "--phase must be one of ideate audit build retry r1..r5 verify fix judge judgecheck survey-<area>"
 [[ "$access" =~ ^(rw|verify|ro|isolated)$ ]] || die "--access must be rw, verify, ro or isolated"
 [[ -z "$inputs" || -d "$inputs" ]] || die "--inputs must be a directory"
 [[ -z "$effort" || "$effort" =~ ^(low|medium|high|xhigh|max)$ ]] || die "--effort must be low, medium, high, xhigh or max"

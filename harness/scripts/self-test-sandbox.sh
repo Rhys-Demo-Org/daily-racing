@@ -7,9 +7,10 @@
 # agent-run.sh on it with `--fake-claude` pointing at THIS script, so the checks below run inside
 # a real agent container (same mounts, network, env as a nightly call). Inside, it checks the
 # network (proxy allowlist, IP literals, metadata, private IPs, plain http, direct egress, DNS,
-# host services), every protected path, HOME, .git, the token, journal masking, and that pnpm typecheck/test/build
-# and the in-sandbox screenshot command work; it prints a table and exits non-zero on any failure. Then the host checks the
-# wall-clock timeout and the missing-token refusal.
+# host services), every protected path, HOME, .git, the token, journal masking, and that pnpm
+# typecheck/test/build, the in-sandbox screenshot command and the P1/P2 self-checks work; it prints
+# a table and exits non-zero on any failure. Then the host checks the wall-clock timeout and the
+# missing-token refusal.
 set -euo pipefail
 
 # ---- inside the agent container (we are `claude`) ----
@@ -64,6 +65,9 @@ if [[ -f /run/daily-racer-sandbox ]]; then
   check ok 'screenshots (harness/screens build + capture)' sh -c 'rm -rf /tmp/shots-dist /tmp/shots &&
     node_modules/.bin/vite build --config harness/screens/vite.config.ts --outDir /tmp/shots-dist --emptyOutDir --logLevel warn &&
     node harness/screens/capture.ts /tmp/shots-dist /tmp/shots && test "$(find /tmp/shots -name "*.png" | wc -l)" -gt 0'
+  # The behaviour checks refactor.md tells the maintenance refactor to run before it stops (P1, P2).
+  check ok 'scene hash (gate P2 self-check)' sh -c 'node harness/screens/scene.ts . hash | tail -1 | grep -q "\"tracks\":\[{\"id\""'
+  check ok 'stage DOM snapshot (gate P1 self-check)' sh -c 'node harness/screens/probe.ts dom /tmp/shots-dist | tail -1 | grep -q "\"stages\":{"'
   check fail 'no file contains the token' grep -rqsF "$CLAUDE_CODE_OAUTH_TOKEN" /work/src /work/tests /work/journal /tmp "$HOME"
   check ok   "journal/ masked: only journal/runs/$date is visible" test "$(ls -A /work/journal):$(ls -A /work/journal/runs)" == "runs:$date"
   if (( fails == 0 )); then echo '{"type":"result","subtype":"success","is_error":false,"result":"sandbox ok","num_turns":1}'

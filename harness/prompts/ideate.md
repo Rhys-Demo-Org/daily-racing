@@ -23,7 +23,7 @@ the harness renders it to `spec.md`, locks it and hands it to the builder.
   edits one, so that module can't be retired yet. Spec the feature without retiring it, and say in
   `summary` that it stays until the owner retires it with its tests.
 - `playtest`: what the owner will see on the PR preview (`whatYoullSee`) and the steps to try it on a
-  phone (`howToTest`), in plain words with no code names. `null` only on maintenance nights.
+  phone (`howToTest`), in plain words with no code names.
 
 ## Backlog night
 - The spec covers exactly the backlog item under "Tonight": its `scope` and `done_when`, nothing
@@ -38,13 +38,6 @@ the harness renders it to `spec.md`, locks it and hands it to the builder.
   `RaceView`, `window.__racer`, or exported content data. Never name an internal class, function,
   file or private field: tests are append-only, so a test that pins one freezes that name forever.
 - The change must be visible to the owner, and `playtest` says how to see it.
-
-## Maintenance night (Sunday)
-- No new content and no behaviour change: bot lap times, physics replays and visual baselines must
-  stay identical. Pick one small, worthwhile cleanup: a refactor, dead code, clearer tests or docs,
-  or making `CLAUDE.md` match the code.
-- `backlogId` is `null`, `acceptanceCriteria` is `[]` and `playtest` is `null`. Say in `summary`
-  exactly what changes and why it is safe.
 
 ## Revisions
 If a "Plan audit asked for a revision" section follows, a plan auditor rejected your previous

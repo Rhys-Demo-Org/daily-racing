@@ -229,7 +229,8 @@ export function markerIds(body: string): string[] {
 /**
  * Reads the maintenance PRs: only the owner's PRs whose body carries the harness marker count (the
  * owner-login and hidden-marker rules of lib/existing.ts). Merged: its items close with the PR
- * number. Closed unmerged: its in-PR items reopen. Open: its open items are marked in-PR.
+ * number. Closed unmerged: its in-PR items reopen. Open and ready: its open items are marked in-PR.
+ * An open draft (a night that failed) locks nothing: its items stay open.
  */
 export function syncPrs(list: CleanupList, prs: readonly GhPr[], owner: string, date: string): { closed: number; reopened: number; inPr: number } {
   const st = { closed: 0, reopened: 0, inPr: 0 };
@@ -246,7 +247,7 @@ export function syncPrs(list: CleanupList, prs: readonly GhPr[], owner: string, 
         Object.assign(it, { status: 'open', pr: null });
         note(it, date, `#${pr.number} was closed without merging; open again`);
         st.reopened++;
-      } else if (pr.state === 'OPEN' && (it.status === 'open' || it.status === 'stale')) {
+      } else if (pr.state === 'OPEN' && !pr.isDraft && (it.status === 'open' || it.status === 'stale')) {
         Object.assign(it, { status: 'in-pr', pr: pr.number });
         note(it, date, `in open PR #${pr.number}`);
         st.inPr++;
@@ -290,15 +291,17 @@ export function recordRejections(list: CleanupList, rejected: readonly { id: str
 }
 
 /**
- * After the night: the items its refactor reported done. With a PR (live) they move to in-PR #n,
- * closed when it merges; a dry run only notes the branch, so the items stay open.
+ * After the night: the items its refactor reported done. Only a live night that passed puts them in
+ * its PR (in-PR #n, closed when it merges). A live night that failed or aborted opened its PR as a
+ * draft: the items only note it and stay open. A dry run that passed notes its branch; they stay open.
  */
-export function markDone(list: CleanupList, ids: readonly string[], date: string, pr: number | null, branch: string): number {
+export function markDone(list: CleanupList, ids: readonly string[], date: string, pr: number | null, branch: string, outcome = 'pass'): number {
   let n = 0;
   for (const itemId of ids) {
     const it = list.items.find((x) => x.id === itemId);
     if (!it || it.status === 'closed') continue;
-    if (pr !== null) { Object.assign(it, { status: 'in-pr', pr }); note(it, date, `done in PR #${pr}`); }
+    if (pr !== null && outcome === 'pass') { Object.assign(it, { status: 'in-pr', pr }); note(it, date, `done in PR #${pr}`); }
+    else if (pr !== null) note(it, date, `attempted in draft PR #${pr} (night ${outcome}); stays open`);
     else note(it, date, `done on the dry-run branch ${branch} (not pushed; stays open)`);
     n++;
   }
@@ -315,7 +318,7 @@ export function itemBlock(it: CleanupItem, full = true): string {
     if (it.evidence) lines.push(`- Evidence: ${it.evidence}`);
     if (it.suggestedFix) lines.push(`- Suggested fix: ${it.suggestedFix}`);
     lines.push(`- Seen ${it.seenCount}× (first ${it.firstSeen}, last ${it.lastSeen})${it.pr ? ` · PR #${it.pr}` : ''}`);
-    const past = it.history.filter((h) => /not chosen|skipped|closed without|done on|resembles/.test(h.event)).slice(-4);
+    const past = it.history.filter((h) => /not chosen|skipped|closed without|done on|attempted in|resembles/.test(h.event)).slice(-4);
     if (past.length) lines.push(...past.map((h) => `- ${h.date}: ${h.event}`));
   }
   return lines.join('\n');

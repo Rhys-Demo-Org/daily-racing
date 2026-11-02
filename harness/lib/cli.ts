@@ -50,7 +50,7 @@
 //   limits <raw> <numstat> <gates.json> <summary.md> <today> <src-grep>   adds gate M1 (with its numbers) to a gate run
 //                                                      (<src-grep>: `git grep -z -n tests/ HEAD -- src` output)
 //   refactor <result.json> <maint>                     records the refactor agent's per-item report
-//   cleanup-done <list> <run-dir> <branch>             items done tonight: in-PR (pr.json) or noted
+//   cleanup-done <list> <run-dir> <branch> <outcome>   items done tonight: in-PR (pr.json, outcome pass) or noted
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { runWindows } from './time.ts';
@@ -377,12 +377,12 @@ if (import.meta.main) {
       break;
     }
     case 'cleanup-done': {
-      const [path, run, branch] = a as [string, string, string];
+      const [path, run, branch, outcome] = a as [string, string, string, string];
       const rec = readJson<MaintRecord>(join(run, 'maintenance.json')) ?? {};
       const pr = readJson<{ number?: unknown }>(join(run, 'pr.json'));
       const date = readJson<{ date?: string }>(join(run, 'meta.json'))?.date ?? '';
       const list = loadList(path);
-      const n = markDone(list, doneItems(rec), date, typeof pr?.number === 'number' ? pr.number : null, branch);
+      const n = markDone(list, doneItems(rec), date, typeof pr?.number === 'number' ? pr.number : null, branch, outcome);
       saveList(path, list);
       console.log(n);
       break;

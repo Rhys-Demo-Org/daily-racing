@@ -178,10 +178,11 @@ finish() {
     cp -rT "$RUN" "$J" && "${GIT[@]}" add -A && "${GIT[@]}" commit -qm "journal: $DATE $mode run ($OUTCOME)" &&
       if [[ $mode == live ]]; then "$here/scripts/publish.sh" "$RUN" >>"$RUN_LOG" 2>&1 || log "publish failed (see run.log)"; fi
   fi
-  # The cleanup items the night did: in a live PR they wait as in-PR #n (closed when it merges, read
-  # from GitHub next time); a dry run that passed only notes its branch.
+  # The cleanup items the night did: in a live PR of a night that passed they wait as in-PR #n
+  # (closed when it merges, read from GitHub next time); a failed night's draft PR and a dry run that
+  # passed are only noted on them, and they stay open.
   if [[ ${MODE:-} == maintenance && ( -s $RUN/pr.json || ( $mode == dry && $OUTCOME == pass ) ) ]]; then
-    log "cleanup list: $(ts_node cleanup-done "$CLEANUP_LIST" "$RUN" "$BRANCH" 2>>"$RUN_LOG") item(s) marked done"
+    log "cleanup list: $(ts_node cleanup-done "$CLEANUP_LIST" "$RUN" "$BRANCH" "$OUTCOME" 2>>"$RUN_LOG") item(s) noted as done tonight"
     mirror_list && chmod a-w "$RUN/cleanup.json" "$RUN/cleanup.md" 2>/dev/null
   fi
   "$SCRIPTS/sandbox-net.sh" down >>"$RUN_LOG" 2>&1 || log "sandbox-net.sh down failed"

@@ -5,7 +5,7 @@
 
 import { posix } from 'node:path';
 import { checkDiff, parseNumstat, parseRaw } from './allowlist.ts';
-import { itemBlock, type Candidates, type CleanupItem, type CleanupList, type syncPrs } from './cleanup.ts';
+import { itemBlock, oneLine, type Candidates, type CleanupItem, type CleanupList, type syncPrs } from './cleanup.ts';
 import type { Playtest } from './spec.ts';
 import { structuredOutput, trimmed } from './spec.ts';
 
@@ -49,7 +49,7 @@ export function renderMaintSpec(a: MaintAudit, list: CleanupList, date: string, 
   const item = (id: string): CleanupItem => list.items.find((x) => x.id === id)!;
   const lines = [`# Maintenance · ${a.title}`, '', `Date: ${date} · mode: maintenance · backlog: none`, '', '## Summary', '', a.summary, '',
     '## Cleanup items', '', 'Apply exactly these items from the cleanup list, nothing else. Behaviour must not change.', ''];
-  for (const c of a.chosen) lines.push(itemBlock(item(c.id)), `- Why tonight (plan audit): ${c.why || '-'}`, '');
+  for (const c of a.chosen) lines.push(itemBlock(item(c.id)), `- Why tonight (plan audit): ${oneLine(c.why, 600) || '-'}`, '');
   lines.push('## Acceptance criteria', '', 'None (maintenance: behaviour must not change).', '',
     "## What you'll see", '', a.playtest.whatYoullSee, '', '## How to play-test', '', ...a.playtest.howToTest.map((s, i) => `${i + 1}. ${s}`), '',
     '## Limits', '',

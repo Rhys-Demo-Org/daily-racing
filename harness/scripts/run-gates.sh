@@ -132,13 +132,16 @@ verdict() {
 }
 
 # --- gates ---------------------------------------------------------------------------------------
+# The measuring code (main's harness/screens) is in the cache key too. main's SHA already fixes it
+# today; the hash keeps the cache honest if the screens ever come from elsewhere.
+screens="$(find "$work/main/harness/screens" -type f -print0 2>/dev/null | sort -z | xargs -0r cat | sha256sum | cut -c1-12)"
 # main_start <name> <cmd...>: main's measurement for this main SHA and image, unless cached, started
 # in the background (main_wait collects it into io/<name>main.json). Main's code is trusted, so its
 # output is cached across gate runs; the branch is measured fresh every time.
 main_start() {
   local name=$1
   shift
-  MAIN_CACHE="$DAILY_HOME/cache/${name}main-$main_sha-${IMAGE#*:}.json" MAIN_PID=''
+  MAIN_CACHE="$DAILY_HOME/cache/${name}main-$main_sha-${IMAGE#*:}-$screens.json" MAIN_PID=''
   [[ -s $MAIN_CACHE ]] || { measure "${name}main" "$work/main" "$@" & MAIN_PID=$!; }
 }
 main_wait() {

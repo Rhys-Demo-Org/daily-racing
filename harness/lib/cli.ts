@@ -43,6 +43,8 @@
 //
 // Maintenance nights (plans/full-pipeline.md "The 7th day"); <list> is CLEANUP_LIST, <maint> the
 // run's maintenance.json (what the PR body, result.json and metrics read):
+//   areas                                              the survey areas, one per line (cleanup.ts AREAS)
+//   cleanup-check <list>                               exit 1 (and why) when the list is unreadable or corrupt
 //   cleanup-sync <list> <prs.json|-> <owner> <date> <maint>   maintenance PRs close / reopen items
 //   survey <list> <phases-dir> <repo> <date> <maint> [--failed=sim,...]   merges every pass; SURVEY_FINDINGS SURVEY_NEW
 //   cleanup-md <list> <out.md>                         the list as markdown
@@ -285,6 +287,12 @@ if (import.meta.main) {
       break;
     case 'report':
       process.stdout.write(report(a[0]!, env('TZ_NAME')));
+      break;
+    case 'areas':
+      console.log(AREAS.join('\n'));
+      break;
+    case 'cleanup-check':
+      try { loadList(a[0]!); } catch (e) { console.error(String(e)); process.exit(1); }
       break;
     case 'cleanup-sync': {
       const [path, prs, owner, date, maint] = a as [string, string, string, string, string];

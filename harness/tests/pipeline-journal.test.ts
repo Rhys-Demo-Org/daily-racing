@@ -1,8 +1,9 @@
 // The journal, PR body, metrics and inventory pieces of the M1a pipeline (plans/full-pipeline.md).
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { AREAS } from '../lib/cleanup.ts';
 import { HARNESS_MARKER } from '../lib/existing.ts';
 import { cloneReport, exportInventory, sourceFiles } from '../lib/inventory.ts';
 import { buildResult, PHASE_ORDER, prBody, readPhases, report } from '../lib/journal.ts';
@@ -54,7 +55,11 @@ describe('pipeline journal', () => {
   it('knows every phase agent-run.sh accepts', () => {
     const agentRun = readFileSync(new URL('../scripts/agent-run.sh', import.meta.url), 'utf8');
     const accepted = /\[\[ "\$phase" =~ \^\(([^)]+)\)\$ \]\]/.exec(agentRun)![1]!.split('|').flatMap((p) => (p === 'r[1-5]' ? ['r1', 'r2', 'r3', 'r4', 'r5'] : [p]));
-    expect(accepted.sort()).toEqual(Object.keys(PHASE_ORDER).sort());
+    // Survey phases: one per harness/prompts/survey-<area>.md, which must be exactly cleanup.ts AREAS.
+    expect(agentRun).toContain('[[ "$phase" =~ ^survey-[a-z]+$ && -f $HARNESS_ROOT/harness/prompts/$phase.md ]]');
+    const surveys = readdirSync(new URL('../prompts/', import.meta.url)).flatMap((f) => (/^survey-[a-z]+\.md$/.test(f) ? [f.slice(0, -3)] : []));
+    expect(surveys.sort()).toEqual(AREAS.map((a) => `survey-${a}`).sort());
+    expect([...accepted, ...surveys].sort()).toEqual(Object.keys(PHASE_ORDER).sort());
   });
 
   it('result.json carries attempts, the audit, review counts, judge and LOC', () => {

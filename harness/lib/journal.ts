@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { zonedParts } from './time.ts';
 import { HARNESS_MARKER } from './existing.ts';
 import { renderPlaytest, type Playtest } from './spec.ts';
-import { cleanupMarker } from './cleanup.ts';
+import { AREAS, cleanupMarker } from './cleanup.ts';
 import { doneItems, type MaintRecord } from './maintenance.ts';
 
 type Json = Record<string, unknown>;
@@ -37,8 +37,8 @@ export function gateFeedback(path: string): string {
   return g.gates.filter((x) => !x.pass).map((x) => `### ${x.id} · ${x.name ?? ''}\n${x.summary ?? ''}\n\n${x.details ?? ''}\n`).join('\n');
 }
 
-/** Survey passes of a maintenance night (lib/cleanup.ts AREAS), as agent-run.sh phases. */
-export const SURVEY_PHASES = ['survey-sim', 'survey-render', 'survey-ui', 'survey-content', 'survey-tests', 'survey-seams', 'survey-duplication', 'survey-performance'];
+/** Survey passes of a maintenance night (lib/cleanup.ts AREAS, the one list), as agent-run.sh phases. */
+export const SURVEY_PHASES = AREAS.map((a) => `survey-${a}`);
 /** Agent phases (agent-run.sh --phase) in pipeline order; parallel reviewers and surveyors share a step. */
 export const PHASE_ORDER: Record<string, number> = {
   ...Object.fromEntries(SURVEY_PHASES.map((p) => [p, 0])), ideate: 0, audit: 1, build: 2, retry: 2, r1: 3, r2: 3, r3: 3, r4: 3, r5: 3, verify: 4, fix: 5, judge: 6, judgecheck: 7,

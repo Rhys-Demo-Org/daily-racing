@@ -55,7 +55,14 @@ command -v docker >/dev/null && docker info >/dev/null 2>&1 || die "docker is no
 need_image
 mkdir -p "$DAILY_HOME/runs" "$DAILY_HOME/work"
 # The harness's own commands (ts_node) only see DAILY_HOME, so the cleanup list must live there.
-[[ $(realpath -m "$CLEANUP_LIST") == "$(realpath "$DAILY_HOME")"/* ]] || die "CLEANUP_LIST ($CLEANUP_LIST) must be under DAILY_HOME"
+# Not inside the clone, the work or run folders or the cache: agents see some of those, and the run
+# and cache sweeps delete in them.
+dh="$(realpath "$DAILY_HOME")"
+case "$(realpath -m "$CLEANUP_LIST")" in
+  "$dh"/repo | "$dh"/repo/* | "$dh"/work | "$dh"/work/* | "$dh"/runs | "$dh"/runs/* | "$dh"/cache | "$dh"/cache/*) die "CLEANUP_LIST ($CLEANUP_LIST) must not be under $DAILY_HOME/{repo,work,runs,cache}" ;;
+  "$dh"/*) ;;
+  *) die "CLEANUP_LIST ($CLEANUP_LIST) must be under DAILY_HOME" ;;
+esac
 [[ ! -e $DAILY_HOME/STOP ]] || skip "kill switch $DAILY_HOME/STOP"
 
 # Time windows come from the first invocation, which re-execs itself under a hard `timeout`
@@ -411,20 +418,30 @@ record_audit() {
 
 # ---- Maintenance: survey → cleanup list → plan audit (plans/full-pipeline.md "The 7th day") -------
 MAINT="$RUN/maintenance.json"
+# cleanup <command> <args...>: a cli.ts cleanup-list command whose output is eval'd; stops the night
+# when it fails (a corrupt or unreadable list is never silently replaced).
+cleanup() {
+  local v
+  v="$(ts_node "$@" 2>>"$RUN_LOG")" || stop abort "cleanup list unreadable (see run.log): $1 failed"
+  eval "$v"
+}
 # survey: closes the list's items whose maintenance PR merged, then one fresh read-only agent per area
-# (and the duplication and performance passes) in parallel, each with the list, the export inventory
-# and whole-codebase clone report, the existing work and the perf probe's numbers; their findings
-# are merged into the list. A pass that errors is dropped; the night goes on.
+# (cli.ts areas; and the duplication and performance passes) in parallel, each with the list, the
+# export inventory and whole-codebase clone report, the existing work and main's perf-probe numbers;
+# their findings are merged into the list. A pass that errors is dropped; the night goes on.
 survey() {
-  local sin="$WORK/survey-in" pids=() failed=() area rc i=0
-  local areas=(sim render ui content tests seams duplication performance)
-  eval "$(ts_node cleanup-sync "$CLEANUP_LIST" "${prs[0]:--}" "$OWNER_LOGIN" "$DATE" "$MAINT")"
+  local sin="$WORK/survey-in" pids=() failed=() areas=() area rc i=0
+  mapfile -t areas < <(ts_node areas)
+  (( ${#areas[@]} )) || stop abort "no survey areas (cli.ts areas failed)"
+  ts_node cleanup-check "$CLEANUP_LIST" 2>>"$RUN_LOG" || stop abort "cleanup list $CLEANUP_LIST is corrupt (see run.log); fix it or move it aside"
+  cleanup cleanup-sync "$CLEANUP_LIST" "${prs[0]:--}" "$OWNER_LOGIN" "$DATE" "$MAINT"
   log "cleanup list: $SYNC_CLOSED item(s) closed by merged maintenance PRs, $SYNC_REOPENED reopened"
   mkdir -p "$sin"
   cp "$RUN/existing-work.md" "$sin/"
   git -C "$CLONE" ls-files -- src >"$WORK/all-src.txt"
   ts_node inventory "$CLONE" "$WORK/all-src.txt" "$sin"
   ts_node cleanup-md "$CLEANUP_LIST" "$sin/cleanup.md"
+  # The clone is main here, so these are main's numbers: the refactor and the judge get them too.
   if [[ -x $SCRIPTS/perf-probe.sh ]] && timeout "${PERF_PROBE_MIN}m" "$SCRIPTS/perf-probe.sh" "$CLONE" "$sin/perf.json" >>"$RUN_LOG" 2>&1; then
     cp "$sin/perf.json" "$RUN/perf.json" && log "perf probe: done"
   else rm -f "$sin/perf.json"; log "perf probe: failed or missing; the performance pass reads the code only"; fi
@@ -439,27 +456,48 @@ survey() {
     rc=0; wait "${pids[$i]}" || rc=$?; i=$((i + 1))
     soft_rc "survey-$area-1" "$rc" || failed+=("$area")
   done
-  eval "$(ts_node survey "$CLEANUP_LIST" "$RUN/phases" "$CLONE" "$DATE" "$MAINT" "--failed=$(IFS=,; echo "${failed[*]}")" 2>>"$RUN_LOG")"
+  cleanup survey "$CLEANUP_LIST" "$RUN/phases" "$CLONE" "$DATE" "$MAINT" "--failed=$(IFS=,; echo "${failed[*]}")"
   log "survey: $SURVEY_FINDINGS findings, $SURVEY_NEW new on the cleanup list${failed[*]:+ (agent error, dropped: ${failed[*]})}"
+}
+# maint_audit_prompt <out>: the maintenance plan auditor's prompt.
+maint_audit_prompt() {
+  { cat "$here/prompts/maint-audit.md"; tonight
+    cat <<LIMITS
+
+## Limits
+
+- At most $MAINT_MAX_ITEMS items; $MAINT_MAX_FILES changed files and $MAINT_MAX_LINES changed lines in all (journal excluded).
+- Net \`src/\` lines must not grow (added − deleted ≤ $MAINT_MAX_NET_SRC_LINES); tests don't count.
+- Existing tests and screen stages are append-only tonight; no \`src/\` file may import from \`tests/\`.
+
+## Tonight's candidates from the cleanup list (data, from the harness)
+
+LIMITS
+    cat "$WORK/candidates.md"
+    cat <<'TAIL'
+
+## In-flight diffs
+
+The owner's open PRs' diffs are in `/inputs/` (`pr-<n>.diff`), if any.
+
+## Existing work (data, from the harness)
+
+TAIL
+    cat "$RUN/existing-work.md"
+  } >"$1"
 }
 # maintenance_spec: the survey, then tonight's eligible items (open, not owner-only, touching no open
 # PR's files) for a fresh plan auditor, whose choice the harness checks and locks as spec.md.
 maintenance_spec() {
   survey
-  eval "$(ts_node candidates "$CLEANUP_LIST" "$WORK/open-files.json" "$DATE" "$WORK/candidates.md" "$MAINT")"
+  cleanup candidates "$CLEANUP_LIST" "$WORK/open-files.json" "$DATE" "$WORK/candidates.md" "$MAINT"
   log "cleanup list: $ELIGIBLE item(s) eligible tonight"
   (( ELIGIBLE > 0 )) || stop skip "no eligible cleanup item tonight (see cleanup.md)"
   check_time audit-1
-  { cat "$here/prompts/maint-audit.md"; tonight
-    printf '\n## Limits\n\n- At most %s items; %s changed files and %s changed lines in all (journal excluded).\n' "$MAINT_MAX_ITEMS" "$MAINT_MAX_FILES" "$MAINT_MAX_LINES"
-    printf -- '- Net `src/` lines must not grow (added − deleted ≤ %s); tests don'"'"'t count.\n- Existing tests are append-only tonight.\n' "$MAINT_MAX_NET_SRC_LINES"
-    printf '\n## Tonight'"'"'s candidates from the cleanup list (data, from the harness)\n\n'; cat "$WORK/candidates.md"
-    printf '\n## In-flight diffs\n\nThe owner'"'"'s open PRs'"'"' diffs are in `/inputs/` (`pr-<n>.diff`), if any.\n'
-    printf '\n## Existing work (data, from the harness)\n\n'; cat "$RUN/existing-work.md"
-  } >"$WORK/maint-audit.md"
+  maint_audit_prompt "$WORK/maint-audit.md"
   agent audit 1 "$WORK/maint-audit.md" "$MODEL_AUDIT" "$MAX_TURNS_MAINT_AUDIT" "$WALL_MAINT_AUDIT_MIN" \
     --json-schema "$here/schemas/maint-audit.json" --tools Read,Glob,Grep --access ro --inputs "$WORK/inflight"
-  eval "$(ts_node maintspec "$CLEANUP_LIST" "$RUN/phases/audit-1/result.json" "$RUN/spec.md" "$RUN/spec.json" "$DATE" "$RUN/meta.json" "$RUN/audit.json" "$MAINT" 2>>"$RUN_LOG")"
+  cleanup maintspec "$CLEANUP_LIST" "$RUN/phases/audit-1/result.json" "$RUN/spec.md" "$RUN/spec.json" "$DATE" "$RUN/meta.json" "$RUN/audit.json" "$MAINT"
   log "plan audit: $CHOSEN cleanup item(s) chosen"
   (( CHOSEN > 0 )) || stop skip "the plan audit chose no cleanup item"
 }

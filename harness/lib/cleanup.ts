@@ -9,7 +9,11 @@ import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { HARNESS_MARKER, type GhPr, type OpenFiles } from './existing.ts';
 import { structuredOutput, trimmed } from './spec.ts';
 
-/** One survey pass per area, plus the two cross-cutting passes. */
+/**
+ * One survey pass per area, plus the two cross-cutting passes. The one list of areas: daily.sh reads
+ * it (`cli.ts areas`), journal.ts derives the survey phases from it, and each area has its prompt
+ * harness/prompts/survey-<area>.md, which is what agent-run.sh accepts (a unit test keeps them equal).
+ */
 export const AREAS = ['sim', 'render', 'ui', 'content', 'tests', 'seams', 'duplication', 'performance'] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -57,12 +61,23 @@ export type CleanupList = { version: 1; nextId: number; updatedAt: string | null
 
 export const emptyList = (): CleanupList => ({ version: 1, nextId: 1, updatedAt: null, items: [] });
 
-/** The list at `path`; empty when the file doesn't exist. A malformed file throws (never silently reset). */
+/** The list at `path`; empty when the file doesn't exist. A malformed or corrupt file throws (never silently reset). */
 export function loadList(path: string): CleanupList {
   let text: string;
-  try { text = readFileSync(path, 'utf8'); } catch { return emptyList(); }
-  const l = JSON.parse(text) as CleanupList;
+  try { text = readFileSync(path, 'utf8'); } catch (e) {
+    if ((e as { code?: string }).code === 'ENOENT') return emptyList();
+    throw new Error(`${path}: unreadable (${String(e)})`);
+  }
+  let l: CleanupList;
+  try { l = JSON.parse(text) as CleanupList; } catch (e) { throw new Error(`${path}: not JSON (${String(e)})`); }
   if (l?.version !== 1 || !Array.isArray(l.items) || typeof l.nextId !== 'number') throw new Error(`${path}: not a cleanup list`);
+  const statuses: readonly string[] = ['open', 'in-pr', 'closed', 'stale'];
+  l.items.forEach((it, i) => {
+    const ok = it && typeof it === 'object' && typeof it.id === 'string' && /^C\d{3,}$/.test(it.id) && statuses.includes(it.status)
+      && Array.isArray(it.files) && it.files.every((f) => typeof f === 'string') && Array.isArray(it.history) && typeof it.claim === 'string';
+    if (!ok) throw new Error(`${path}: item ${i} is corrupt`);
+  });
+  if (new Set(l.items.map((it) => it.id)).size !== l.items.length) throw new Error(`${path}: duplicate item ids`);
   return l;
 }
 
@@ -73,8 +88,12 @@ export function saveList(path: string, list: CleanupList): void {
 }
 
 const HISTORY_MAX = 40;
+/** Longest history event kept (agent text such as a rejection reason or survey note is clipped). */
+const NOTE_MAX = 300;
+/** `s` cut to `n` characters, with an ellipsis when cut. */
+const clip = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 export function note(item: CleanupItem, date: string, event: string): void {
-  item.history.push({ date, event });
+  item.history.push({ date, event: clip(event, NOTE_MAX) });
   if (item.history.length > HISTORY_MAX) item.history.splice(0, item.history.length - HISTORY_MAX);
 }
 
@@ -93,9 +112,11 @@ export function readSurvey(resultPath: string): Survey | null {
   const out = structuredOutput(resultPath) as { findings?: unknown; confirmations?: unknown } | null;
   if (!out || !Array.isArray(out.findings)) return null;
   const dropped: string[] = [];
-  const findings = out.findings.flatMap((f: Record<string, unknown>): SurveyFinding[] => {
-    const claim = trimmed(f?.claim);
-    const files = (Array.isArray(f?.files) ? f.files : []).map((p) => cleanPath(trimmed(p))).filter(Boolean);
+  // The schema's limits (schemas/survey.json), enforced again here: the list outlives the night and
+  // its text reaches later agents' prompts.
+  const findings = out.findings.slice(0, 15).flatMap((f: Record<string, unknown>): SurveyFinding[] => {
+    const claim = clip(trimmed(f?.claim), 600);
+    const files = (Array.isArray(f?.files) ? f.files : []).map((p) => cleanPath(trimmed(p))).filter(Boolean).filter((p) => p.length <= 200);
     const bad = files.filter((p) => !ITEM_PATH.test(p) || p.split('/').includes('..') || p.startsWith('src/driver/') || p.startsWith('tests/baselines/'));
     if (!claim || !files.length || bad.length) {
       dropped.push(`${claim.slice(0, 80) || '(no claim)'}: ${bad.length ? `files outside src/, tests/ and CLAUDE.md (${bad.slice(0, 3).join(', ')})` : 'no claim or files'}`);
@@ -104,13 +125,13 @@ export function readSurvey(resultPath: string): Survey | null {
     return [{
       category: CATEGORIES.includes(f.category as Category) ? f.category as Category : 'simplify',
       files: [...new Set(files)].slice(0, 12), line: typeof f.line === 'number' && f.line > 0 ? Math.floor(f.line) : null,
-      claim, evidence: trimmed(f.evidence), suggestedFix: trimmed(f.suggestedFix),
+      claim, evidence: clip(trimmed(f.evidence), 2000), suggestedFix: clip(trimmed(f.suggestedFix), 1000),
       worth: WORTH.includes(f.worth as Worth) ? f.worth as Worth : 'low',
       estLines: typeof f.estLines === 'number' && f.estLines >= 0 ? Math.round(f.estLines) : null,
     }];
   });
-  const confirmations = (Array.isArray(out.confirmations) ? out.confirmations : []).flatMap((c: Record<string, unknown>) =>
-    typeof c?.id === 'string' && typeof c.stillPresent === 'boolean' ? [{ id: c.id.trim(), stillPresent: c.stillPresent, note: trimmed(c.note) }] : []);
+  const confirmations = (Array.isArray(out.confirmations) ? out.confirmations : []).slice(0, 80).flatMap((c: Record<string, unknown>) =>
+    typeof c?.id === 'string' && typeof c.stillPresent === 'boolean' ? [{ id: c.id.trim().slice(0, 12), stillPresent: c.stillPresent, note: clip(trimmed(c.note), 400) }] : []);
   return { findings, confirmations, dropped };
 }
 
@@ -312,15 +333,20 @@ export function markDone(list: CleanupList, ids: readonly string[], date: string
 
 // ---- Markdown -------------------------------------------------------------------------------------
 
+/** Agent-written text on one line, clipped. */
+export const oneLine = (t: string, n = 300): string => clip(t.replace(/\s+/g, ' ').trim(), n);
+/** Agent-written text as a blockquote under a label, so no line of it can pose as a heading or a rule. */
+const quoted = (label: string, t: string): string[] => [`- ${label}:`, ...t.split('\n').map((l) => `  > ${l}`)];
+
 export function itemBlock(it: CleanupItem, full = true): string {
   const head = `### ${it.id} · ${it.area} · ${CATEGORY_LABEL[it.category]} · worth ${it.worth}${it.estLines !== null ? ` · ~${it.estLines} lines` : ''}`;
-  const lines = [head, '', `- Files: ${it.files.map((f) => `\`${f}\``).join(', ')}${it.line ? ` (line ${it.line})` : ''}`, `- Claim: ${it.claim}`];
+  const lines = [head, '', `- Files: ${it.files.map((f) => `\`${f}\``).join(', ')}${it.line ? ` (line ${it.line})` : ''}`, ...quoted('Claim', it.claim)];
   if (full) {
-    if (it.evidence) lines.push(`- Evidence: ${it.evidence}`);
-    if (it.suggestedFix) lines.push(`- Suggested fix: ${it.suggestedFix}`);
+    if (it.evidence) lines.push(...quoted('Evidence', it.evidence));
+    if (it.suggestedFix) lines.push(...quoted('Suggested fix', it.suggestedFix));
     lines.push(`- Seen ${it.seenCount}× (first ${it.firstSeen}, last ${it.lastSeen})${it.pr ? ` · PR #${it.pr}` : ''}`);
     const past = it.history.filter((h) => /not chosen|skipped|closed without|done on|attempted in|resembles/.test(h.event)).slice(-4);
-    if (past.length) lines.push(...past.map((h) => `- ${h.date}: ${h.event}`));
+    if (past.length) lines.push(...quoted('History', past.map((h) => `${h.date}: ${h.event}`).join('\n')));
   }
   return lines.join('\n');
 }
@@ -348,8 +374,8 @@ export function renderCandidates(list: CleanupList, c: Candidates): string {
     `## Eligible tonight (${c.eligible.length}), best first`, '',
     ...(c.eligible.length ? c.eligible.map((i) => `${itemBlock(get(i))}\n`) : ['None.', '']),
     `## Not available tonight`, '',
-    ...c.skipped.map((s) => `- ${s.id}: touches files of open PR ${s.prs.map((n) => `#${n}`).join(', ')}; skipped until it merges or closes. ${get(s.id).claim}`),
-    ...c.ownerOnly.map((i) => `- ${i}: needs the owner (an existing test pins internals; tests are append-only). ${get(i).claim}`),
+    ...c.skipped.map((s) => `- ${s.id}: touches files of open PR ${s.prs.map((n) => `#${n}`).join(', ')}; skipped until it merges or closes. ${oneLine(get(s.id).claim)}`),
+    ...c.ownerOnly.map((i) => `- ${i}: needs the owner (an existing test pins internals; tests are append-only). ${oneLine(get(i).claim)}`),
     ...(c.skipped.length + c.ownerOnly.length ? [] : ['- None.']), '',
   ].join('\n');
 }

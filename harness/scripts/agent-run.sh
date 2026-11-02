@@ -7,7 +7,8 @@
 #     [--maintenance] [--fake-claude <script>]
 #
 # Phases: ideate audit build retry r1..r5 verify fix judge judgecheck, and on maintenance nights
-# survey-<area> (sim render ui content tests seams duplication performance) (plans/full-pipeline.md).
+# survey-<area> for each area with a harness/prompts/survey-<area>.md (lib/cleanup.ts AREAS;
+# plans/full-pipeline.md).
 #
 # Writes <out>/result.json (claude's stdout, verbatim), <out>/stderr.log, <out>/meta.json.
 # Exit: 0 ok · 10 usage/rate limit · 11 max turns · 12 wall-clock timeout · 13 any other agent
@@ -57,7 +58,8 @@ while [[ $# -gt 0 ]]; do
   [[ $# -ge 2 ]] || die "$1 needs a value"
   shift 2
 done
-[[ "$phase" =~ ^(ideate|audit|build|retry|r[1-5]|verify|fix|judge|judgecheck|survey-sim|survey-render|survey-ui|survey-content|survey-tests|survey-seams|survey-duplication|survey-performance)$ ]] ||
+[[ "$phase" =~ ^(ideate|audit|build|retry|r[1-5]|verify|fix|judge|judgecheck)$ ]] ||
+  [[ "$phase" =~ ^survey-[a-z]+$ && -f $HARNESS_ROOT/harness/prompts/$phase.md ]] ||
   die "--phase must be one of ideate audit build retry r1..r5 verify fix judge judgecheck survey-<area>"
 [[ "$access" =~ ^(rw|verify|ro|isolated)$ ]] || die "--access must be rw, verify, ro or isolated"
 [[ -z "$inputs" || -d "$inputs" ]] || die "--inputs must be a directory"

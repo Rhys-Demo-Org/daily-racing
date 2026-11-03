@@ -1,9 +1,25 @@
 // Countdown (mockup S3, board 05 #4): a roundel drops onto the table for 3, 2, 1, then a GO! stamp
 // that holds and slides up and off. Start lights below pop on one per beat. The game loop calls
 // show() from sim state every frame; repeated calls with the same value do nothing.
+import { tokens } from '@tokens';
+import { TICK_HZ, type RaceView } from '../sim/types.ts';
 import './components.css';
 import './countdown.css';
 import { h } from './dom.ts';
+
+const MS = tokens.motion.durationMs;
+/**
+ * Time from GO until GO! has left the screen: it lands (stamp), holds (3 slides; countdown.css
+ * --ui-cd-go-hold) and slides off (slide). With reduced motion it cuts at the end of the hold, sooner.
+ */
+export const GO_GONE_MS = MS.stamp + MS.slide * 3 + MS.slide;
+/** GO_GONE_MS in whole sim ticks, rounded up. */
+export const GO_GONE_TICKS = Math.ceil((GO_GONE_MS * TICK_HZ) / 1000);
+
+/** True while the countdown covers the screen centre: 3, 2, 1, then GO! until it has gone. */
+export function countdownOnScreen(view: Pick<RaceView, 'phase' | 'raceTick'>): boolean {
+  return view.phase === 'countdown' || view.raceTick < GO_GONE_TICKS;
+}
 
 export type CountdownStep = 3 | 2 | 1 | 0;
 

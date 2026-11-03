@@ -14,7 +14,7 @@
 // Static geometry is baked in world space, so static objects never update their matrices.
 import { Group, Matrix4, Scene, Vector2, type BufferGeometry, type Mesh, type PerspectiveCamera, type WebGLRenderer } from 'three';
 import type { CarView, PropKind, TrackLayout } from '../sim/types.ts';
-import { createCameraRig } from './camera.ts';
+import { CAMERA, createCameraRig } from './camera.ts';
 import { buildCar, CAR, poseCar, type CarLivery, type CarObject } from './car.ts';
 import { createDust } from './dust.ts';
 import { MeshBuilder } from './geometry.ts';
@@ -32,11 +32,14 @@ export interface RaceScene {
   /**
    * Moves cars (position, heading, jump height), their shadows, dust and the camera.
    * `cars` must be index-aligned with the liveries. `dtSeconds` is real time since the last call.
+   * `clearCentre` (while the countdown is on screen) frames the player CAMERA.countdownOffsetEast
+   * units west of the screen centre, clear of the centred roundel; the follow smoothing eases
+   * between framings, and snapCamera() jumps to the latest one.
    */
-  update(cars: readonly CarView[], dtSeconds: number): void;
+  update(cars: readonly CarView[], dtSeconds: number, clearCentre?: boolean): void;
   /** Jumps the camera to the player with no smoothing (race start, after a reset). */
   snapCamera(): void;
-  /** Forgets the previous race (camera velocity, dust) so a reused scene starts like a new one. */
+  /** Forgets the previous race (camera velocity, framing, dust) so a reused scene starts like a new one. */
   reset(): void;
   /** Renders one frame with the renderer passed to createRaceScene. */
   render(): void;
@@ -145,7 +148,7 @@ export function createRaceScene(layout: TrackLayout, liveries: readonly CarLiver
     scene,
     camera: rig.camera,
     cars,
-    update(views, dt) {
+    update(views, dt, clearCentre = false) {
       for (let i = 0; i < cars.length; i++) {
         const v = views[i];
         const s = carShadows[i] as Mesh;
@@ -158,6 +161,7 @@ export function createRaceScene(layout: TrackLayout, liveries: readonly CarLiver
       dust.update(views, dt);
       const p = views[playerIndex];
       if (!p) return;
+      rig.setTargetOffset(clearCentre ? CAMERA.countdownOffsetEast : 0, 0);
       if (!seen) {
         rig.snap(p.x, p.z);
       } else {
@@ -180,6 +184,7 @@ export function createRaceScene(layout: TrackLayout, liveries: readonly CarLiver
       if (c) rig.snap(c.root.position.x, c.root.position.z, velX, velZ);
     },
     reset() {
+      rig.setTargetOffset(0, 0);
       velX = 0;
       velZ = 0;
       seen = false;

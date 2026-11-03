@@ -14,7 +14,7 @@
 // Static geometry is baked in world space, so static objects never update their matrices.
 import { Group, Matrix4, Scene, Vector2, type BufferGeometry, type Mesh, type PerspectiveCamera, type WebGLRenderer } from 'three';
 import type { CarView, PropKind, TrackLayout } from '../sim/types.ts';
-import { CAMERA, createCameraRig } from './camera.ts';
+import { countdownOffsetEast, createCameraRig } from './camera.ts';
 import { buildCar, CAR, poseCar, type CarLivery, type CarObject } from './car.ts';
 import { createDust } from './dust.ts';
 import { MeshBuilder } from './geometry.ts';
@@ -32,11 +32,11 @@ export interface RaceScene {
   /**
    * Moves cars (position, heading, jump height), their shadows, dust and the camera.
    * `cars` must be index-aligned with the liveries. `dtSeconds` is real time since the last call.
-   * `clearCentre` (while the countdown is on screen) frames the player CAMERA.countdownOffsetEast
-   * units west of the screen centre, clear of the centred roundel; the follow smoothing eases
-   * between framings, and snapCamera() jumps to the latest one.
+   * `clearHalfWidthPx` (while the countdown is on screen: its half width in CSS px, else 0) frames
+   * the player west of the screen centre, clear of the centred roundel (countdownOffsetEast); the
+   * follow smoothing eases between framings, and snapCamera() jumps to the latest one.
    */
-  update(cars: readonly CarView[], dtSeconds: number, clearCentre?: boolean): void;
+  update(cars: readonly CarView[], dtSeconds: number, clearHalfWidthPx?: number): void;
   /** Jumps the camera to the player with no smoothing (race start, after a reset). */
   snapCamera(): void;
   /** Forgets the previous race (camera velocity, framing, dust) so a reused scene starts like a new one. */
@@ -136,19 +136,23 @@ export function createRaceScene(layout: TrackLayout, liveries: readonly CarLiver
   let velX = 0;
   let velZ = 0;
   let seen = false;
+  let viewW = 844;
+  let viewH = 390;
 
   /** Camera aspect/distance and outline width for a CSS-pixel viewport. */
   const applyViewport = (width: number, height: number): void => {
     const ratio = renderer ? renderer.getPixelRatio() : 1;
     mats.setViewport(Math.round(width * ratio), Math.round(height * ratio));
     rig.resize(width, height);
+    viewW = width;
+    viewH = height;
   };
 
   const api: RaceScene = {
     scene,
     camera: rig.camera,
     cars,
-    update(views, dt, clearCentre = false) {
+    update(views, dt, clearHalfWidthPx = 0) {
       for (let i = 0; i < cars.length; i++) {
         const v = views[i];
         const s = carShadows[i] as Mesh;
@@ -161,7 +165,7 @@ export function createRaceScene(layout: TrackLayout, liveries: readonly CarLiver
       dust.update(views, dt);
       const p = views[playerIndex];
       if (!p) return;
-      rig.setTargetOffset(clearCentre ? CAMERA.countdownOffsetEast : 0, 0);
+      rig.setTargetOffset(countdownOffsetEast(clearHalfWidthPx, viewW, viewH), 0);
       if (!seen) {
         rig.snap(p.x, p.z);
       } else {

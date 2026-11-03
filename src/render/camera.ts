@@ -23,14 +23,13 @@ export const CAMERA = {
   /** Follow smoothing half-life in seconds (exponential, frame-rate independent). */
   followHalfLife: 0.12,
   /**
-   * World units the target sits east of the player while the countdown is on screen (3, 2, 1, GO!
-   * until it has slid off), so the car shows west of the centred roundel instead of under it. The
-   * GO! roundel (the widest, ≈ 252px at 844×390 and 1440×900) is centred, so its left edge is ≈ 126px left of
-   * centre: 8.3 units at 844 (15.1px/unit), 4.8 at 1440×900 (26.2px/unit). Add the car's half
-   * length (2.1) and its outline, ≈ 2 units of look-ahead while it pulls away under GO!, and a
-   * margin: 14. A translation of the target only; dropping it eases back with followHalfLife.
+   * While the countdown is on screen the target sits east of the player so the car shows west of
+   * the centred roundel instead of under it: by the roundel's half width (CSS px, converted at the
+   * viewport's scale, so narrow phones shift further) plus this many units for the car's half length
+   * (2.1) and outline, ≈ 2 units of look-ahead while it pulls away under GO!, and a margin. See
+   * countdownOffsetEast(); dropping the offset eases back with followHalfLife.
    */
-  countdownOffsetEast: 14,
+  countdownClearance: 5.5,
 } as const;
 
 const DEG = Math.PI / 180;
@@ -38,6 +37,14 @@ const DEG = Math.PI / 180;
 /** Frame width in world units for a viewport aspect ratio. */
 export function frameWidthFor(aspect: number): number {
   return aspect >= CAMERA.mobileMinAspect ? CAMERA.frameWidth.mobile : CAMERA.frameWidth.desktop;
+}
+
+/**
+ * Units east of the player for the camera target that keep the car clear of a centred overlay
+ * `halfWidthPx` CSS px each side of the screen centre in a `width`×`height` viewport (0: no offset).
+ */
+export function countdownOffsetEast(halfWidthPx: number, width: number, height: number): number {
+  return halfWidthPx > 0 ? (halfWidthPx * frameWidthFor(width / height)) / width + CAMERA.countdownClearance : 0;
 }
 
 /** Camera-to-target distance so the frame is frameWidthFor(aspect) units across at the target. */

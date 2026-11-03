@@ -3,6 +3,7 @@
 import { tokens } from '@tokens';
 import { Box3, Vector3, type Camera, type Object3D } from 'three';
 import type { RaceScene } from '../../src/render/index.ts';
+import { COUNTDOWN_HALF_WIDTH } from '../../src/ui/countdown.ts';
 
 export interface ScreenBox {
   left: number;
@@ -44,18 +45,20 @@ export function playerBox(race: RaceScene, width: number, height: number): Scree
 export const overlaps = (a: ScreenBox, b: ScreenBox): boolean => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 
 /**
- * Widest the roundels lay out at, CSS px (the same at 844×390 and 1440×900): a number roundel is
- * the countdown type size plus s6 across; GO! is wider (measured in Chromium at 251.5px, checked by
- * countdown-clear-browser.test.ts), rounded up.
+ * Widest the roundels lay out at, CSS px (the same at every viewport): a number roundel is the
+ * countdown type size plus s6 across; GO! is wider (measured in Chromium at 251.5px), and the game's
+ * COUNTDOWN_HALF_WIDTH must cover it (checked by countdown-clear-browser.test.ts).
  */
-export const ROUNDEL_WIDTH_PX = { number: tokens.typeScale.countdown.mobile + tokens.space.s6, go: 256 } as const;
+export const ROUNDEL_WIDTH_PX = { number: tokens.typeScale.countdown.mobile + tokens.space.s6, go: 2 * COUNTDOWN_HALF_WIDTH } as const;
 
 /** A roundel `widthPx` wide, centred, taken as the full screen height (any vertical overlap counts). */
 export function roundelBox(widthPx: number, width: number, height: number): ScreenBox {
   return { left: (width - widthPx) / 2, right: (width + widthPx) / 2, top: 0, bottom: height };
 }
 
+/** The reference phone, a narrow one (iPhone SE: desktop framing, fewest px per unit) and desktop. */
 export const VIEWPORTS = [
   { width: 844, height: 390 },
+  { width: 667, height: 375 },
   { width: 1440, height: 900 },
 ] as const;

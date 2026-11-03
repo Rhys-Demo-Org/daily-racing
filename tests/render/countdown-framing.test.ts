@@ -1,7 +1,8 @@
 // Countdown framing (owner play-test bug: the centred countdown hid the player's car). While the
 // countdown is on screen (3, 2, 1, then GO! until it has slid off) the game passes clearCentre to
-// the scene's update(): the camera's ground target sits CAMERA.countdownOffsetEast units east of
-// where it would be, so the player car shows clear of the roundel at 844×390 and 1440×900. Once
+// the scene's update() (countdownClearance): the camera's ground target sits countdownOffsetEast()
+// units east of where it would be (more on narrow screens, where a unit is fewer px), so the player
+// car shows clear of the roundel at 844×390, 667×375 and 1440×900. Once
 // GO! has gone the offset drops and the follow smoothing eases the camera back by translation.
 // Each race below is the game loop headless: bots drive every car, the scene follows car 0 and the
 // framing comes from the same countdownOnScreen(raceView) call the game makes.
@@ -9,14 +10,16 @@ import { tokens } from '@tokens';
 import { describe, expect, it } from 'vitest';
 import { raceDrivers } from '../../src/content/drivers.ts';
 import { TRACKS } from '../../src/content/tracks.ts';
-import { CAMERA, cameraAngles, createCameraRig, createRaceScene, type RaceScene } from '../../src/render/index.ts';
+import { CAMERA, cameraAngles, countdownOffsetEast, createCameraRig, createRaceScene, type RaceScene } from '../../src/render/index.ts';
 import { COUNTDOWN_TICKS, DT, TICK_HZ, carViews, createBot, createWorld, raceView, stepWorld, type TrackData, type World } from '../../src/sim/index.ts';
-import { countdownOnScreen, GO_GONE_MS, GO_GONE_TICKS } from '../../src/ui/countdown.ts';
+import { COUNTDOWN_HALF_WIDTH, countdownClearance, countdownOnScreen, GO_GONE_MS, GO_GONE_TICKS } from '../../src/ui/countdown.ts';
 import { GO_HIDE_TICKS } from '../../src/ui/race-ui.ts';
 import { overlaps, playerBox, roundelBox, ROUNDEL_WIDTH_PX, VIEWPORTS } from '../ui/countdown-clear.ts';
 
 const CARS = 6;
-const OFFSET: number = CAMERA.countdownOffsetEast;
+/** The countdown offset in a viewport, and at the 844×390 reference phone. */
+const offsetAt = (width: number, height: number): number => countdownOffsetEast(COUNTDOWN_HALF_WIDTH, width, height);
+const OFFSET = offsetAt(844, 390);
 /** Ticks from the start until GO! has gone. */
 const CLEAR_UNTIL = COUNTDOWN_TICKS + GO_GONE_TICKS;
 
@@ -31,8 +34,7 @@ function race(track: TrackData, width: number, height: number, ticks: number, ea
   for (const s of scenes) s.resize(width, height);
   const frame = (dt: number): void => {
     const views = carViews(world);
-    const clear = countdownOnScreen(raceView(world));
-    scenes[0].update(views, dt, clear);
+    scenes[0].update(views, dt, countdownClearance(raceView(world)));
     scenes[1].update(views, dt);
   };
   frame(0); // startRace draws once: the first update snaps
@@ -65,13 +67,23 @@ describe('countdown framing', () => {
     expect(cameraAngles(rig.camera)).toEqual({ pitchDeg: expect.closeTo(CAMERA.pitchDeg, 6), yawDeg: 0, rollDeg: 0 });
   });
 
+  it('the offset clears the roundel at the viewport scale: ≈ 14 units on the reference phone, more on narrower screens', () => {
+    expect(OFFSET).toBeCloseTo(14, 1);
+    expect(offsetAt(667, 375)).toBeGreaterThan(OFFSET);
+    expect(offsetAt(1440, 900)).toBeLessThan(OFFSET);
+    expect(countdownOffsetEast(0, 844, 390)).toBe(0);
+    expect(countdownClearance({ phase: 'countdown', raceTick: 0 })).toBe(COUNTDOWN_HALF_WIDTH);
+    expect(countdownClearance({ phase: 'racing', raceTick: GO_GONE_TICKS })).toBe(0);
+  });
+
   for (const track of TRACKS) {
     for (const v of VIEWPORTS) {
-      it(`${track.id} at ${v.width}×${v.height}: the target is ${OFFSET} units east and the car clear of the roundel until GO! has gone`, () => {
+      const offset = offsetAt(v.width, v.height);
+      it(`${track.id} at ${v.width}×${v.height}: the target is ${offset.toFixed(1)} units east and the car clear of the roundel until GO! has gone`, () => {
         let checked = 0;
         race(track, v.width, v.height, CLEAR_UNTIL - 1, (tick, world, framed, plain) => {
           // Same follow, shifted east by exactly the offset: no zoom, yaw or roll.
-          expect(framed.camera.position.x - plain.camera.position.x).toBeCloseTo(OFFSET, 6);
+          expect(framed.camera.position.x - plain.camera.position.x).toBeCloseTo(offset, 6);
           expect(framed.camera.position.y).toBeCloseTo(plain.camera.position.y, 9);
           expect(framed.camera.position.z).toBeCloseTo(plain.camera.position.z, 6);
           const width = raceView(world).phase === 'countdown' ? ROUNDEL_WIDTH_PX.number : ROUNDEL_WIDTH_PX.go;

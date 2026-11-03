@@ -21,6 +21,15 @@ export function countdownOnScreen(view: Pick<RaceView, 'phase' | 'raceTick'>): b
   return view.phase === 'countdown' || view.raceTick < GO_GONE_TICKS;
 }
 
+/**
+ * Half the widest roundel's width, CSS px: GO!, whose three glyphs set ≈ 1.27 em of the countdown
+ * size (measured in Chromium), taken as 1.3, plus s5 padding each side. Numbers are narrower.
+ */
+export const COUNTDOWN_HALF_WIDTH = (1.3 * tokens.typeScale.countdown.mobile + 2 * tokens.space.s5) / 2;
+
+/** How far the camera must keep the player car off the screen centre: COUNTDOWN_HALF_WIDTH while it is on screen, else 0. */
+export const countdownClearance = (view: Pick<RaceView, 'phase' | 'raceTick'>): number => (countdownOnScreen(view) ? COUNTDOWN_HALF_WIDTH : 0);
+
 export type CountdownStep = 3 | 2 | 1 | 0;
 
 export interface Countdown {

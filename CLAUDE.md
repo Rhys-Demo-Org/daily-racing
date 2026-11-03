@@ -83,6 +83,10 @@ spikes           Phase 0 throwaway experiments (deleted at handover)
   toolchain container, `node_modules/.bin/vite build --config harness/screens/vite.config.ts
   --outDir /tmp/shots-dist --emptyOutDir && node harness/screens/capture.ts /tmp/shots-dist /tmp/shots`.
   Compare yours with the mockup.
+- **Browser tests:** a test may render a screen stage in Chromium through
+  `harness/screens/browser.ts` (`serve`, `launch`, `context`,
+  `renderStage`), e.g. to prove a layout fits 844×390. Gate G1 and CI run the same Playwright
+  image, so such a test passes in CI exactly when it passes the gates.
 - **Fonts:** self-hosted woff2 in `public/fonts/` (`fonts.css`), Barlow Condensed 800/900/900i and
   Atkinson Hyperlegible 400/700, Latin + Latin Extended only.
 

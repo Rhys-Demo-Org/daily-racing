@@ -339,7 +339,7 @@ ok "eight read-only survey passes with the list, inventory, clones and perf numb
 ok "every pass gets the common rules and its area" 'grep -q "^## Your area: performance" "$W/survey-performance.md" && grep -q "^## The cleanup list" "$W/survey-sim.md" && grep -q "append-only" "$W/survey-tests.md"'
 ok "the list lives outside the repo and holds the finding, open" '[[ $(cl ".items | length" a) == 1 && $(cl ".items[0].id" a) == C001 && $(cl ".items[0].status" a) == open && $(cl ".items[0].firstSeen" a) == 2026-12-13 ]] && ! git -C "$D/repo" ls-files --error-unmatch cleanup.json 2>/dev/null'
 ok "the plan audit chose it from the candidates, read-only, with the in-flight diffs" 'grep -q "agent-run audit .*maintenance=1 tools=Read,Glob,Grep access=ro .*schema=maint-audit.json inputs=$W/inflight " "$STUB_LOG" && grep -q "^### C001 " "$W/maint-audit.md" && [[ $(jq -c "[.chosen[].id]" "$R/maintenance.json") == "[\"C001\"]" ]]'
-ok "the spec lists the item and the limits, locked" 'grep -q "^### C001 · ui · dead code" "$R/spec.md" && grep -q "Net .src/. lines must not grow" "$R/spec.md" && [[ ! -w $R/spec.md && $(jq -r .specSha256 "$R/meta.json") == $(sha256sum "$R/spec.md" | cut -c1-64) ]]'
+ok "the spec lists the item and the limits, locked" 'grep -q "^### C001 · ui · dead code" "$R/spec.md" && grep -q "Net .src/. lines (added − deleted) at most +150" "$R/spec.md" && [[ ! -w $R/spec.md && $(jq -r .specSha256 "$R/meta.json") == $(sha256sum "$R/spec.md" | cut -c1-64) ]]'
 ok "the refactor: build phase, rw, maintenance, refactor prompt and schema" 'grep -q "agent-run build .*maintenance=1 .*access=rw .*schema=refactor.json" "$STUB_LOG" && grep -q "^# Refactor: apply tonight" "$W/build.md" && [[ $(jq -r ".refactor[0].status" "$R/maintenance.json") == done ]]'
 ok "gates with --maintenance: P1, P2 and M1 pass; net src -1" '[[ $(gate P1 .pass 2026-12-13 1) == true && $(gate P2 .pass 2026-12-13 1) == true && $(gate M1 .pass 2026-12-13 1) == true && $(gate M1 .summary 2026-12-13 1) == "1 files, 1 lines, net src -1 "* ]] && grep -q "^| M1 Maintenance limits | pass" "$R/gates-1.md"'
 ok "five reviewers with the maintenance rules; R1 checks the items" '[[ $(grep -c "^agent-run r[1-5] .*access=ro" "$STUB_LOG") == 5 ]] && grep -q "R1, the maintenance spec" "$W/review-R1.md" && ! grep -q "R1, the spec$" "$W/review-R1.md" && for r in R1 R2 R3 R4 R5; do grep -q "^## Tonight is a maintenance night" "$W/review-$r.md" || exit 1; done'
@@ -364,9 +364,9 @@ ok "M1 fails on the file count, two retries with the limits as feedback, then fa
 ok "no review or judge after a failed refactor" '[[ $(grep -c "^agent-run r[1-5] " "$STUB_LOG") == 0 && $(pl judge) == 0 ]]'
 
 echo "maintenance that grows src: net LOC fails M1 (Sun 2026-12-27)"
-printf '%s\n' 'printf "export const a = 1;\nexport const b = 2;\n" >src/extra.ts' >"$T/grow.sh"
+printf '%s\n' 'seq 151 | sed "s/.*/export const a& = &;/" >src/extra.ts' >"$T/grow.sh"
 daily 2026-12-27T02:00:00Z CLEANUP_LIST="$D/cl-c.json" STUB_REFACTOR="$T/grow.sh"
-ok "fail on net src growth" '[[ $(res .outcome 2026-12-27) == fail && $(gate M1 .pass 2026-12-27 1) == false ]] && gate M1 .details 2026-12-27 1 | grep "net src/ lines grew by 2 (+2 −0)" >/dev/null'
+ok "fail on net src growth" '[[ $(res .outcome 2026-12-27) == fail && $(gate M1 .pass 2026-12-27 1) == false ]] && gate M1 .details 2026-12-27 1 | grep "net src/ lines grew by 151 (+151 −0)" >/dev/null'
 
 echo "a fix that changes a screen's DOM or styles is reverted by P1; the other fix stays (Sun 2027-01-03)"
 printf '%s\n' 'if [[ $FIX_ID == R2-1 ]]; then sed -i "1d" src/ui/hud.css; else sed -i "1d" src/ui/countdown.ts; fi' >"$T/domfix.sh"

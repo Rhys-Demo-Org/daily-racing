@@ -54,7 +54,7 @@ export function renderMaintSpec(a: MaintAudit, list: CleanupList, date: string, 
     "## What you'll see", '', a.playtest.whatYoullSee, '', '## How to play-test', '', ...a.playtest.howToTest.map((s, i) => `${i + 1}. ${s}`), '',
     '## Limits', '',
     `- At most ${limits.maxFiles} changed files and ${limits.maxLines} changed lines (journal excluded).`,
-    `- Net \`src/\` lines must not grow (added − deleted ≤ ${limits.maxNetSrc}); tests don't count.`,
+    `- Net \`src/\` lines (added − deleted) at most +${limits.maxNetSrc}; tests don't count. Only a performance item may grow \`src/\`; every other item should delete code.`,
     '- Existing tests and screen stages (`src/**/*.stage.ts`) are append-only tonight: add new files, never edit or delete one.',
     '- No `src/` file may import from `tests/`.',
     '- `CLAUDE.md` may change only to stay accurate about the code.',
@@ -117,7 +117,7 @@ export function checkLimits(raw: string, numstat: string, today: string, l: Limi
   const netSrc = srcAdded - srcDeleted;
   if (rows.length > l.maxFiles) problems.push(`${rows.length} files changed (limit ${l.maxFiles})`);
   if (lines > l.maxLines) problems.push(`${lines} lines changed (limit ${l.maxLines})`);
-  if (netSrc > l.maxNetSrc) problems.push(`net src/ lines grew by ${netSrc} (+${srcAdded} −${srcDeleted}); a maintenance night must not grow src/`);
+  if (netSrc > l.maxNetSrc) problems.push(`net src/ lines grew by ${netSrc} (+${srcAdded} −${srcDeleted}); ${l.maxNetSrc > 0 ? `a maintenance night may grow src/ by at most ${l.maxNetSrc}` : 'a maintenance night must not grow src/'}`);
   return { pass: problems.length === 0, files: rows.length, lines, srcAdded, srcDeleted, netSrc, problems: [...new Set(problems)] };
 }
 

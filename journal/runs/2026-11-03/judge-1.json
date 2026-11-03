@@ -1,0 +1,113 @@
+{
+  "pass": true,
+  "reasons": [],
+  "blind": {
+    "scores": {
+      "specMet": 9,
+      "styleMatch": 8,
+      "notBroken": 8,
+      "testsReal": 8,
+      "noSniffing": 10,
+      "scope": 8,
+      "noDuplication": 9
+    },
+    "overall": 8,
+    "verdict": "pass",
+    "failures": [
+      {
+        "axis": "notBroken",
+        "file": "src/ui/results.css",
+        "claim": "At 844×390 the results--long-list stage (8 rows) overflows the screen. The 'RACE COMPLETE' label is pushed off the top and the RETRY / NEXT RACE buttons are cut off at the bottom. Six rows fit, and real races can't have more than six cars today, but nothing guards the layout if the list grows. Let the rows shrink or scroll, or cap the stage fixture.",
+        "evidence": "screenshots/844x390/stage/results--long-list.png: rows 1–8 fill the height, the NEXT RACE button is clipped at y=390 and the label above BRAMBLE BENDS is missing. results--podium.png (6 rows) fits."
+      },
+      {
+        "axis": "scope",
+        "file": "src/sim/world.ts",
+        "claim": "The spec says the sim and its grid code stay as they are, but the diff adds a curved-centreline placement for grid slots ≥4 (GRID_CURVED_FROM / GRID_CURVED_COLUMN). The plan audit allowed this only if a slot failed the prop check, and it asked for a journal note. The results-screen restructure (results-screen.ts, results.css) is also outside the expected files. Both look justified, but the PR should state why the grid change was needed.",
+        "evidence": "diff.patch, src/sim/world.ts hunk: `const GRID_CURVED_FROM = 4;` … `sampleAt(track, track.length - back)`. Spec Expected files lists only game.ts, drivers.ts, start-screen.ts and the two tests."
+      },
+      {
+        "axis": "testsReal",
+        "file": "tests/game/start-race-invalid-count.test.ts",
+        "claim": "The test mocks a `playerLivery` export from src/render/index.ts that game.ts doesn't use, which looks copied from somewhere else. It also relies on raceDrivers throwing for carCount 7, which the diff never shows. Drop the stray mock and assert the documented 1–6 range explicitly.",
+        "evidence": "`playerLivery: (n: number) => ({ body: 'rally-red', ... })` in vi.mock. `expect(() => game.startRace({ ..., carCount: 7 })).toThrow();`"
+      }
+    ],
+    "plantedInstructions": [],
+    "summary": "The build is B04, the six-car grid. In game.ts, RACE, RETRY, RESTART RACE and NEXT RACE now pass carCount 6. startRace still defaults to 2 cars, as the spec asks. Each AI car gets its own seeded bot, and the cached scene is now keyed on track plus driver count. The HUD and minimap get their colours and labels from the driver list. Grid slots from index 4 on follow the centreline in narrower columns so they stay on dirt and clear of props; G3 replays still match main. The results screen was reorganised to be closer to the S5 mockup (stripe across the full width, buttons under the table) so six rows fit at 844×390, and the podium screenshot confirms they do. The tests go through the public game and DOM seams. They cover every AC: RACE gives 6 cars, the grid holds on all tracks for seeds 1–20 and clears props, POS reads 1/6, the minimap shows six dots with red drawn last, the AI cars move off the grid, all six racers finish and the results list the roster in order, AI finish ticks are distinct and reproduce, and RETRY / RESTART / NEXT each start a six-car race. All gates are green. Minor issues: an 8-row stage fixture still overflows on the phone, the sim/results changes go beyond the expected file list, and one test has a stray mock. The gate race screenshots still show 2 cars because of the protected driver, which the plan audit already flagged."
+  },
+  "check": {
+    "claims": [
+      {
+        "claim": "R1-1: With six rows, the old results layout overflowed at 844×390: the title was clipped at the top and RETRY / NEXT RACE were pushed below the bottom edge.",
+        "verdict": "unconfirmed",
+        "evidence": "The pre-fix layout isn't in the inputs. The diff does make every player-started race six cars (PLAYER_CAR_COUNT = 6 on RACE/RETRY/RESTART/NEXT), so the results table really does go from 2 rows to 6. The y-coordinates the review gives (-6.9 / 435.9) can't be checked here."
+      },
+      {
+        "claim": "R1-1 fix: the stripe is now a direct child of the screen. The left column holds label, title, roundel and best-lap chip. The right column (ui-results__side) holds the table with the actions under it.",
+        "verdict": "confirmed",
+        "evidence": "src/ui/results-screen.ts hunk: stripes() is a top-level child; the first ui-results__column holds [label, trackName, roundel, best panel]; 'ui-results__column ui-results__side' holds rows plus ui-results__actions."
+      },
+      {
+        "claim": "R1-1 fix CSS: the stripe is an absolute, edge-to-edge 4:2:1 band of height s3; the side column is right-aligned with gap s4; row gap goes from s2 to s1; rows use type-button-size; tokens only.",
+        "verdict": "confirmed",
+        "evidence": "results.css: .ui-results > .ui-stripes {position:absolute; top/left/right:0}; .ui-stripe flex 1, red flex 4, mustard flex 2, height var(--space-s3); .ui-results__side align-items:flex-end, gap var(--space-s4); rows gap s2→s1; .ui-results__row.ui-value font-size var(--type-button-size). Every value is a var() token."
+      },
+      {
+        "claim": "R1-1: six rows plus the buttons now fit within 844×390.",
+        "verdict": "confirmed",
+        "evidence": "screenshots/844x390/stage/results--podium.png shows the stripe, the title, all 6 rows, RETRY and NEXT RACE all inside the frame. (results--long-list with 8 rows still overflows, but that is a stage fixture, not a real race.)"
+      },
+      {
+        "claim": "R1-1: the new test tests/ui/results-fit-phone.test.ts renders results--podium at 844×390 in Chromium and checks that stripes, title, rows and both buttons are inside the viewport.",
+        "verdict": "confirmed",
+        "evidence": "The test file is in the diff: it does a vite build of harness/screens, calls renderStage(ctx, origin, 'results--podium') with PHONE 844×390, collects .ui-stripes, h2, [role=row] and the retry/next buttons, then asserts none are out of bounds."
+      },
+      {
+        "claim": "R1-1: no behaviour, roles or DOM hooks used by tests changed.",
+        "verdict": "confirmed",
+        "evidence": "The results-screen.ts change only moves elements between containers. role='table' and aria-label='Results', the class names and the button handlers (opts.onRaceAgain, next) are unchanged."
+      },
+      {
+        "claim": "R2-2 fix: `menuTrack = track;` was moved below raceDrivers/createWorld/carViews, so a rejected carCount no longer changes the menu track.",
+        "verdict": "confirmed",
+        "evidence": "game.ts startRace: raceDrivers(options.carCount ?? DEFAULT_CAR_COUNT), then createWorld, then carViews, then `menuTrack = track;` just before `race = {`."
+      },
+      {
+        "claim": "R2-2: raceDrivers throws for carCount 7, 0 or 2.5.",
+        "verdict": "unconfirmed",
+        "evidence": "src/content/drivers.ts isn't in the diff, so the throw behaviour can't be seen. The new test only exercises carCount 7, via expect(...).toThrow()."
+      },
+      {
+        "claim": "R2-2: the new test tests/game/start-race-invalid-count.test.ts checks that trackId is unchanged and mode stays 'menu'.",
+        "verdict": "confirmed",
+        "evidence": "The test asserts game.state().trackId toBe(before) and game.state().mode toBe('menu'). It also carries a stray playerLivery mock."
+      },
+      {
+        "claim": "R3-1 fix: the duplicated playerInputs helpers were replaced by tests/game/helpers.ts twinPlayerInputs(trackId, seed, carCount, maxTicks), built on botsFor from tests/sim/helpers.ts, and both six-car test files now use it.",
+        "verdict": "confirmed",
+        "evidence": "tests/game/helpers.ts imports botsFor from '../sim/helpers.ts' and exports twinPlayerInputs. six-car-grid.test.ts calls it with TEN_MINUTES (60*60*10) and six-car-race.test.ts calls it with FIVE_MINUTES. Neither file has createBot or a local loop."
+      },
+      {
+        "claim": "R3-1: botsFor already exists at tests/sim/helpers.ts:62.",
+        "verdict": "unconfirmed",
+        "evidence": "The diff imports it from tests/sim/helpers.ts and that file isn't changed, so it must exist. The line number can't be checked."
+      },
+      {
+        "claim": "pnpm typecheck passes and pnpm test passes with 600 tests (77 files).",
+        "verdict": "confirmed",
+        "evidence": "gates.md G1: typecheck and build ok, 600/600 tests passed (main 588). The file count isn't shown."
+      },
+      {
+        "claim": "All three fixes were kept because the gates pass with them.",
+        "verdict": "confirmed",
+        "evidence": "gates.md overall PASS on branch ea713b8ba790 (the R3-1 fix commit): G1, G2, G3 and G8 all pass."
+      }
+    ],
+    "newRules": [],
+    "plantedInstructions": [],
+    "summary": "review.md lists three verified fixes. All three match the diff. R1-1 reworks the results layout: the stripe becomes a full-width top band, the table and buttons move to a right column, and rows get a tighter gap and smaller type, all through tokens. The 844×390 podium screenshot shows six rows and both buttons fitting. R2-2 moves the menuTrack assignment after raceDrivers/createWorld and adds a regression test. R3-1 merges the two duplicated playerInputs helpers into tests/game/helpers.ts on top of the existing botsFor. Test counts match gates.md (600/600). I can't confirm everything: raceDrivers' throw behaviour, the botsFor line number and the pre-fix pixel positions aren't in the inputs. The review is also silent on two things my blind scores flagged: the 8-row long-list stage still overflows, and src/sim/world.ts adds curved grid slots beyond the expected files. No new agent rules and no planted instructions found."
+  },
+  "scan": [],
+  "newRules": []
+}

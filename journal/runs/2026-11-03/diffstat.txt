@@ -1,0 +1,9 @@
+34	22	src/game.ts
+16	4	src/sim/world.ts
+6	4	src/ui/results-screen.ts
+30	1	src/ui/results.css
+20	0	tests/game/helpers.ts
+160	0	tests/game/six-car-grid.test.ts
+72	0	tests/game/six-car-race.test.ts
+28	0	tests/game/start-race-invalid-count.test.ts
+58	0	tests/ui/results-fit-phone.test.ts

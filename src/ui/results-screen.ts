@@ -63,12 +63,14 @@ export function createResultsScreen(root: HTMLElement, opts: ResultsScreenOption
     root,
     'ui-results ui-finish',
     [
-      h('div', 'ui-results__column', [stripes(), label, trackName]),
+      stripes(),
       h('div', 'ui-results__main', [
-        h('div', 'ui-results__column', [roundel, h('div', 'ui-panel ui-panel--mustard ui-results__best', [h('span', 'ui-label', ['Best lap']), best])]),
-        h('div', 'ui-results__rows', [header, body], { role: 'table', 'aria-label': 'Results' }),
+        h('div', 'ui-results__column', [label, trackName, roundel, h('div', 'ui-panel ui-panel--mustard ui-results__best', [h('span', 'ui-label', ['Best lap']), best])]),
+        h('div', 'ui-results__column ui-results__side', [
+          h('div', 'ui-results__rows', [header, body], { role: 'table', 'aria-label': 'Results' }),
+          h('div', 'ui-results__actions', [button('', [icon('restart'), 'Retry'], opts.onRaceAgain), next]),
+        ]),
       ]),
-      h('div', 'ui-results__actions', [button('', [icon('restart'), 'Retry'], opts.onRaceAgain), next]),
     ],
     next,
   );

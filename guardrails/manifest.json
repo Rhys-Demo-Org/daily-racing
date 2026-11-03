@@ -1,6 +1,6 @@
 {
   "files": {
-    ".github/workflows/deploy.yml": "2c43c6a3192c31107ac1ce8b516bb3d3d697d8cfbaafba4328375194c1a10b8b",
+    ".github/workflows/deploy.yml": "3733322b8bc2a9f8bb32482fefd93af4756b076b469a3354e23f1dd19d2c3ef2",
     ".gitignore": "74ae474d5fafff074d665917908607ddc939668083ba43d665a8f8c98a0b873e",
     ".npmrc": "3b88d1057add6f92ec23dc22dd017e312ded13a042deb0ba6f08bad85d936456",
     ".nvmrc": "68ca3fba3b7e864770cb61aeb306d4bd4354b68ab4dd38450860c5d823e42a53",
@@ -165,6 +165,7 @@
     "harness/systemd/daily-racer.timer": "ef0069c09b009a7a17a5d06f55d642d8b92ee4f10cfab7e912687ce51ed1eae7",
     "harness/tests/allowlist.test.ts": "ce4f36b3649e59fe340922f098fa5b5588f36f6b41f449b3a5308e815ab8f79e",
     "harness/tests/audit.test.ts": "642c58b594eb788e2ae41fdd6afbed7e9d0854239e09db7b6644cbc41d7c6b45",
+    "harness/tests/ci-parity.test.ts": "e95150e56947ba5e891a63c8154e3b5da50fb9c841cf63b3e6114818d4593ae1",
     "harness/tests/classify.test.ts": "308c004cfa4c9b010c82d1900e6c2e1b7b1df8c24c7f2a71978adb3feb700a20",
     "harness/tests/cleanup-input.test.ts": "9510691021503331832b5c2b849930d45621ee31c78d8e7ec0e02e93fb25c090",
     "harness/tests/cleanup-outcome.test.ts": "876ab7af516b6ec5507d440d900b87bbcfeb66c5667b404b0470604ff41ebccb",

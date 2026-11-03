@@ -21,6 +21,17 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    # Same Playwright base image (and Chromium) as the harness toolchain (harness/container/Dockerfile),
+    # so tests that render in a real browser via harness/screens/browser.ts pass here exactly when
+    # they pass gate G1. Keep the digest in step with the Dockerfile's FROM line.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+      # Non-root like the toolchain container (the runner's uid owns the workspace), so read-only
+      # files stay read-only for tests that rely on it.
+      options: --ipc=host --user 1001
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      HOME: /github/home
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

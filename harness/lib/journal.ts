@@ -239,7 +239,7 @@ function maintenanceSections(runDir: string, m: MaintRecord, spec: string): stri
   const l = m.limits;
   out.push(l ? `**${l.netSrc > 0 ? '+' : l.netSrc < 0 ? '−' : '±'}${Math.abs(l.netSrc)}** (src/: +${l.srcAdded} −${l.srcDeleted}) · ${l.files} files and ${l.lines} lines changed in all (tests and CLAUDE.md included, journal excluded)` : 'Not measured (no gate run).', '');
   const head = headGates(runDir);
-  const want: [string, string][] = [['G2', 'Bot laps identical'], ['G3', 'Physics replays identical'], ['P1', 'Every screen stage: DOM + computed styles identical'], ['P2', 'Every track scene and car: geometry identical'], ['M1', 'Size limits, no net src growth, tests append-only']];
+  const want: [string, string][] = [['G2', 'Bot laps identical'], ['G3', 'Physics replays identical'], ['P1', 'Every screen stage: DOM + computed styles identical'], ['P2', 'Every track scene and car: geometry identical'], ['M1', 'Size limits, net src growth within the limit, tests append-only']];
   out.push('## Behaviour preservation', '', 'Compared with `main` as it is now, on the final commit:', '', '| Check | Result | Detail |', '|---|---|---|');
   for (const [id, what] of want) {
     const g = head?.gates.find((x) => x.id === id);

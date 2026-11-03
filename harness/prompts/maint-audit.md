@@ -27,8 +27,10 @@ Choose from **the eligible items only** (below). For each, check:
    `trackLayout`), the screen stages and `window.__racer`.
 4. **Worth it.** It removes duplication, dead code or per-frame cost, or makes the next feature
    night safer. Cosmetic churn is not worth a night.
-5. **Fits together.** All chosen items fit the limits below with room to spare, and **net `src/`
-   lines must not grow**: prefer items that delete code. Choose items that don't fight over the
+5. **Fits together.** All chosen items fit the limits below with room to spare. **Net `src/` growth
+   is for performance items only**, within the limit below: a measurable per-frame win (fewer
+   allocations, draw calls, triangles or DOM writes) may add code; every other item should delete
+   code. Choose items that don't fight over the
    same lines.
 
 Reject every eligible item you don't choose, with the reason; it stays on the list for a later

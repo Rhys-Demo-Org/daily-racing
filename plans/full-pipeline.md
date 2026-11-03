@@ -154,7 +154,8 @@ cheap. Split it by module once it grows.
    so nothing is redone.
 2. **Plan audit.** Keeps the items that are behaviour-preserving and worth it.
 3. **Refactor.** Applies the top items within the maintenance size limit: 40 files, 1,500 changed
-   lines, **net `src` LOC must not grow** (tests don't count). It also keeps `CLAUDE.md` accurate.
+   lines, **net `src` LOC may grow by at most 150 lines, for performance items only** (tests don't count;
+   owner decision 2026-11-03, was "must not grow"). It also keeps `CLAUDE.md` accurate.
 4. **Review fan-out → verify → fix**, as on feature nights.
 5. **Behaviour-preservation checks.** These make render and CSS refactors safe before G6 exists:
    - exact laps (G2) and replays (G3);
@@ -369,6 +370,7 @@ that night's 02:00 run:
 ## Owner decisions (2026-11-02)
 1. Maintenance is on **Sundays** (London).
 2. Maintenance size limit: 40 files / 1,500 lines with no net `src` LOC growth. Agreed.
+   **Changed 2026-11-03:** net `src` may grow by up to 150 lines, for performance items only.
 3. 2 ideate↔audit rounds, 2 backlog items a night, 3 open daily PRs. Agreed.
 4. Model diversity: **trial Sonnet 5.5 at max effort as reviewer R2**, kept or dropped on the evals.
    No non-Anthropic model.

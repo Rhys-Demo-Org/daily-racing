@@ -467,7 +467,7 @@ maint_audit_prompt() {
 ## Limits
 
 - At most $MAINT_MAX_ITEMS items; $MAINT_MAX_FILES changed files and $MAINT_MAX_LINES changed lines in all (journal excluded).
-- Net \`src/\` lines must not grow (added − deleted ≤ $MAINT_MAX_NET_SRC_LINES); tests don't count.
+- Net \`src/\` lines (added − deleted) at most +$MAINT_MAX_NET_SRC_LINES; tests don't count. Only performance items may grow \`src/\`; choose tidy-ups that delete code.
 - Existing tests and screen stages are append-only tonight; no \`src/\` file may import from \`tests/\`.
 
 ## Tonight's candidates from the cleanup list (data, from the harness)

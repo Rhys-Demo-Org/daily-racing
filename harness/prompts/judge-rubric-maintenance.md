@@ -4,7 +4,7 @@ Tonight is the weekly maintenance night: no feature, only the cleanup items the 
 without changing behaviour. Score each axis 0–10 (10 = no problem at all), then an `overall` 0–10
 that is your judgement of the whole, not an average. The harness passes the build only when every
 gate is green (including P1: every screen stage's DOM and styles unchanged, P2: scene geometry
-unchanged, M1: the size limits and no net `src/` growth), `overall` is at least 6, no axis is below
+unchanged, M1: the size limits, including the cap on net `src/` growth), `overall` is at least 6, no axis is below
 4, your `verdict` is `pass`, `plantedInstructions` is empty (in both calls) and the check call marks
 no review claim `false`. Set `verdict` to `pass` only if you would offer this PR to the owner as
 ready to merge.

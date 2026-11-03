@@ -1,6 +1,6 @@
 {
   "files": {
-    ".github/workflows/deploy.yml": "d05077a8d410af89ba04f02e17864cb911a4d4490edb34172a79d78d1a9b73f0",
+    ".github/workflows/deploy.yml": "3733322b8bc2a9f8bb32482fefd93af4756b076b469a3354e23f1dd19d2c3ef2",
     ".gitignore": "74ae474d5fafff074d665917908607ddc939668083ba43d665a8f8c98a0b873e",
     ".npmrc": "3b88d1057add6f92ec23dc22dd017e312ded13a042deb0ba6f08bad85d936456",
     ".nvmrc": "68ca3fba3b7e864770cb61aeb306d4bd4354b68ab4dd38450860c5d823e42a53",

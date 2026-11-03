@@ -9,8 +9,11 @@ export interface RacerDriver {
   readonly version: 1;
   /** Registered track ids. */
   tracks(): string[];
-  /** Starts a race immediately (skipping the menu) with a fixed seed. */
-  startRace(options: { track: string; seed: number }): GameState;
+  /**
+   * Starts a race immediately (skipping the menu) with a fixed seed. Gates pass `PLAYER_CAR_COUNT`
+   * (src/content/drivers.ts) to see the grid players get; without it the game's default applies.
+   */
+  startRace(options: { track: string; seed: number; carCount?: number }): GameState;
   state(): GameState;
   /** Stops real time; afterwards the game only moves through step(). */
   freeze(): void;
@@ -32,8 +35,8 @@ export function installDriver(game: Game): RacerDriver {
   const driver: RacerDriver = {
     version: 1,
     tracks: () => TRACKS.map((t) => t.id),
-    startRace({ track, seed }) {
-      game.startRace({ trackId: track, seed });
+    startRace({ track, seed, carCount }) {
+      game.startRace({ trackId: track, seed, ...(carCount === undefined ? {} : { carCount }) });
       return game.state();
     },
     state: () => game.state(),

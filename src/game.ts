@@ -3,7 +3,7 @@
 // The sim advances in fixed 60 Hz ticks (src/sim); rendering runs once per animation frame and draws
 // car positions interpolated between the last two ticks, so motion is smooth at any refresh rate.
 // The UI only ever sees views (src/ui/race-ui.ts), never the sim itself.
-import { raceDrivers, type Driver } from './content/drivers.ts';
+import { PLAYER_CAR_COUNT, raceDrivers, type Driver } from './content/drivers.ts';
 import { TRACKS, getTrack, nextTrackId } from './content/tracks.ts';
 import { createInput } from './input/index.ts';
 import { createRaceScene, createRenderer, type RaceScene } from './render/index.ts';
@@ -29,8 +29,6 @@ const MAX_TICKS_PER_FRAME = 5;
 /** The minimap uses every Nth point of the dense centreline. */
 const MINIMAP_STRIDE = 8;
 const NO_INPUT: CarInput = { steer: 0, throttle: false, brake: false };
-/** Races the player starts (RACE, RETRY, RESTART RACE, NEXT RACE): YOU plus all five roster AI drivers. */
-const PLAYER_CAR_COUNT = 6;
 /** startRace() without a car count: YOU #1 and KOSKI #7, as the driver (gates) and older tests expect. */
 const DEFAULT_CAR_COUNT = 2;
 

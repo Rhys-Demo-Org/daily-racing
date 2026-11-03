@@ -17,6 +17,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 import { assertNoErrors, context, GAME_READY, launch, open, renderStage, serve, stageNames } from './browser.ts';
 import { snapshotDom, STYLE_PROPS } from './dom.ts';
 import { RACE_SEED, VIEWPORTS, viewportName } from './shots.ts';
+import { PLAYER_CAR_COUNT } from '../../src/content/drivers.ts';
 
 // The nonce and the real stdout writer are taken before anything else runs in this process.
 const NONCE = process.env['GATE_NONCE'];
@@ -99,11 +100,11 @@ const THROTTLE = { steer: 0, throttle: true, brake: false };
 /** One race: warm up, then measure MEASURE_TICKS single-tick steps (each renders a frame). */
 async function raceProbe(ctx: BrowserContext, origin: string, track: string): Promise<Record<string, unknown>> {
   const page: Page = await open(ctx, origin, '/', GAME_READY);
-  await page.evaluate(({ track, seed }) => {
+  await page.evaluate(({ track, seed, carCount }) => {
     const r = (window as unknown as { __racer: { startRace(o: object): unknown; freeze(): void } }).__racer;
-    r.startRace({ track, seed });
+    r.startRace({ track, seed, carCount });
     r.freeze();
-  }, { track, seed: RACE_SEED });
+  }, { track, seed: RACE_SEED, carCount: PLAYER_CAR_COUNT });
   type W = { __racer: { step(n: number, i: object): unknown }; __draws: { calls: number; triangles: number; lines: number }; __mut: { observer: MutationObserver; counts: Record<string, number>; targets: Record<string, number> } };
   await page.evaluate(({ n, input }) => { for (let i = 0; i < n; i++) (window as unknown as W).__racer.step(1, input); }, { n: WARMUP_TICKS, input: THROTTLE });
   await page.evaluate(() => {

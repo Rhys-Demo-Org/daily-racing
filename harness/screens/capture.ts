@@ -11,6 +11,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { join, resolve } from 'node:path';
 import type { Page } from '@playwright/test';
 import { assertNoErrors, context, GAME_READY, launch, open, renderStage, serve, stageNames as names } from './browser.ts';
+import { PLAYER_CAR_COUNT } from '../../src/content/drivers.ts';
 import { createBot, createWorld, raceView, stepWorld, validateTrack, type CarInput } from '../../src/sim/index.ts';
 import { checkIndex, planShots, RACE_SEED, raceMoments, VIEWPORTS, viewportName, type RaceMoment, type ShotEntry } from './shots.ts';
 
@@ -19,8 +20,8 @@ if (!distArg || !outArg) throw new Error('usage: node harness/screens/capture.ts
 const dist = resolve(distArg);
 const out = resolve(outArg);
 
-/** Cars per race, as in the game (player + one bot opponent). */
-const CARS = 2;
+/** Cars per race, as in a race the player starts (YOU + every AI driver). */
+const CARS = PLAYER_CAR_COUNT;
 /** Give up on a race after this many ticks (5 minutes of sim time). */
 const TICK_CAP = 60 * 300;
 
@@ -91,12 +92,12 @@ try {
     for (const race of races) {
       const page = await open(ctx, origin, '/', GAME_READY);
       await page.evaluate(
-        ({ track, seed }) => {
+        ({ track, seed, carCount }) => {
           const r = (window as unknown as { __racer: { startRace(o: object): unknown; freeze(): void } }).__racer;
-          r.startRace({ track, seed });
+          r.startRace({ track, seed, carCount });
           r.freeze();
         },
-        { track: race.track, seed: RACE_SEED },
+        { track: race.track, seed: RACE_SEED, carCount: CARS },
       );
       let at = 0;
       for (const m of race.moments) {

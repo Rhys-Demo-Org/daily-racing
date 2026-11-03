@@ -16,7 +16,7 @@ import {
 import type { Rng } from './rng.ts';
 import { createRng, nextRange } from './rng.ts';
 import type { Track } from './track.ts';
-import { buildTrack, validateTrack } from './track.ts';
+import { buildTrack, sampleAt, validateTrack } from './track.ts';
 import { clamp } from './vec.ts';
 
 export interface WorldOptions {
@@ -43,13 +43,18 @@ const GRID_COLUMN = 2;
 /** Max random grid jitter per seed: along the track and sideways. */
 const GRID_JITTER_ALONG = 0.6;
 const GRID_JITTER_SIDE = 0.4;
+/** Slots from this index on (only six-car races reach them) follow the centreline back, since the
+ * track may already curve that far behind the line, and sit in narrower columns, clear of the props. */
+const GRID_CURVED_FROM = 4;
+const GRID_CURVED_COLUMN = 1.5;
 
 /** This tick's sanitised inputs (scratch reused every tick, so stepping doesn't allocate). */
 const clean: CarInput[] = [];
 
 /**
  * Creates a world at tick 0 (start of the countdown). Cars are staggered in two columns behind
- * the start line, all facing the start heading; the seed nudges each slot slightly.
+ * the start line, all facing the start heading (slots from GRID_CURVED_FROM on follow the centreline
+ * and face along it); the seed nudges each slot slightly.
  */
 export function createWorld(trackData: TrackData, options: WorldOptions): World {
   const track = buildTrack(validateTrack(trackData));
@@ -66,9 +71,16 @@ export function createWorld(trackData: TrackData, options: WorldOptions): World 
   const racers: RacerState[] = [];
   for (let i = 0; i < options.carCount; i++) {
     const back = GRID_FIRST + i * GRID_ROW_GAP + nextRange(rng, -GRID_JITTER_ALONG, GRID_JITTER_ALONG);
-    const side = (i % 2 === 0 ? -GRID_COLUMN : GRID_COLUMN) + nextRange(rng, -GRID_JITTER_SIDE, GRID_JITTER_SIDE);
+    const column = i < GRID_CURVED_FROM ? GRID_COLUMN : GRID_CURVED_COLUMN;
+    const side = (i % 2 === 0 ? -column : column) + nextRange(rng, -GRID_JITTER_SIDE, GRID_JITTER_SIDE);
     // Right of the heading is (−fz, fx).
-    const car = createCar(track, sx - fx * back - fz * side, sz - fz * back + fx * side, h);
+    let car: CarState;
+    if (i < GRID_CURVED_FROM) {
+      car = createCar(track, sx - fx * back - fz * side, sz - fz * back + fx * side, h);
+    } else {
+      const p = sampleAt(track, track.length - back);
+      car = createCar(track, p.x + Math.cos(p.heading) * side, p.z + Math.sin(p.heading) * side, p.heading);
+    }
     cars.push(car);
     racers.push(createRacer(car.pos.s, track.length));
   }

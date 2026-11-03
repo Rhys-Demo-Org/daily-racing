@@ -3,7 +3,7 @@
 // The sim advances in fixed 60 Hz ticks (src/sim); rendering runs once per animation frame and draws
 // car positions interpolated between the last two ticks, so motion is smooth at any refresh rate.
 // The UI only ever sees views (src/ui/race-ui.ts), never the sim itself.
-import { raceDrivers } from './content/drivers.ts';
+import { raceDrivers, type Driver } from './content/drivers.ts';
 import { TRACKS, getTrack, nextTrackId } from './content/tracks.ts';
 import { createInput } from './input/index.ts';
 import { createRaceScene, createRenderer, type RaceScene } from './render/index.ts';
@@ -29,8 +29,10 @@ const MAX_TICKS_PER_FRAME = 5;
 /** The minimap uses every Nth point of the dense centreline. */
 const MINIMAP_STRIDE = 8;
 const NO_INPUT: CarInput = { steer: 0, throttle: false, brake: false };
-/** Player (car 0) and the bot opponent (car 1), from the roster: YOU #1 and KOSKI #7. */
-const DRIVERS = raceDrivers(2);
+/** Races the player starts (RACE, RETRY, RESTART RACE, NEXT RACE): YOU plus all five roster AI drivers. */
+const PLAYER_CAR_COUNT = 6;
+/** startRace() without a car count: YOU #1 and KOSKI #7, as the driver (gates) and older tests expect. */
+const DEFAULT_CAR_COUNT = 2;
 
 export type GameMode = 'menu' | 'race';
 
@@ -46,7 +48,8 @@ export interface GameState {
 
 /** Control surface used by the start screen, the results screen and src/driver (gates). */
 export interface Game {
-  startRace(options?: { trackId?: string; seed?: number }): void;
+  /** `carCount` (1–6, default 2): the player (car 0) then the roster AI drivers in order, one bot each. */
+  startRace(options?: { trackId?: string; seed?: number; carCount?: number }): void;
   showMenu(): void;
   state(): GameState;
   /** Stops the real-time loop; the game then only advances through step(). */
@@ -63,7 +66,10 @@ interface Race {
   track: TrackData;
   scene: RaceScene;
   world: World;
-  bot: Bot;
+  /** bots[i] drives car i + 1. */
+  bots: Bot[];
+  /** Reused every tick: the player's input, then each bot's. */
+  inputs: CarInput[];
   prev: CarView[];
   curr: CarView[];
   /** Interpolated views handed to the renderer; reused every frame. */
@@ -98,10 +104,10 @@ export function createGame(root: HTMLElement): Game {
 
   const renderer = createRenderer(canvas);
   // RESTART RACE (pause) and RETRY (results) are one action: a fresh race on the same track.
-  const restart = (): void => game.startRace({ trackId: race?.track.id ?? menuTrack.id });
+  const restart = (): void => game.startRace({ trackId: race?.track.id ?? menuTrack.id, carCount: PLAYER_CAR_COUNT });
   const ui = createRaceUi(raceLayer, {
     onRaceAgain: restart,
-    onNextRace: () => game.startRace({ trackId: nextTrackId(race?.track.id ?? menuTrack.id) }),
+    onNextRace: () => game.startRace({ trackId: nextTrackId(race?.track.id ?? menuTrack.id), carCount: PLAYER_CAR_COUNT }),
     onPause: () => setPaused(!paused),
     onResume: () => setPaused(false),
     onRestart: restart,
@@ -123,20 +129,22 @@ export function createGame(root: HTMLElement): Game {
   let rafId = 0;
   let lastFrame = 0;
   let accumulator = 0;
-  // Only the current track's scene is kept: reused (after reset) on restart, disposed on track change.
-  let sceneTrack = '';
+  // Only the current scene is kept: reused (after reset) on restart, disposed when the track or the
+  // driver list changes.
+  let sceneKey = '';
   let scene: RaceScene | null = null;
 
   const startScreen = createStartScreen(menuLayer, {
-    onRace: () => game.startRace({ trackId: menuTrack.id }),
+    onRace: () => game.startRace({ trackId: menuTrack.id, carCount: PLAYER_CAR_COUNT }),
     subtitle: `${menuTrack.name} · ${menuTrack.laps} laps`,
   });
 
-  function sceneFor(world: World): RaceScene {
-    if (!scene || sceneTrack !== world.track.data.id) {
+  function sceneFor(world: World, drivers: readonly Driver[]): RaceScene {
+    const key = `${world.track.data.id}|${drivers.length}`;
+    if (!scene || sceneKey !== key) {
       scene?.dispose();
-      scene = createRaceScene(world.track.layout, DRIVERS, renderer);
-      sceneTrack = world.track.data.id;
+      scene = createRaceScene(world.track.layout, drivers, renderer);
+      sceneKey = key;
     } else {
       scene.reset();
     }
@@ -168,9 +176,11 @@ export function createGame(root: HTMLElement): Game {
   }
 
   function tick(r: Race, carInput: CarInput): void {
-    // After the finish the player's car coasts; the panel takes over the controls. The bot drives on.
+    // After the finish the player's car coasts; the panel takes over the controls. The bots drive on.
     const finished = r.world.racers[0]?.finishTick != null;
-    stepWorld(r.world, [finished ? NO_INPUT : carInput, r.bot.input(r.world)]);
+    r.inputs[0] = finished ? NO_INPUT : carInput;
+    for (let i = 0; i < r.bots.length; i++) r.inputs[i + 1] = (r.bots[i] as Bot).input(r.world);
+    stepWorld(r.world, r.inputs);
     r.prev = r.curr;
     r.curr = carViews(r.world);
   }
@@ -224,14 +234,16 @@ export function createGame(root: HTMLElement): Game {
   const game: Game = {
     startRace(options = {}) {
       const track = getTrack(options.trackId ?? menuTrack.id);
-      menuTrack = track;
-      const world = createWorld(track, { seed: options.seed ?? nextSeed++, carCount: DRIVERS.length });
+      const drivers = raceDrivers(options.carCount ?? DEFAULT_CAR_COUNT);
+      const world = createWorld(track, { seed: options.seed ?? nextSeed++, carCount: drivers.length });
       const views = carViews(world);
+      menuTrack = track;
       race = {
         track,
-        scene: sceneFor(world),
+        scene: sceneFor(world, drivers),
         world,
-        bot: createBot(world, 1),
+        bots: drivers.slice(1).map((_, i) => createBot(world, i + 1)),
+        inputs: drivers.map(() => NO_INPUT),
         prev: views,
         curr: views,
         drawn: views.map((v) => ({ ...v })),
@@ -239,8 +251,8 @@ export function createGame(root: HTMLElement): Game {
       ui.reset(
         track.laps,
         world.track.layout.centre.filter((_, i) => i % MINIMAP_STRIDE === 0),
-        DRIVERS.map((d) => d.body),
-        { trackName: track.name, carNumbers: DRIVERS.map((d) => d.number), driverNames: DRIVERS.map((d) => d.name) },
+        drivers.map((d) => d.body),
+        { trackName: track.name, carNumbers: drivers.map((d) => d.number), driverNames: drivers.map((d) => d.name) },
       );
       input.reset();
       paused = false; // ui.reset() hid the pause screen

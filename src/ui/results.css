@@ -17,6 +17,26 @@
 .ui-results__track {
   font-size: var(--type-title-size);
 }
+/* The triple stripe runs edge to edge along the top inset (S5 mockup), 4:2:1 like the pause card's,
+   so the six-row table and its buttons fit the 844×390 frame below it. */
+.ui-results > .ui-stripes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+.ui-results > .ui-stripes .ui-stripe {
+  flex: 1;
+  width: auto;
+  height: var(--space-s3);
+  border-width: 0 0 var(--outline-default);
+}
+.ui-results > .ui-stripes .ui-stripe--red {
+  flex: 4;
+}
+.ui-results > .ui-stripes .ui-stripe--mustard {
+  flex: 2;
+}
 /* Screen change: the stripes sweep in left→right, 40ms apart. */
 .ui-results .ui-stripe {
   animation: ui-wipe-in var(--duration-wipe) var(--ease-sweep) both;
@@ -35,6 +55,11 @@
 }
 .ui-results__main .ui-results__column {
   gap: var(--space-s3);
+}
+/* Table with RETRY / NEXT RACE under it, right-aligned (S5 mockup). */
+.ui-results__main .ui-results__side {
+  align-items: flex-end;
+  gap: var(--space-s4);
 }
 
 /* Placing roundel: rally-red with a cream ordinal at hud-l; stamps (from 1.25) once the rows are
@@ -66,7 +91,7 @@
 .ui-results__rows {
   display: flex;
   flex-direction: column;
-  gap: var(--space-s2);
+  gap: var(--space-s1);
 }
 .ui-results__row {
   display: grid;
@@ -74,6 +99,10 @@
   align-items: center;
   gap: var(--space-s3);
   padding: var(--space-s1) var(--space-s3);
+}
+/* Rows at button size so six fit the phone frame with the buttons below them. */
+.ui-results__row.ui-value {
+  font-size: var(--type-button-size);
 }
 /* The header has no outline, so it pads by one to line its columns up with the rows'. */
 .ui-results__header {

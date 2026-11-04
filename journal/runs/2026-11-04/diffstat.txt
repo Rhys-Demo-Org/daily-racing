@@ -1,0 +1,16 @@
+24	0	src/ui/components.css
+53	0	src/ui/hud.css
+3	0	src/ui/hud.ts
+5	0	src/ui/icons.ts
+46	0	src/ui/keycap-legend.css
+53	0	src/ui/keycap-legend.ts
+24	0	src/ui/layout.ts
+10	3	src/ui/race-ui.ts
+11	1	src/ui/stages/hud.stage.ts
+2	1	src/ui/touch-controls.ts
+70	0	tests/ui/desktop-hud-scale.test.ts
+136	0	tests/ui/desktop-hud.test.ts
+60	0	tests/ui/keycap-legend-keys.test.ts
+65	0	tests/ui/keycap-legend-resize.test.ts
+141	0	tests/ui/keycap-legend.test.ts
+82	0	tests/ui/keycap-style.test.ts

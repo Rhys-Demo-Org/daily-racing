@@ -7,6 +7,7 @@ import './hud.css';
 import { button, h, s } from './dom.ts';
 import { formatOptionalTime, formatTime } from './format.ts';
 import { icon } from './icons.ts';
+import { watchDesktop } from './layout.ts';
 import type { HudState, MinimapState } from './types.ts';
 
 export interface Hud {
@@ -82,6 +83,8 @@ export function createHud(root: HTMLElement, opts: HudOptions = {}): Hud {
     ]),
   ]);
   root.append(element);
+  // Desktop sizes, margins and outlines are CSS under .is-desktop; the minimap keeps its viewBox.
+  watchDesktop((desktop) => element.classList.toggle('is-desktop', desktop));
 
   // A new race passes a new outline array: refit it and rebuild the dots (colours may differ).
   // Otherwise the dots only move.

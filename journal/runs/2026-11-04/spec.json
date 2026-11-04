@@ -1,0 +1,57 @@
+{
+  "backlogId": "B05",
+  "title": "Desktop HUD and keycap legend",
+  "summary": "On a desktop (no coarse pointer, and a viewport at least the 844×390 reference frame ×1.45, i.e. 1224×566, worked out from tokens rather than written as literals), the race HUD switches to desktop layout. It uses the desktop type tokens (hud-xl 64, hud-l 40, label 16), 32 px margins instead of the phone insets, 4 px ink outlines, and the minimap and PAUSE button at ×1.45. The phone layout is unchanged, and the mode updates live on resize. A navy keycap-legend panel sits bottom-left for the player's first lap only. It reads ← → STEER, ↑ GAS, ↓ BRAKE, ESC PAUSE, with SVG arrow icons on keycaps (↑ on rally-red, as in the mockup) and no SPACE/POWER-UP, because that binding doesn't exist yet. The countdown, pause and results screens stay as they are tonight.",
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "text": "Browser test (HUD mid-race stage): at 1440×900 without touch, the POS digit is 64px, the LAP value 40px, HUD labels 16px, and the POS, LAP and TIME panels have 4px outlines. The POS panel sits 32px from the viewport's left and top, PAUSE's right edge 32px from the right, and no touch control is visible. At 844×390 with touch, the stage keeps POS 44px and 3px outlines."
+    },
+    {
+      "id": "AC2",
+      "text": "Browser test: a 1440×900 non-touch page showing the HUD stage switches to the phone sizes (POS digit 44px, 3px outlines) after it is resized to 1000×700. Resized back to 1440×900, it returns to POS 64px."
+    },
+    {
+      "id": "AC3",
+      "text": "On a desktop (fine pointer only, 1440×900 viewport), after the race UI is reset and synced with the player on lap 1 (countdown or racing), a visible group named \"Keyboard controls\" exists. Its labels read STEER, GAS, BRAKE, PAUSE in that order, and the text SPACE or POWER-UP appears nowhere in it."
+    },
+    {
+      "id": "AC4",
+      "text": "In the \"Keyboard controls\" legend, the steer, gas and brake keycaps (four in total) each contain an SVG icon, and the legend's text has none of the characters ← → ↑ ↓. The pause keycap reads ESC."
+    },
+    {
+      "id": "AC5",
+      "text": "Once a sync shows the player has completed lap 1 (lapsCompleted ≥ 1, so lap 2 or finished), the \"Keyboard controls\" legend is no longer visible. It stays hidden on later syncs and is visible again after the next reset and lap-1 sync."
+    },
+    {
+      "id": "AC6",
+      "text": "On a coarse-pointer (touch) device, or on a viewport below 1224×566, the \"Keyboard controls\" legend is never visible, even during lap 1. A new screen stage shows the desktop HUD on lap 1 with the legend, and it is listed by the stage registry."
+    }
+  ],
+  "closestExisting": [],
+  "expectedFiles": [
+    "src/ui/layout.ts",
+    "src/ui/keycap-legend.ts",
+    "src/ui/keycap-legend.css",
+    "src/ui/race-ui.ts",
+    "src/ui/hud.ts",
+    "src/ui/hud.css",
+    "src/ui/components.css",
+    "src/ui/icons.ts",
+    "src/ui/touch-controls.ts",
+    "src/ui/stages/hud.stage.ts",
+    "tests/ui/desktop-hud.test.ts",
+    "tests/ui/keycap-legend.test.ts"
+  ],
+  "supersedes": [],
+  "playtest": {
+    "whatYoullSee": "On a computer, the race HUD is bigger (larger numbers, thicker outlines, 32 px from the screen edges), and the phone's on-screen buttons don't show. A dark panel in the bottom-left corner shows keyboard keys: left/right arrows STEER, up GAS, down BRAKE, ESC PAUSE. It goes away when you start lap 2. On a phone nothing changes.",
+    "howToTest": [
+      "Open the preview on a laptop or desktop browser with the window maximised (at least about 1250×600).",
+      "Press RACE. During the countdown and lap 1, check the bottom-left panel lists the keys with drawn arrow keycaps and that there are no on-screen touch buttons.",
+      "Drive across the line to start lap 2 and check the key panel disappears and stays gone.",
+      "Make the browser window small (narrower than about 1200 px) and check the HUD shrinks back to phone size.",
+      "Open the preview on your phone in landscape: the HUD and touch controls look exactly as before and there is no key panel."
+    ]
+  }
+}

@@ -10,6 +10,11 @@ const POINTS = {
   restart: ['13,2 21,3 20,11'],
   pause: ['5,3 10,3 10,21 5,21', '14,3 19,3 19,21 14,21'],
   home: ['12,2 23,12 20,12 20,22 14,22 14,15 10,15 10,22 4,22 4,12 1,12'],
+  // Keycap arrows (keyboard legend): solid head on a stem.
+  'key-left': ['3,12 12,4 12,9 21,9 21,15 12,15 12,20'],
+  'key-right': ['21,12 12,4 12,9 3,9 3,15 12,15 12,20'],
+  'key-up': ['12,3 20,12 15,12 15,21 9,21 9,12 4,12'],
+  'key-down': ['12,21 20,12 15,12 15,3 9,3 9,12 4,12'],
 } as const;
 
 export type IconName = keyof typeof POINTS;

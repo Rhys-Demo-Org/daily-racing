@@ -1,0 +1,46 @@
+/* Keycap legend (UI_RULES §5 desktop, mockup desktop-race-hud-1440x900): a navy panel bottom-left
+   listing the keyboard controls during the first lap. Tokens only. */
+
+.ui-keys {
+  pointer-events: none;
+}
+
+.ui-keys__panel {
+  position: absolute;
+  left: var(--desktop-margin);
+  bottom: var(--desktop-margin);
+  display: flex;
+  align-items: center;
+  gap: var(--space-s5);
+  padding: var(--space-s4) var(--space-s5);
+  border-width: var(--desktop-outline);
+  box-shadow: var(--shadow-button);
+  /* HUD panels slide in from their own edge (bottom-left: from the left). */
+  animation: ui-keys-in var(--duration-slide) var(--ease-snap) both;
+}
+
+.ui-keys__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s2);
+}
+
+.ui-keys__label {
+  margin-left: var(--space-s1);
+  font-size: var(--type-label-size-desktop);
+}
+
+@keyframes ui-keys-in {
+  from {
+    transform: translateX(calc((var(--desktop-margin) + 100%) * -1));
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-keys__panel {
+    animation: none;
+  }
+}

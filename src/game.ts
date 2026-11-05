@@ -190,10 +190,35 @@ export function createGame(root: HTMLElement): Game {
     ui.sync(raceView(r.world), r.curr);
   }
 
+  /** The menu screen showing (start, or results once the player has finished), if any. */
+  function visibleMenu(): HTMLElement | null {
+    for (const layer of [menuLayer, raceLayer]) {
+      if (layer.hidden) continue;
+      for (const screen of layer.querySelectorAll<HTMLElement>('.ui-screen')) if (!screen.hidden) return screen;
+    }
+    return null;
+  }
+
+  /**
+   * Gamepad A activates the visible menu's focused button (its main button unless focus moved to another).
+   * Polled every frame whatever the mode, so a held A is seen as held across a mode change and never repeats.
+   */
+  function confirmMenu(): boolean {
+    if (!input.confirmPressed() || paused) return false;
+    const menu = visibleMenu();
+    if (!menu) return false;
+    const focused = document.activeElement;
+    const target = focused instanceof HTMLButtonElement && menu.contains(focused) ? focused : menu.querySelector<HTMLButtonElement>('.ui-button--primary');
+    target?.click();
+    return target != null;
+  }
+
   function frame(now: number): void {
     rafId = requestAnimationFrame(frame);
     const dt = lastFrame === 0 ? DT : Math.min((now - lastFrame) / 1000, 0.25);
     lastFrame = now;
+    // A started a new race: its first ticks run from the next frame.
+    if (confirmMenu()) return;
     const r = race;
     if (mode !== 'race' || !r) return;
     accumulator += dt;

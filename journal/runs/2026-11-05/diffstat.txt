@@ -1,0 +1,6 @@
+25	0	src/game.ts
+81	0	src/input/gamepad.ts
+11	3	src/input/index.ts
+155	0	tests/game/gamepad-menu.test.ts
+36	0	tests/input/gamepad-blocked.test.ts
+154	0	tests/input/gamepad.test.ts

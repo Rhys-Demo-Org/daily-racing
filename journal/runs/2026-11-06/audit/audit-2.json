@@ -1,0 +1,34 @@
+{
+  "verdict": "approve",
+  "summary": "The draft covers all of B07's scope and done_when. Every visual decision is backed by UI_RULES §7 and board 05 (\"New best: chip slides out from under the timer (200ms), holds 2s, slides back. The timer itself never animates\"), the existing BEST chip style, and the S5 \"NEW BEST LAP\" chip. The criteria are observable through localStorage, the HUD/results DOM and the stage registry, and the overlap with open PRs is a small textual one, not a behavioural one. Only minor notes are left for the builder.",
+  "findings": [
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "AC1, AC2 and AC7 refer to 'the exported best-lap key', which pushes the tests to import a helper from src/ui/best-laps.ts. Tests are append-only, so that would pin an internal module path and export name. The storage key itself (`racer.bestLap.<trackId>`) is the real public contract: it holds players' saved bests, and B08/B11 read it.",
+      "suggestedFix": "In the tests, write the literal key string `racer.bestLap.dust-bowl` (and other tracks) directly into localStorage instead of importing a key-builder function. Keep the helper in src/ui/best-laps.ts for game code only."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "Existing tests/ui/race-ui.test.ts asserts that a frame which changes nothing makes no DOM mutation. The new chip's tick-based show/hide must keep that true.",
+      "suggestedFix": "Cache the chip's visible state, as the HUD's field() helper does for text, and only write the DOM when it flips. Update the hidden/visibility state from raceTick in sync(), never every frame."
+    },
+    {
+      "check": "design",
+      "severity": "minor",
+      "claim": "The NEW BEST chip is a new HUD widget in the top-right timer stack. It has to follow the same token-based outline and type rules as the BEST chip so that B05's desktop layout (#24, open) styles it the same way. The draft's statement that 'B05's desktop scaling covers the chip' can't be checked tonight.",
+      "suggestedFix": "Build the chip from the existing `.ui-panel.ui-panel--mustard` component and the same CSS variables (outline, label size, radius) as `.ui-hud-best`, with no new size literals. Use only transform (slide token, snap easing) plus visibility, and cut under prefers-reduced-motion. Don't depend on anything in B05."
+    },
+    {
+      "check": "visible",
+      "severity": "minor",
+      "claim": "Play-test steps 2–3 assume nothing is stored yet (dashes before the first lap, NEW BEST on the first lap). On a second session the owner will see a stored best instead.",
+      "suggestedFix": "Word step 2 as 'the first time you race a track, the BEST chip shows dashes', and note that a first lap only triggers NEW BEST when it beats the stored time."
+    }
+  ],
+  "overlapAssessment": "#23 (game.ts): it changes draw() and the driver-step loop to add camera framing. B07 only adds a trackId field to the existing `ui.reset(..., { trackName, carNumbers, driverNames })` info object (game.ts ~line 253). Different lines, unrelated behaviour. #25 (game.ts): gamepad polling in the input path, which B07 doesn't touch. Again different lines and behaviour. #24 (hud.ts/hud.css): B05 adds desktop scaling and layout switching. B07 adds one child to `.ui-hud__timer`, one show/hide method and a CSS block for the chip. Whichever merges second gets a small textual rebase but no behaviour change. B07 doesn't need B05: on main the chip is phone-sized like the rest of the HUD. Safe to build now.",
+  "waitsOn": null,
+  "designRequest": null,
+  "backlogChangeRequests": []
+}

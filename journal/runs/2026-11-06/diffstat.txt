@@ -1,0 +1,13 @@
+1	1	src/game.ts
+49	0	src/ui/best-laps.ts
+38	0	src/ui/hud.css
+15	0	src/ui/hud.ts
+44	5	src/ui/race-ui.ts
+5	1	src/ui/results-screen.ts
+40	0	src/ui/stages/new-best.stage.ts
+16	4	src/ui/stages/stage.ts
+1	1	src/ui/types.ts
+137	0	tests/game/best-lap-persistence.test.ts
+74	0	tests/game/best-lap-storage-blocked.test.ts
+164	0	tests/ui/new-best-chip.test.ts
+50	0	tests/ui/new-best-stage.test.ts

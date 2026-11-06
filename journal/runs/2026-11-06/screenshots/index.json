@@ -1,0 +1,218 @@
+[
+  {
+    "name": "countdown--go",
+    "kind": "stage",
+    "viewport": "844x390",
+    "path": "844x390/stage/countdown--go.png"
+  },
+  {
+    "name": "countdown--three",
+    "kind": "stage",
+    "viewport": "844x390",
+    "path": "844x390/stage/countdown--three.png"
+  },
+  {
+    "name": "hud--mid-race",
+    "kind": "stage",
+    "viewport": "844x390",
+    "path": "844x390/stage/hud--mid-race.png"
+  },
+  {
+    "name": "new-best--hud",
+    "kind": "stage",
+    "viewport": "844x390",
+    "path": "844x390/stage/new-best--hud.png"
+  },
+  {
+    "name": "new-best--results",
+    "kind": "stage",
+    "viewport": "844x390",
+    "path": "844x390/stage/new-best--results.png"
+  },
+  {
+    "name": "pause--paused",
+    "kind": "stage",
+    "viewport": "844x390",
+    "path": "844x390/stage/pause--paused.png"
+  },
+  {
+    "name": "results--long-list",
+    "kind": "stage",
+    "viewport": "844x390",
+    "path": "844x390/stage/results--long-list.png"
+  },
+  {
+    "name": "results--podium",
+    "kind": "stage",
+    "viewport": "844x390",
+    "path": "844x390/stage/results--podium.png"
+  },
+  {
+    "name": "results--win",
+    "kind": "stage",
+    "viewport": "844x390",
+    "path": "844x390/stage/results--win.png"
+  },
+  {
+    "name": "start--menu",
+    "kind": "stage",
+    "viewport": "844x390",
+    "path": "844x390/stage/start--menu.png"
+  },
+  {
+    "name": "bends-countdown",
+    "kind": "race",
+    "viewport": "844x390",
+    "path": "844x390/race/bends-countdown.png"
+  },
+  {
+    "name": "bends-start",
+    "kind": "race",
+    "viewport": "844x390",
+    "path": "844x390/race/bends-start.png"
+  },
+  {
+    "name": "bends-mid-race",
+    "kind": "race",
+    "viewport": "844x390",
+    "path": "844x390/race/bends-mid-race.png"
+  },
+  {
+    "name": "bends-finished",
+    "kind": "race",
+    "viewport": "844x390",
+    "path": "844x390/race/bends-finished.png"
+  },
+  {
+    "name": "dust-bowl-countdown",
+    "kind": "race",
+    "viewport": "844x390",
+    "path": "844x390/race/dust-bowl-countdown.png"
+  },
+  {
+    "name": "dust-bowl-start",
+    "kind": "race",
+    "viewport": "844x390",
+    "path": "844x390/race/dust-bowl-start.png"
+  },
+  {
+    "name": "dust-bowl-mid-race",
+    "kind": "race",
+    "viewport": "844x390",
+    "path": "844x390/race/dust-bowl-mid-race.png"
+  },
+  {
+    "name": "dust-bowl-finished",
+    "kind": "race",
+    "viewport": "844x390",
+    "path": "844x390/race/dust-bowl-finished.png"
+  },
+  {
+    "name": "countdown--go",
+    "kind": "stage",
+    "viewport": "1440x900",
+    "path": "1440x900/stage/countdown--go.png"
+  },
+  {
+    "name": "countdown--three",
+    "kind": "stage",
+    "viewport": "1440x900",
+    "path": "1440x900/stage/countdown--three.png"
+  },
+  {
+    "name": "hud--mid-race",
+    "kind": "stage",
+    "viewport": "1440x900",
+    "path": "1440x900/stage/hud--mid-race.png"
+  },
+  {
+    "name": "new-best--hud",
+    "kind": "stage",
+    "viewport": "1440x900",
+    "path": "1440x900/stage/new-best--hud.png"
+  },
+  {
+    "name": "new-best--results",
+    "kind": "stage",
+    "viewport": "1440x900",
+    "path": "1440x900/stage/new-best--results.png"
+  },
+  {
+    "name": "pause--paused",
+    "kind": "stage",
+    "viewport": "1440x900",
+    "path": "1440x900/stage/pause--paused.png"
+  },
+  {
+    "name": "results--long-list",
+    "kind": "stage",
+    "viewport": "1440x900",
+    "path": "1440x900/stage/results--long-list.png"
+  },
+  {
+    "name": "results--podium",
+    "kind": "stage",
+    "viewport": "1440x900",
+    "path": "1440x900/stage/results--podium.png"
+  },
+  {
+    "name": "results--win",
+    "kind": "stage",
+    "viewport": "1440x900",
+    "path": "1440x900/stage/results--win.png"
+  },
+  {
+    "name": "start--menu",
+    "kind": "stage",
+    "viewport": "1440x900",
+    "path": "1440x900/stage/start--menu.png"
+  },
+  {
+    "name": "bends-countdown",
+    "kind": "race",
+    "viewport": "1440x900",
+    "path": "1440x900/race/bends-countdown.png"
+  },
+  {
+    "name": "bends-start",
+    "kind": "race",
+    "viewport": "1440x900",
+    "path": "1440x900/race/bends-start.png"
+  },
+  {
+    "name": "bends-mid-race",
+    "kind": "race",
+    "viewport": "1440x900",
+    "path": "1440x900/race/bends-mid-race.png"
+  },
+  {
+    "name": "bends-finished",
+    "kind": "race",
+    "viewport": "1440x900",
+    "path": "1440x900/race/bends-finished.png"
+  },
+  {
+    "name": "dust-bowl-countdown",
+    "kind": "race",
+    "viewport": "1440x900",
+    "path": "1440x900/race/dust-bowl-countdown.png"
+  },
+  {
+    "name": "dust-bowl-start",
+    "kind": "race",
+    "viewport": "1440x900",
+    "path": "1440x900/race/dust-bowl-start.png"
+  },
+  {
+    "name": "dust-bowl-mid-race",
+    "kind": "race",
+    "viewport": "1440x900",
+    "path": "1440x900/race/dust-bowl-mid-race.png"
+  },
+  {
+    "name": "dust-bowl-finished",
+    "kind": "race",
+    "viewport": "1440x900",
+    "path": "1440x900/race/dust-bowl-finished.png"
+  }
+]

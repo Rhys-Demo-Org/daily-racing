@@ -24,6 +24,8 @@ export interface ResultsRace {
   driverNames: readonly string[];
   /** The player's best lap in ms, or null. */
   bestLapMs: number | null;
+  /** A lap in this race set a new stored best: the chip reads NEW BEST LAP. */
+  newBest?: boolean;
 }
 
 /** One car's standing, index-aligned with the cars. Table order is the sim's `position`: finished
@@ -54,6 +56,7 @@ export function createResultsScreen(root: HTMLElement, opts: ResultsScreenOption
   const label = h('p', 'ui-label ui-results__label');
   const trackName = h('h2', 'ui-display ui-results__track');
   let roundel = h('div');
+  const bestLabel = h('span', 'ui-label', ['Best lap']);
   const best = h('span', 'ui-value');
   const body = h('div', 'ui-results__rows', [], { role: 'rowgroup' });
   const th = (text: string): HTMLElement => h('span', '', [text], { role: 'columnheader' });
@@ -65,7 +68,7 @@ export function createResultsScreen(root: HTMLElement, opts: ResultsScreenOption
     [
       stripes(),
       h('div', 'ui-results__main', [
-        h('div', 'ui-results__column', [label, trackName, roundel, h('div', 'ui-panel ui-panel--mustard ui-results__best', [h('span', 'ui-label', ['Best lap']), best])]),
+        h('div', 'ui-results__column', [label, trackName, roundel, h('div', 'ui-panel ui-panel--mustard ui-results__best', [bestLabel, best])]),
         h('div', 'ui-results__column ui-results__side', [
           h('div', 'ui-results__rows', [header, body], { role: 'table', 'aria-label': 'Results' }),
           h('div', 'ui-results__actions', [button('', [icon('restart'), 'Retry'], opts.onRaceAgain), next]),
@@ -107,6 +110,7 @@ export function createResultsScreen(root: HTMLElement, opts: ResultsScreenOption
       names = race.driverNames;
       label.textContent = `Race complete · ${race.laps} ${race.laps === 1 ? 'lap' : 'laps'}`;
       trackName.textContent = race.trackName;
+      bestLabel.textContent = race.newBest ? 'New best lap' : 'Best lap';
       best.textContent = formatOptionalTime(race.bestLapMs);
       // Rows, and the roundel that stamps after them, are built per race. Their deal-stagger custom
       // properties are the only inline styles; the CSS multiplies them by 40ms.

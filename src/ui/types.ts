@@ -8,7 +8,7 @@ export interface HudState {
   laps: number;
   /** Race time in ms (null before GO). */
   timeMs: number | null;
-  /** Best lap of this race in ms, or null. Persistence is backlog B07. */
+  /** Best lap in ms, or null: the lower of the track's stored best and this race's laps. */
   bestLapMs: number | null;
   minimap: MinimapState;
 }

@@ -250,7 +250,7 @@ export function createGame(root: HTMLElement): Game {
         track.laps,
         world.track.layout.centre.filter((_, i) => i % MINIMAP_STRIDE === 0),
         drivers.map((d) => d.body),
-        { trackName: track.name, carNumbers: drivers.map((d) => d.number), driverNames: drivers.map((d) => d.name) },
+        { trackId: track.id, trackName: track.name, carNumbers: drivers.map((d) => d.number), driverNames: drivers.map((d) => d.name) },
       );
       input.reset();
       paused = false; // ui.reset() hid the pause screen

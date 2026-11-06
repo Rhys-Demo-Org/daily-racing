@@ -13,7 +13,11 @@ export interface Hud {
   /** The HUD layer element (absolute, fills root). */
   readonly element: HTMLElement;
   update(state: HudState): void;
+  /** Shows the NEW BEST chip under BEST: 'out' slides it down, 'back' slides it back up, null hides it. */
+  newBest(phase: NewBestPhase): void;
 }
+
+export type NewBestPhase = 'out' | 'back' | null;
 
 // Minimap geometry in SVG user units (1 unit = 1 CSS px). The panel is 104×72 outside its 3px
 // outline (board 02), so the drawing area is 98×66.
@@ -54,6 +58,9 @@ export function createHud(root: HTMLElement, opts: HudOptions = {}): Hud {
   const time = field(formatTime);
   const best = field(formatOptionalTime);
 
+  const newBestChip = h('div', 'ui-panel ui-panel--mustard ui-hud-new-best', [h('span', 'ui-label', ['New best'])], { role: 'status', 'aria-hidden': 'true' });
+  let newBestPhase: NewBestPhase = null;
+
   const road = s('path', { class: 'ui-hud-map__road' });
   const edge = s('path', { class: 'ui-hud-map__edge' });
   const carsGroup = s('g');
@@ -77,6 +84,7 @@ export function createHud(root: HTMLElement, opts: HudOptions = {}): Hud {
       h('div', 'ui-hud__timer', [
         h('div', 'ui-panel ui-panel--navy ui-hud-panel ui-hud-time', [h('span', 'ui-label', ['Time']), h('span', 'ui-value', [time.node])]),
         h('div', 'ui-panel ui-panel--mustard ui-hud-best', [h('span', 'ui-label', ['Best']), h('span', 'ui-hud-best__value', [best.node])]),
+        newBestChip,
       ]),
       pause,
     ]),
@@ -142,6 +150,13 @@ export function createHud(root: HTMLElement, opts: HudOptions = {}): Hud {
         if (x !== d.x) d.el.setAttribute('cx', String((d.x = x)));
         if (y !== d.y) d.el.setAttribute('cy', String((d.y = y)));
       }
+    },
+    newBest(phase) {
+      if (phase === newBestPhase) return;
+      newBestPhase = phase;
+      newBestChip.classList.toggle('is-out', phase === 'out');
+      newBestChip.classList.toggle('is-back', phase === 'back');
+      newBestChip.setAttribute('aria-hidden', String(phase === null));
     },
   };
 }

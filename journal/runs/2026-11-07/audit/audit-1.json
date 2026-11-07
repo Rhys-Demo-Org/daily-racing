@@ -1,0 +1,42 @@
+{
+  "verdict": "defer",
+  "summary": "The draft follows UI_RULES §7 and board 05 closely, but it rewrites the same HUD code that two open PRs are also changing. #26 (B07) edits race-ui.ts sync and adds a NEW BEST chip to the TIME/BEST stack that this draft slides in and excludes from motion. #24 (B05) rescales the HUD panels, minimap and PAUSE for desktop in hud.ts/hud.css/components.css. Neither diff is in /inputs, so I couldn't check that building both is safe. B09 should wait for both to merge and then be re-drafted against them.",
+  "findings": [
+    {
+      "check": "overlap",
+      "severity": "blocker",
+      "claim": "#26 (B07) changes src/ui/race-ui.ts sync(), at the lapsSeen/bestLapMs block where this draft would detect lap and position changes. It also changes hud.ts update() and the TIME+BEST element tree that AC3/AC4 slide and exclude, and it adds a NEW BEST chip under BEST that also animates transform. Both PRs edit the same lines and the same behaviour, and the pr-26 diff is not in /inputs to check.",
+      "suggestedFix": "Defer until #26 merges. Then re-draft so the TIME/BEST/NEW BEST stack slides in as one group, and so the NEW BEST chip's transform slide doesn't conflict with the slide-in or with AC3's 'no motion class on TIME/BEST' rule."
+    },
+    {
+      "check": "overlap",
+      "severity": "blocker",
+      "claim": "#24 (B05) puts the HUD in a desktop layout: ×1.45 minimap and PAUSE, 32px margins, different type sizes, plus a keycap legend. It touches hud.ts, hud.css and components.css. If the ×1.45 is done with transform: scale, the slide-in and bump keyframes (which also animate transform) would override it mid-animation. The pr-24 diff is not in /inputs, so this can't be ruled out.",
+      "suggestedFix": "Defer until #24 merges. Then write the slide-in and bump keyframes so they compose with whatever B05 uses for desktop scale (e.g. a wrapper element or the independent `scale`/`translate` properties), and say whether the keycap legend slides in from its own edge."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "AC6 and AC7 assert on CSS source text (keyframe properties, token variables, a rule inside the reduced-motion media query) rather than on observable behaviour. Read literally, the test would parse the CSS file, which ties it to internal files and selectors.",
+      "suggestedFix": "Phrase AC6/AC7 as computed-style checks in Chromium via harness/screens/browser.ts with emulated prefers-reduced-motion: the animation-name is 'none' for each event class under reduce, and is set (with the token duration and timing function) without it."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "AC1/AC2/AC4/AC5 say the class 'goes after' its duration but not how that is observed (timers vs animationend). jsdom fires no animationend, so a Node test can't observe it without a fixed mechanism.",
+      "suggestedFix": "State that removal is timer-based on the token duration (plus stagger delay), so the tests can use fake timers, or that the class is removed on animationend and the test fires that event."
+    },
+    {
+      "check": "design",
+      "severity": "minor",
+      "claim": "Board 05 #3 says the digit rolls up 42px. The draft only says 'translateY'. It also doesn't say whether the touch slide-in moves the slots, which the code comments say 'never move' and which src/input/touch.ts hit-tests, or the buttons, which already animate transform for wake.",
+      "suggestedFix": "In the re-draft, give the 42px roll distance (built from tokens) and put the touch slide-in on a wrapper or slot. Note that hit-testing during the 200ms slide is acceptable because the slide-in ends before GO."
+    }
+  ],
+  "overlapAssessment": null,
+  "waitsOn": "#26, #24",
+  "designRequest": null,
+  "backlogChangeRequests": [
+    "B09 should depend on B05 and B07. It animates the HUD panels that B05 relayouts for desktop and the TIME/BEST stack that B07 extends with the NEW BEST chip."
+  ]
+}

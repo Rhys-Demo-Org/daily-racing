@@ -1,0 +1,77 @@
+{
+  "reviewers": {
+    "R1": "ok",
+    "R2": "ok",
+    "R3": "ok",
+    "R4": "ok",
+    "R5": "ok"
+  },
+  "findings": [
+    {
+      "id": "R3-1",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "tests/content/hay-loop.test.ts",
+      "line": 19,
+      "claim": "The new test's geometry() writes its own heading formula and angle wrap instead of using `headingOf` and `wrapAngle` from `src/sim/vec.ts`. Other tests already import those two helpers directly (tests/sim/helpers.ts:14, tests/sim/track.test.ts:23).",
+      "evidence": "tests/content/hay-loop.test.ts:19 `return Math.atan2(bx - ax, -(bz - az));` is exactly `headingOf(bx - ax, bz - az)` (src/sim/vec.ts:19-21: `return Math.atan2(dx, -dz);`). Line 26 `Math.atan2(Math.sin(d), Math.cos(d))` wraps the turn delta into (−π, π], which is what `wrapAngle(d)` does (src/sim/vec.ts:10). The only difference is at exactly −π, where atan2 returns π and wrapAngle also returns π, so results match.",
+      "suggestedFix": "In tests/content/hay-loop.test.ts, add `import { headingOf, wrapAngle } from '../../src/sim/vec.ts';`. Then replace line 19 with `return headingOf(bx - ax, bz - az);` and line 26 with `turned.push((turned[i - 1] as number) + wrapAngle(d));`."
+    },
+    {
+      "id": "R4-1",
+      "reviewer": "R4",
+      "severity": "minor",
+      "file": "src/content/tracks/hay-loop.json",
+      "line": 46,
+      "claim": "The hairpin's inside hay-bale row is offset 7.5 units from a centreline whose radius around the hairpin is not much bigger than that. Spacing on the offset line shrinks to well under the 2-unit bale length, so neighbouring bale boxes pass through each other. The screenshots show bales stacked and crossing, with crease lines cutting across them, where §8/§9 call for separate boxes with clean ink outlines.",
+      "evidence": "Row: `{ \"kind\": \"hay-bale\", \"side\": \"left\", \"from\": 0.41, \"to\": 0.475, \"spacing\": 4, \"offset\": 2 }`. buildTrack (src/sim/track.ts:349-356) places each bale at halfWidth+offset = 5.5+2 = 7.5 units inside, rotated to the segment heading. Bales are HAY_BALE_LENGTH=2 × 1.2 (track.ts:18-19). Around the tip control points [244.7,14.7]→[264,15.6]→[273,0]→[264,-15.6]→[244.7,-14.7], the inside offset path is much shorter than the centreline, so bales 4 units apart on the centreline end up less than 2 units apart, and their headings differ. Screenshot /inputs/screenshots/1440x900/race/hay-loop-mid-race.png shows two pairs of interpenetrating bales, at about (380,360) and (340,780), plus a doubled bale at about (505,560). The same overlap shows in 844x390/race/hay-loop-mid-race.png at about (225,140). Repro: for consecutive hay-bale entries of trackLayout(getTrack('hay-loop')).props from this row, some pairs have centre distance < HAY_BALE_LENGTH (2) while their oriented boxes intersect. The dust-bowl and bends screenshots don't show this.",
+      "suggestedFix": "Make the hairpin's inside bales stop overlapping. Either set the row's `offset` to 1 to bring it closer to the edge (AC6 only needs bales within 5 units of the edge), or keep the 4-unit spacing and trim from/to so the row stops where the inside radius drops below about 9 units. Then check in a new test that no two bale colliders overlap."
+    }
+  ],
+  "rulings": [
+    {
+      "id": "R3-1",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "tests/content/hay-loop.test.ts:16-20 heading(i) returns Math.atan2(bx - ax, -(bz - az)); src/sim/vec.ts:19-21 headingOf(dx, dz) returns Math.atan2(dx, -dz), the same expression with dx=bx-ax and dz=bz-az. tests/content/hay-loop.test.ts:26 wraps the delta with Math.atan2(Math.sin(d), Math.cos(d)), which maps into (−π, π]. That is the same job as wrapAngle (src/sim/vec.ts:10-16, 'Wraps an angle into (−π, π]'). Both helpers are exported, and src/sim/track.ts:11 already imports headingOf from vec.ts. Both are new lines in this branch's new test file, so changing them is allowed.",
+      "reason": "The new test re-implements headingOf and wrapAngle, which already exist in src/sim/vec.ts and do the same thing. Swapping in the imports doesn't change behaviour."
+    },
+    {
+      "id": "R4-1",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R4-1.test.ts",
+      "trace": "Ran `pnpm vitest run --config vitest.config.ts tests/verify/R4-1.test.ts`. The test takes the hay-bale props of trackLayout(getTrack('hay-loop')) with x > 200 (the hairpin inside row: from 0.41 to 0.475, spacing 4, offset 2). It builds each as an oriented HAY_BALE_LENGTH×HAY_BALE_WIDTH (2×1.2) box and checks every pair for intersection with a separating-axis test. It fails with 6 intersecting pairs, e.g. bales 6 (259.7,9.1) and 7 (260.3,9.0) with centres 0.64 apart, 16 and 17 with centres 0.46 apart, and 11 and 12 1.41 apart. Bales spaced 4 units on the centreline land under 2 units apart on the 7.5-unit inside offset round the tip.",
+      "reason": "The hairpin's inside bale colliders really do intersect, so the bales overlap visually. The test passes once the row's offset or extent is changed so that no two boxes intersect."
+    }
+  ],
+  "fixes": [
+    {
+      "id": "R3-1",
+      "status": "fixed",
+      "summary": "This was a duplication finding, so it needed no red/green test. In tests/content/hay-loop.test.ts (tonight's new file) I added `import { headingOf, wrapAngle } from '../../src/sim/vec.ts';`. The heading helper now returns `headingOf(bx - ax, bz - az)` in place of the inline `Math.atan2(bx - ax, -(bz - az))`. The turn delta now uses `wrapAngle(d)` in place of `Math.atan2(Math.sin(d), Math.cos(d))`. Both helpers compute the same values over (−π, π], so the test behaves as before and the copied maths is gone. `pnpm typecheck` passes, and `pnpm test` passes all 82 files and 622 tests, including the Hay Loop suite.",
+      "tests": [],
+      "commit": "f503df21b2ba55907be0dc49279f3799d6bccf24",
+      "kept": true
+    },
+    {
+      "id": "R4-1",
+      "status": "fixed",
+      "summary": "In src/content/tracks/hay-loop.json, the hairpin's single inside hay-bale row (from 0.41 to 0.475, spacing 4, offset 2) is now three rows, all at offset 1:\n- 0.41–0.43 at spacing 4 (approach leg)\n- 0.437–0.463 at spacing 6 (the tip)\n- 0.47–0.49 at spacing 4 (exit leg)\n\nThe centreline's radius drops to about 8–10 units around the tip, so a 7.5-unit inside offset folded the offset path and packed bales 4 units apart on the centreline into less than 2 units. With offset 1 the bales sit 6.5 units from the centreline. Wider spacing at the tip keeps neighbouring 2×1.2 bale boxes apart, and the rows on the straighter legs keep the inside lined.\n\nAC6 still holds, with at least 6 inside bales in the hairpin window, each within 5 units of the edge and at least half-width + 1 from the centreline. No sim, render or UI code changed.\n\nNew test: tests/content/hay-loop-bales.test.ts. It is the verifier's separating-axis overlap test on the hairpin's inside bales (x > 200). It failed before the fix with 6 intersecting pairs and passes after.\n\n`pnpm typecheck` is clean and `pnpm test` passes all 623 tests in 83 files, including the Hay Loop AC1–AC7 tests and the bot and six-car suites. In the regenerated 1440×900 hay-loop mid-race screenshot, the hairpin bales are separate boxes with clean outlines.\n\nOut of scope and left alone: the S-bend hay-bale row (0.13–0.17, spacing 2.1) has two pairs of bales that just touch at its curve (centres about 2.0 apart).",
+      "tests": [
+        "tests/content/hay-loop-bales.test.ts"
+      ],
+      "commit": "72479e36b07da1091d3c11390c64333034b23ec7",
+      "kept": true
+    }
+  ],
+  "notes": [],
+  "checked": {
+    "R1": 9,
+    "R2": 15,
+    "R3": 7,
+    "R4": 6,
+    "R5": 8
+  }
+}

@@ -1,4 +1,4 @@
-// Bot driver: the race opponent, and the driver the bot-lap gate (G2) uses on every track.
+// Bot driver: drives every AI car in a race, and the car the bot-lap gate (G2) uses on every track.
 //
 // It follows its own racing line, the centreline shifted sideways by a seeded offset, steering at a
 // point a little way ahead on it (nearer in tight corners, so it never cuts across the inside). Its

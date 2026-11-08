@@ -1,0 +1,322 @@
+{
+  "synced": {
+    "closed": 0,
+    "reopened": 0,
+    "inPr": 0
+  },
+  "list": {
+    "size": 28,
+    "open": 28,
+    "in-pr": 0,
+    "stale": 0,
+    "closed": 0
+  },
+  "survey": {
+    "passes": {
+      "sim": "ok",
+      "render": "ok",
+      "ui": "ok",
+      "content": "ok",
+      "tests": "ok",
+      "seams": "ok",
+      "duplication": "ok",
+      "performance": "ok"
+    },
+    "findings": 32,
+    "new": 28,
+    "merged": 4,
+    "confirmed": 0,
+    "staled": 0,
+    "reopened": 0,
+    "dropped": 0,
+    "gone": 0
+  },
+  "candidates": {
+    "eligible": [
+      "C027",
+      "C001",
+      "C018",
+      "C026",
+      "C002",
+      "C003",
+      "C004",
+      "C005",
+      "C007",
+      "C008",
+      "C010",
+      "C013",
+      "C015",
+      "C016"
+    ],
+    "skipped": [
+      {
+        "id": "C006",
+        "prs": [
+          23
+        ]
+      },
+      {
+        "id": "C014",
+        "prs": [
+          24
+        ]
+      },
+      {
+        "id": "C023",
+        "prs": [
+          26,
+          25,
+          23
+        ]
+      },
+      {
+        "id": "C028",
+        "prs": [
+          26,
+          25,
+          23
+        ]
+      },
+      {
+        "id": "C009",
+        "prs": [
+          23
+        ]
+      },
+      {
+        "id": "C011",
+        "prs": [
+          23
+        ]
+      },
+      {
+        "id": "C024",
+        "prs": [
+          23
+        ]
+      },
+      {
+        "id": "C025",
+        "prs": [
+          26,
+          25,
+          23
+        ]
+      }
+    ],
+    "ownerOnly": [
+      "C012",
+      "C017",
+      "C019",
+      "C020",
+      "C021",
+      "C022"
+    ]
+  },
+  "ownerOnly": [
+    {
+      "id": "C012",
+      "claim": "src/ui/finish-panel.ts is dead code: no file in src/ imports it since the results screen (B02) replaced it, and only two existing tests import createFinishPanel. Its CSS (.ui-finish__card, .ui-finish__stats, .ui-finish__stat in screens.css) is dead with it, because nothing else uses those classes.",
+      "files": [
+        "src/ui/finish-panel.ts",
+        "src/ui/screens.css",
+        "tests/ui/screens.test.ts",
+        "tests/ui/no-inline-colour.test.ts"
+      ]
+    },
+    {
+      "id": "C017",
+      "claim": "The results screen's root still carries the legacy `ui-finish` class only so that old finish-panel tests keep finding it. No CSS rule targets `.ui-finish` on its own. Tests should find the results screen by role or text, not by this leftover class.",
+      "files": [
+        "src/ui/results-screen.ts",
+        "tests/ui/race-ui.test.ts",
+        "tests/ui/results-screen.test.ts"
+      ]
+    },
+    {
+      "id": "C019",
+      "claim": "Game tests copy the same harness again and again: a hand-driven requestAnimationFrame stub with runFrames, setup(), esc(), the render mock, and the 'bot drives car 0 of a twin world' input recorder. The recorder is already shared as twinPlayerInputs in tests/game/helpers.ts. The render mocks also still stub `playerLivery`, which game.ts no longer imports.",
+      "files": [
+        "tests/game/pause.test.ts",
+        "tests/game/pause-review.test.ts",
+        "tests/game/pause-results.test.ts",
+        "tests/game/results-drivers.test.ts",
+        "tests/game/start-race-invalid-count.test.ts",
+        "tests/game/helpers.ts"
+      ]
+    },
+    {
+      "id": "C020",
+      "claim": "The RacerView/RaceView/CarView fixture builders are copied word for word into five test files, while tests/ui/helpers.ts already holds the shared hudState/outline fixtures and tests/render/helpers.ts:21 has an equivalent carView(). If RacerView gains a required field, a feature night has to touch five append-only files it cannot edit.",
+      "files": [
+        "tests/ui/race-ui.test.ts",
+        "tests/ui/results-screen.test.ts",
+        "tests/ui/results-review.test.ts",
+        "tests/ui/results-drivers.test.ts",
+        "tests/game/pause.test.ts",
+        "tests/ui/helpers.ts"
+      ]
+    },
+    {
+      "id": "C021",
+      "claim": "drivers.test.ts AC5 reads src/game.ts as text and uses a regex to require one exact import statement. It pins how game.ts imports the roster, not what the game does. Any behaviour-preserving refactor of game.ts (splitting it, importing via a content index, aliasing) fails this test.",
+      "files": [
+        "tests/content/drivers.test.ts",
+        "src/game.ts"
+      ]
+    },
+    {
+      "id": "C022",
+      "claim": "The body-into-ground probe clipDepth(world, view) is implemented twice, with slightly different sampling (41 samples vs 81), in two sim tests. tests/sim/helpers.ts is the shared home for such geometry probes (propOverlap, circleOverlap and others).",
+      "files": [
+        "tests/sim/ramp-pose.test.ts",
+        "tests/sim/ramp-lip-roll.test.ts",
+        "tests/sim/helpers.ts"
+      ]
+    }
+  ],
+  "chosen": [
+    {
+      "id": "C027",
+      "category": "performance",
+      "files": [
+        "src/sim/car.ts"
+      ],
+      "claim": "groundUnderBody (called through carView→visualPose for every car on every tick via carViews) calls groundAt without the module's scratch `ground`. groundAt's default parameter therefore allocates a new Ground object for every sample. The function also builds a throwaway `[-1e-6, -r.length]` array for every ramp. groundAt is the top allocation site in dust-bowl and the third in bends.",
+      "why": "Real: car.ts:206 calls groundAt with no `out`, so each sample allocates through the default at track.ts:555, and car.ts:201 builds `[-1e-6, -r.length]` for every ramp. groundAt resets h/gx/gz/ramp before writing, and carViews (world.ts:122) never runs while moveWithCollisions/updateVertical hold `ground`, so reusing the scratch is safe. Push the two t values in the same order (-1e-6, then -r.length) with the same |t| < half check. Same ts order and hs values. Per-tick allocation win, small growth."
+    },
+    {
+      "id": "C003",
+      "category": "simplify",
+      "files": [
+        "src/sim/track.ts"
+      ],
+      "claim": "validateTrack copies every prop row twice. The map at line 224 already builds a fresh object literal per row, then line 240 spreads each one into another new object. The second copy does nothing.",
+      "why": "Real: track.ts:224 already builds a fresh object per row, and :240 spreads each one again. `fail` returns never, so `side` is already narrowed to 'left'|'right' without `as const`. Return `propRows` directly, as ramps and props are. Same values, deletes code. Must pass typecheck."
+    },
+    {
+      "id": "C005",
+      "category": "dead-code",
+      "files": [
+        "src/render/geometry.ts"
+      ],
+      "claim": "`MeshBuilder.triangleCount` is never read. Nothing in src/, tests/, harness/ or guardrails/ uses it; the only `triangleCount` matches are an unrelated journal field in harness/lib/journal.ts.",
+      "why": "Real: `get triangleCount` (geometry.ts:134-137) has no reader. The only other matches are an unrelated journal field in harness/. Deleting it changes no geometry."
+    },
+    {
+      "id": "C001",
+      "category": "docs",
+      "files": [
+        "src/sim/car.ts"
+      ],
+      "claim": "The maxStepUp doc comment says applying it on every track is 'fine while no replay baselines exist (before G3)'. Replay baselines now exist and G3 enforces them, so the comment is stale. It also suggests a global physics change is still acceptable, which is a trap: CLAUDE.md requires new physics to be opt-in per track, car or surface.",
+      "why": "Real: car.ts:78 says applying maxStepUp everywhere is fine 'before G3', but replay baselines exist in tests/baselines/replays/. Comment only. It stops a later night from treating a global physics change as acceptable."
+    },
+    {
+      "id": "C002",
+      "category": "docs",
+      "files": [
+        "src/sim/types.ts",
+        "src/sim/bot.ts"
+      ],
+      "claim": "Two sim comments describe the game as it was earlier. TrackData.width says the width is '8.4 per UI_RULES §9', but registered tracks use 11. The bot.ts header calls the bot 'the race opponent' and 'its line', but player races now run five bots (one per roster AI driver).",
+      "why": "Real: types.ts:15 says width is 8.4, but dust-bowl uses 11, and bot.ts:1 calls the bot 'the race opponent' though races now have five. Comment-only fixes with no code change."
+    },
+    {
+      "id": "C016",
+      "category": "docs",
+      "files": [
+        "src/content/drivers.ts"
+      ],
+      "claim": "The JSDoc for raceDrivers sits above PLAYER_CAR_COUNT. That makes two stacked doc comments: editors and hovers attach both to the constant, and raceDrivers ends up with no doc at all. The next night that edits the roster could misread which comment describes what.",
+      "why": "Real: drivers.ts:21-22 stacks two doc comments on PLAYER_CAR_COUNT, so raceDrivers has none. Move line 21 above raceDrivers and fix 'an `carCount`' to 'a `carCount`'. Only comments change, and the file is in no open PR."
+    },
+    {
+      "id": "C013",
+      "category": "docs",
+      "files": [
+        "CLAUDE.md"
+      ],
+      "claim": "CLAUDE.md says race-ui.ts produces 'finish-panel updates', but race-ui.ts shows the results screen and never uses the finish panel. A feature night that reads this would look in the dead finish-panel.ts instead of results-screen.ts.",
+      "why": "Real: CLAUDE.md:39 says race-ui produces finish-panel updates, but race-ui.ts imports createResultsScreen and createPauseScreen and never imports finish-panel. Today is Sunday, so CLAUDE.md may be edited. Change only this line, to '…HUD, countdown, pause-screen and results-screen updates.'"
+    },
+    {
+      "id": "C018",
+      "category": "tests",
+      "files": [
+        "tests/ui/no-inline-colour-overlays.test.ts"
+      ],
+      "claim": "The 'no colour in any inline style or SVG paint attribute' rule is never checked for the pause screen. The results screen gets only a weaker check: 4 paint attributes instead of 7, and it does not allow hatch url() fills. Both screens use icons and the hatch, which is exactly where a stray fill/stroke attribute would slip in.",
+      "why": "Real gap: no-inline-colour.test.ts never builds createPauseScreen, and results-screen.test.ts checks only 4 paint attributes. Add one new test file that renders the pause screen (show({lap:1,laps:3,timeMs:0})) and a createRaceUi synced to a finished RaceView. Apply the full COLOUR_PROPS/COLOUR_VALUE/PAINT_ATTRS checks and allow only url(#…) fills (the hatch). It passes on main: icons use currentColor via CSS, and the only paint attribute is the hatch url fill. Tests only."
+    }
+  ],
+  "rejected": [
+    {
+      "id": "C004",
+      "reason": "It adds a helper and an import to src/sim to replace five one-line expressions, so src/ grows a little for no performance gain. It also touches hot sim paths for low value. Not worth a night under the delete-only rule for tidy-ups."
+    },
+    {
+      "id": "C007",
+      "reason": "Dropping `export` from attachOutline requires editing the re-export in src/render/index.ts. That file is touched by open PR #23 (which is also why C006 is held), and it is the gate-facing render seam. Wait for #23."
+    },
+    {
+      "id": "C008",
+      "reason": "The local helper adds about as many lines as it saves (net ≥0) across two call sites. That is cosmetic churn, not a deletion."
+    },
+    {
+      "id": "C010",
+      "reason": "A types-only rename with zero net lines. Cosmetic churn."
+    },
+    {
+      "id": "C015",
+      "reason": "Grouping the selectors would keep computed styles the same (specificity is unchanged). But it moves results-screen layout into screens.css, coupling two stylesheets for a few lines saved. Low value. Leave it for a night that touches the stripe styles anyway."
+    },
+    {
+      "id": "C026",
+      "reason": "It overlaps C013 (chosen) on the race-ui line. Its other edits rewrite the owner's conventions: what registers by folder, and the planned cars/features content layout. Whether to drop or keep those as intent is the owner's call, not an unattended refactor's."
+    }
+  ],
+  "auditNotes": [],
+  "refactor": [
+    {
+      "id": "C027",
+      "status": "done",
+      "summary": "groundUnderBody now passes the module's scratch `ground` to groundAt, so each sample no longer allocates a new Ground object. The per-ramp `[-1e-6, -r.length]` array loop is replaced by two explicit computations (lip, then foot), each with the same |t| < half check and in the same push order. The arithmetic and the order of ts/hs values are unchanged. carViews never runs while stepCars holds `ground`. Tests pass and the P2 hash is identical."
+    },
+    {
+      "id": "C003",
+      "status": "partial",
+      "summary": "validateTrack now returns `propRows` directly instead of spreading each row into a second copy. The `as const` at line 224 is kept: dropping it fails typecheck, because the inferred map-callback return widens `side` to `string` (TS2322 against PropRowData). The spec's claim that `side` stays narrowed without it is wrong. The values are the same, with one allocation fewer per row."
+    },
+    {
+      "id": "C005",
+      "status": "done",
+      "summary": "Deleted the unused `MeshBuilder.triangleCount` getter and its doc comment from src/render/geometry.ts. The P2 geometry hash is unchanged."
+    },
+    {
+      "id": "C001",
+      "status": "done",
+      "summary": "Rewrote the last sentence of the maxStepUp comment. It now says the value is part of the recorded replay behaviour (G3 baselines), so it must not change, and that a different step rule has to be opt-in per track, car or surface. Comment only."
+    },
+    {
+      "id": "C002",
+      "status": "done",
+      "summary": "types.ts: the TrackData.width comment now reads 'Track ribbon width in units (e.g. 8.4, the UI_RULES §9 reference).' bot.ts line 1 now reads 'Bot driver: drives every AI car in a race, and the car the bot-lap gate (G2) uses on every track.' Comments only."
+    },
+    {
+      "id": "C016",
+      "status": "done",
+      "summary": "Moved the raceDrivers doc comment from above PLAYER_CAR_COUNT to directly above `export function raceDrivers`, and fixed 'an `carCount`-car' to 'a `carCount`-car'. Comments only."
+    },
+    {
+      "id": "C013",
+      "status": "done",
+      "summary": "In CLAUDE.md, the race-ui line now says race-ui turns each frame's RaceView into 'HUD, countdown, pause-screen and results-screen updates'."
+    },
+    {
+      "id": "C018",
+      "status": "done",
+      "summary": "Added tests/ui/no-inline-colour-overlays.test.ts. It renders createPauseScreen(...).show({lap:1,laps:3,timeMs:0}), and separately a createRaceUi synced to a finished RaceView with the results screen visible. On each screen it applies the full COLOUR_PROPS/COLOUR_VALUE checks and all 7 PAINT_ATTRS, allowing only url(#…) paint references (the hatch). Both tests pass on the current code."
+    }
+  ]
+}

@@ -36,7 +36,7 @@ on Sundays (maintenance). Everything else is protected and only the owner change
 - Opponents are `createBot(world, i)` (`src/sim/bot.ts`): each returns the same `CarInput` as the
   player every tick, so a race is reproducible from the seed and the player's inputs, and the bot
   also drives the gates' bot laps.
-- `src/ui/race-ui.ts` turns each frame's `RaceView` into HUD, countdown and finish-panel updates.
+- `src/ui/race-ui.ts` turns each frame's `RaceView` into HUD, countdown, pause-screen and results-screen updates.
 - `src/driver/` installs `window.__racer` (start a race with a seed, freeze real time, step/play
   inputs, read state) for gates. It is protected; never special-case it in game code.
 

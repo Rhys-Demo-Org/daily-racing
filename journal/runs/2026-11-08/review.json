@@ -1,0 +1,58 @@
+{
+  "reviewers": {
+    "R1": "ok",
+    "R2": "ok",
+    "R3": "ok",
+    "R4": "ok",
+    "R5": "ok"
+  },
+  "findings": [
+    {
+      "id": "R1-1",
+      "reviewer": "R1",
+      "severity": "minor",
+      "file": "src/sim/track.ts",
+      "line": 224,
+      "claim": "C003 is only half done. The spec's fix has two parts: drop the redundant `as const` at line 224, and return `propRows` directly at line 240. The diff did the second part only, so the redundant `as const` is still there.",
+      "evidence": "spec.md C003 suggested fix: \"Drop the 'as const' at line 224 (side is already narrowed to 'left' | 'right' by the check at line 217) and return 'propRows' directly at line 240\". The plan audit says the same. On the branch, src/sim/track.ts:224 still reads `return { kind: k, side, from, to, spacing, offset } as const;`, and the diff touches only line 240 (`-    propRows: propRows.map((r) => ({ ...r })),` / `+    propRows,`). Every field is a variable that is already narrowed (`fail` returns never), so `as const` only marks the fields readonly, and that readonly is lost when the value is assigned to TrackData.",
+      "suggestedFix": "In src/sim/track.ts:224, change `return { kind: k, side, from, to, spacing, offset } as const;` to `return { kind: k, side, from, to, spacing, offset };`."
+    },
+    {
+      "id": "R3-1",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "src/sim/track.ts",
+      "line": 224,
+      "claim": "C003 is only half done. The item's suggested fix and plan audit say to drop the redundant `as const` on the prop-row literal as well as the second copy. The diff removed the copy at line 240 but left the `as const`, which no longer does anything because `side` is already narrowed by `fail` (returns never).",
+      "evidence": "src/sim/track.ts:224 still reads `return { kind: k, side, from, to, spacing, offset } as const;`. The spec's C003 fix says: \"Drop the 'as const' at line 224 (side is already narrowed to 'left' | 'right' by the check at line 217) and return 'propRows' directly at line 240\". The diff hunk for track.ts only changes line 240 (`propRows: propRows.map((r) => ({ ...r })),` becomes `propRows,`). The `props` map at :230 builds its literal the same way without `as const`.",
+      "suggestedFix": "Change track.ts:224 to `return { kind: k, side, from, to, spacing, offset };`. This is a types-only change and runtime values stay the same."
+    }
+  ],
+  "rulings": [
+    {
+      "id": "R1-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "I copied src/ and the tsconfigs to /tmp/v, linked node_modules, guardrails and public, and changed line 224 to `return { kind: k, side, from, to, spacing, offset };`. Running `tsc -p tsconfig.json` then failed: track.ts(240,5) TS2322, \"Types of property 'side' are incompatible. Type 'string' is not assignable to type '\"left\" | \"right\"'\". With `as const` put back, the same copy gave rc=0.",
+      "reason": "The `as const` is not redundant. Without it, `side` widens to string in the object literal and typecheck fails at the `propRows` return. The spec's plan audit requires the change to pass typecheck, so the suggested fix would break the build."
+    },
+    {
+      "id": "R3-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Same problem as R1-1, and the same experiment shows that removing `as const` causes TS2322 at track.ts:240.",
+      "reason": "duplicate of R1-1"
+    }
+  ],
+  "fixes": [],
+  "notes": [],
+  "checked": {
+    "R1": 9,
+    "R2": 16,
+    "R3": 11,
+    "R4": 7,
+    "R5": 7
+  }
+}

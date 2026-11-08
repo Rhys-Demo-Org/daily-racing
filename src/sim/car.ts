@@ -75,7 +75,8 @@ export const CAR_TUNING = {
   maxSubstep: 0.2,
   /** Highest step a grounded car can climb in one tick; a taller ramp face (the lip seen from
    * beyond, or a side) is a wall. Ramp slopes must rise less than this per tick at top speed (see
-   * MAX_RAMP_SLOPE). It applies on every track: fine while no replay baselines exist (before G3). */
+   * MAX_RAMP_SLOPE). It is part of the recorded replay behaviour (G3 baselines), so it must not change;
+   * a different step rule has to be opt-in per track, car or surface. */
   maxStepUp: 0.3,
   /** Push-outs may move a car at most this much further in a tick than its own speed does; the
    * rest carries over to later ticks. At top speed that keeps every tick's move under G2's
@@ -198,12 +199,12 @@ function groundUnderBody(car: CarState, track: Track, half: number): { ts: numbe
     if (Math.abs(rate) < 1e-9) continue;
     const along = (car.x - r.x) * r.fx + (car.z - r.z) * r.fz;
     // Lip sampled a hair on the slope side so it reads the lip's full height.
-    for (const a of [-1e-6, -r.length]) {
-      const t = (a - along) / rate;
-      if (Math.abs(t) < half) ts.push(t);
-    }
+    const lip = (-1e-6 - along) / rate;
+    if (Math.abs(lip) < half) ts.push(lip);
+    const foot = (-r.length - along) / rate;
+    if (Math.abs(foot) < half) ts.push(foot);
   }
-  return { ts, hs: ts.map((t) => groundAt(track, car.x + fx * t, car.z + fz * t).h) };
+  return { ts, hs: ts.map((t) => groundAt(track, car.x + fx * t, car.z + fz * t, ground).h) };
 }
 
 /** Moves `v` toward 0 by at most `amount`, never crossing 0. */

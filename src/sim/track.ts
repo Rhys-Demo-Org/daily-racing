@@ -237,7 +237,7 @@ export function validateTrack(data: unknown): TrackData {
     width,
     centreline,
     ramps,
-    propRows: propRows.map((r) => ({ ...r })),
+    propRows,
     props,
   };
 }

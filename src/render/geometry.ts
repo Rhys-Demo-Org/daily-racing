@@ -131,11 +131,6 @@ export class MeshBuilder {
     return this;
   }
 
-  /** Number of triangles added so far. */
-  get triangleCount(): number {
-    return this.solid.col.length + this.decal.col.length;
-  }
-
   /** Builds the geometry (solid triangles first, then decals). */
   build(): BufferGeometry {
     const pos = new Float32Array([...this.solid.pos, ...this.decal.pos]);

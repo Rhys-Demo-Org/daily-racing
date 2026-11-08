@@ -1,0 +1,359 @@
+{
+  "scene": {
+    "tracks": [
+      {
+        "id": "bends",
+        "objects": 90,
+        "meshes": 59,
+        "lines": 24,
+        "draws": 82,
+        "triangles": 43444,
+        "vertices": 155476,
+        "heaviest": [
+          {
+            "path": "race/props[0]/prop-cell[5]",
+            "triangles": 3258,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[5]/hull[0]",
+            "triangles": 3258,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[12]",
+            "triangles": 1832,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[12]/hull[0]",
+            "triangles": 1832,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[7]",
+            "triangles": 1486,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[7]/hull[0]",
+            "triangles": 1486,
+            "draws": 1
+          },
+          {
+            "path": "race/track[0]/track-chunk[3]",
+            "triangles": 1230,
+            "draws": 1
+          },
+          {
+            "path": "race/track[0]/track-chunk[1]",
+            "triangles": 1196,
+            "draws": 1
+          }
+        ]
+      },
+      {
+        "id": "dust-bowl",
+        "objects": 106,
+        "meshes": 70,
+        "lines": 29,
+        "draws": 98,
+        "triangles": 58494,
+        "vertices": 211692,
+        "heaviest": [
+          {
+            "path": "race/props[0]/prop-cell[12]",
+            "triangles": 4310,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[12]/hull[0]",
+            "triangles": 4310,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[6]",
+            "triangles": 4264,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[6]/hull[0]",
+            "triangles": 4264,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[11]",
+            "triangles": 4116,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[11]/hull[0]",
+            "triangles": 4116,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[5]",
+            "triangles": 4070,
+            "draws": 1
+          },
+          {
+            "path": "race/props[0]/prop-cell[5]/hull[0]",
+            "triangles": 4070,
+            "draws": 1
+          }
+        ]
+      }
+    ],
+    "cars": [
+      {
+        "livery": "rally-red/cream#1 (player)",
+        "objects": 9,
+        "meshes": 6,
+        "lines": 2,
+        "draws": 8,
+        "triangles": 592,
+        "vertices": 2196
+      },
+      {
+        "livery": "mustard/teal#10",
+        "objects": 7,
+        "meshes": 4,
+        "lines": 2,
+        "draws": 6,
+        "triangles": 632,
+        "vertices": 2316
+      },
+      {
+        "livery": "teal/cream#11",
+        "objects": 7,
+        "meshes": 4,
+        "lines": 2,
+        "draws": 6,
+        "triangles": 584,
+        "vertices": 2172
+      },
+      {
+        "livery": "cream/navy#12",
+        "objects": 7,
+        "meshes": 4,
+        "lines": 2,
+        "draws": 6,
+        "triangles": 620,
+        "vertices": 2280
+      },
+      {
+        "livery": "navy/grass#13",
+        "objects": 7,
+        "meshes": 4,
+        "lines": 2,
+        "draws": 6,
+        "triangles": 620,
+        "vertices": 2280
+      },
+      {
+        "livery": "grass/mustard#14",
+        "objects": 7,
+        "meshes": 4,
+        "lines": 2,
+        "draws": 6,
+        "triangles": 608,
+        "vertices": 2244
+      }
+    ]
+  },
+  "page": {
+    "viewport": "844x390",
+    "races": [
+      {
+        "track": "bends",
+        "frames": 240,
+        "drawCallsPerFrame": 50.61,
+        "trianglesPerFrame": 19492.89,
+        "lineSegmentsPerFrame": 5381.46,
+        "domMutationsPerTick": 9.18,
+        "domMutationsByType": {
+          "characterData": 245,
+          "attributes": 1958
+        },
+        "domMutationTargets": [
+          {
+            "target": "circle",
+            "perTick": 8.16
+          },
+          {
+            "target": "span.ui-value",
+            "perTick": 1
+          },
+          {
+            "target": "span.ui-hud-pos__n",
+            "perTick": 0.02
+          }
+        ],
+        "domElements": 139,
+        "sampledAllocBytesPerFrame": 35267,
+        "topAllocationSites": [
+          {
+            "site": "applyInput (main-Ca0jh9-X.js:243)",
+            "bytesPerFrame": 2241
+          },
+          {
+            "site": "gatherNearby (main-Ca0jh9-X.js:287)",
+            "bytesPerFrame": 2146
+          },
+          {
+            "site": "WebGLRenderer.renderBufferDirect (main-Ca0jh9-X.js:30569)",
+            "bytesPerFrame": 1840
+          },
+          {
+            "site": "painterSortStable (main-Ca0jh9-X.js:25288)",
+            "bytesPerFrame": 1756
+          },
+          {
+            "site": "groundAt (start-screen-DRiAAFop.js:917)",
+            "bytesPerFrame": 1726
+          },
+          {
+            "site": "collideCars (main-Ca0jh9-X.js:365)",
+            "bytesPerFrame": 1558
+          },
+          {
+            "site": "collideProps (main-Ca0jh9-X.js:341)",
+            "bytesPerFrame": 1475
+          },
+          {
+            "site": "closest (start-screen-DRiAAFop.js:818)",
+            "bytesPerFrame": 1298
+          },
+          {
+            "site": "restingTop (main-Ca0jh9-X.js:387)",
+            "bytesPerFrame": 1208
+          },
+          {
+            "site": "groundUnderBody (main-Ca0jh9-X.js:162)",
+            "bytesPerFrame": 1179
+          },
+          {
+            "site": "sort ((native):0)",
+            "bytesPerFrame": 1021
+          },
+          {
+            "site": "map ((native):0)",
+            "bytesPerFrame": 970
+          },
+          {
+            "site": "contactCircle (main-Ca0jh9-X.js:412)",
+            "bytesPerFrame": 949
+          },
+          {
+            "site": "moveWithCollisions (main-Ca0jh9-X.js:313)",
+            "bytesPerFrame": 813
+          },
+          {
+            "site": "carView (main-Ca0jh9-X.js:98)",
+            "bytesPerFrame": 811
+          }
+        ]
+      },
+      {
+        "track": "dust-bowl",
+        "frames": 240,
+        "drawCallsPerFrame": 56.26,
+        "trianglesPerFrame": 17493.28,
+        "lineSegmentsPerFrame": 4284.58,
+        "domMutationsPerTick": 8.2,
+        "domMutationsByType": {
+          "characterData": 244,
+          "attributes": 1725
+        },
+        "domMutationTargets": [
+          {
+            "target": "circle",
+            "perTick": 7.19
+          },
+          {
+            "target": "span.ui-value",
+            "perTick": 1
+          },
+          {
+            "target": "span.ui-hud-pos__n",
+            "perTick": 0.02
+          }
+        ],
+        "domElements": 139,
+        "sampledAllocBytesPerFrame": 50522,
+        "topAllocationSites": [
+          {
+            "site": "gatherNearby (main-Ca0jh9-X.js:287)",
+            "bytesPerFrame": 3819
+          },
+          {
+            "site": "closest (start-screen-DRiAAFop.js:818)",
+            "bytesPerFrame": 2755
+          },
+          {
+            "site": "applyInput (main-Ca0jh9-X.js:243)",
+            "bytesPerFrame": 2683
+          },
+          {
+            "site": "groundAt (start-screen-DRiAAFop.js:917)",
+            "bytesPerFrame": 2576
+          },
+          {
+            "site": "update (main-Ca0jh9-X.js:32900)",
+            "bytesPerFrame": 2055
+          },
+          {
+            "site": "painterSortStable (main-Ca0jh9-X.js:25288)",
+            "bytesPerFrame": 1973
+          },
+          {
+            "site": "groundUnderBody (main-Ca0jh9-X.js:162)",
+            "bytesPerFrame": 1801
+          },
+          {
+            "site": "collideProps (main-Ca0jh9-X.js:341)",
+            "bytesPerFrame": 1697
+          },
+          {
+            "site": "contactBox (main-Ca0jh9-X.js:453)",
+            "bytesPerFrame": 1686
+          },
+          {
+            "site": "moveWithCollisions (main-Ca0jh9-X.js:313)",
+            "bytesPerFrame": 1663
+          },
+          {
+            "site": "next ((native):0)",
+            "bytesPerFrame": 1643
+          },
+          {
+            "site": "restingTop (main-Ca0jh9-X.js:387)",
+            "bytesPerFrame": 1448
+          },
+          {
+            "site": "WebGLRenderer.renderBufferDirect (main-Ca0jh9-X.js:30569)",
+            "bytesPerFrame": 1397
+          },
+          {
+            "site": "updateVertical (main-Ca0jh9-X.js:512)",
+            "bytesPerFrame": 1193
+          },
+          {
+            "site": "visualPose (main-Ca0jh9-X.js:121)",
+            "bytesPerFrame": 1186
+          }
+        ]
+      }
+    ],
+    "stageElements": {
+      "countdown--go": 119,
+      "countdown--three": 119,
+      "hud--mid-race": 122,
+      "pause--paused": 118,
+      "results--long-list": 164,
+      "results--podium": 152,
+      "results--win": 128,
+      "start--menu": 27
+    }
+  }
+}

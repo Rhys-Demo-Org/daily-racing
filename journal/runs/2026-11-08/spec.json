@@ -1,0 +1,38 @@
+{
+  "backlogId": null,
+  "title": "Fewer per-tick allocations in car pose; dead code and stale docs",
+  "summary": "groundUnderBody reuses the sim's existing Ground scratch and drops a throwaway array per ramp. groundAt rewrites every field of `out` before returning, and only `.h` is read straight away, so pose numbers are bit-identical. Two small dead bits are deleted: an unused getter and a redundant copy of each prop row in validateTrack. Stale comments are fixed in the sim, the driver roster and CLAUDE.md's race-ui line, and a new test covers inline colour on the pause and results screens. No simulation maths, constants, RNG calls, geometry or CSS change.",
+  "acceptanceCriteria": [],
+  "closestExisting": [],
+  "items": [
+    "C027",
+    "C003",
+    "C005",
+    "C001",
+    "C002",
+    "C016",
+    "C013",
+    "C018"
+  ],
+  "expectedFiles": [
+    "src/sim/car.ts",
+    "src/sim/track.ts",
+    "src/render/geometry.ts",
+    "src/sim/types.ts",
+    "src/sim/bot.ts",
+    "src/content/drivers.ts",
+    "CLAUDE.md",
+    "tests/ui/no-inline-colour-overlays.test.ts"
+  ],
+  "supersedes": [],
+  "playtest": {
+    "whatYoullSee": "Nothing should look or feel different. Cars sit and pitch on ramps exactly as before, every track loads the same, and the pause and results screens look the same. Apart from one new test, the only changes are an internal allocation fix, deleted dead code and corrected comments.",
+    "howToTest": [
+      "Race Dust Bowl and drive over the ramp: the car tilts up the slope, leaves the lip and lands as before, with no jitter or sinking into the ramp.",
+      "Watch the AI cars over the ramps: they tilt and sit on the ground as before.",
+      "Race Bramble Bends: hay bales, tyre stacks and trees line the track in the same places as before.",
+      "Pause and resume a race: the pause card looks and behaves as before.",
+      "Finish a race: the results screen, its stripes and its table look as before, and RETRY and NEXT RACE still work."
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 // Keycap legend (UI_RULES §5, desktop mockup): bottom-left navy panel with the keyboard controls,
 // shown on desktop during the player's first lap only. There is no power-up binding yet, so no
-// SPACE key. Arrows are SVG icons on the keycaps (glyph arrows are not in the font subset).
+// SPACE key. Once lap 1 is done it slides down off the bottom-left edge. Arrows are SVG icons on the
+// keycaps (glyph arrows are not in the font subset).
 import './components.css';
 import './keycap-legend.css';
 import { h } from './dom.ts';
@@ -34,8 +35,13 @@ export function createKeycapLegend(root: HTMLElement): KeycapLegend {
 
   let desktop = false;
   let firstLap = false;
+  // Off desktop the legend cuts; after lap 1 it slides out (keycap-legend.css), so `is-out` and
+  // aria-hidden flip at once while the panel animates.
   const update = (): void => {
-    element.hidden = !(desktop && firstLap);
+    element.hidden = !desktop;
+    element.classList.toggle('is-out', !firstLap);
+    if (firstLap) element.removeAttribute('aria-hidden');
+    else element.setAttribute('aria-hidden', 'true');
   };
   watchDesktop((d) => {
     desktop = d;

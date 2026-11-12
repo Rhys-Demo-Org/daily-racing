@@ -33,10 +33,11 @@ export interface RaceScene {
    * Moves cars (position, heading, jump height), their shadows, dust and the camera.
    * `cars` must be index-aligned with the liveries. `dtSeconds` is real time since the last call.
    * `clearHalfWidthPx` (while the countdown is on screen: its half width in CSS px, else 0) frames
-   * the player west of the screen centre, clear of the centred roundel (countdownOffsetEast); the
-   * follow smoothing eases between framings, and snapCamera() jumps to the latest one.
+   * the player west of the screen centre, clear of the centred roundel (countdownOffsetEast), scaled
+   * by `framing` (1 → 0 as it glides out, countdownFraming); the follow smoothing eases between
+   * framings, and snapCamera() jumps to the latest one.
    */
-  update(cars: readonly CarView[], dtSeconds: number, clearHalfWidthPx?: number): void;
+  update(cars: readonly CarView[], dtSeconds: number, clearHalfWidthPx?: number, framing?: number): void;
   /** Jumps the camera to the player with no smoothing (race start, after a reset). */
   snapCamera(): void;
   /** Forgets the previous race (camera velocity, framing, dust) so a reused scene starts like a new one. */
@@ -152,7 +153,7 @@ export function createRaceScene(layout: TrackLayout, liveries: readonly CarLiver
     scene,
     camera: rig.camera,
     cars,
-    update(views, dt, clearHalfWidthPx = 0) {
+    update(views, dt, clearHalfWidthPx = 0, framing = 1) {
       for (let i = 0; i < cars.length; i++) {
         const v = views[i];
         const s = carShadows[i] as Mesh;
@@ -165,7 +166,7 @@ export function createRaceScene(layout: TrackLayout, liveries: readonly CarLiver
       dust.update(views, dt);
       const p = views[playerIndex];
       if (!p) return;
-      rig.setTargetOffset(countdownOffsetEast(clearHalfWidthPx, viewW, viewH), 0);
+      rig.setTargetOffset(countdownOffsetEast(clearHalfWidthPx, viewW, viewH) * framing, 0);
       if (!seen) {
         rig.snap(p.x, p.z);
       } else {

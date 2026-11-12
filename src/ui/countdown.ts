@@ -22,6 +22,22 @@ export function countdownOnScreen(view: Pick<RaceView, 'phase' | 'raceTick'>): b
 }
 
 /**
+ * Seconds the camera takes to glide back onto the player once GO! has gone: long enough to read as
+ * an unhurried pan rather than a snap.
+ */
+export const GO_GLIDE_SECONDS = 1.4;
+
+/**
+ * Share (1 → 0) of the countdown framing to apply (the scene's `framing`): 1 while the countdown is
+ * on screen (raceTick is 0 until GO), then a smoothstep to 0 over GO_GLIDE_SECONDS, so the camera
+ * eases out and settles gently.
+ */
+export function countdownFraming(view: Pick<RaceView, 'raceTick'>): number {
+  const t = Math.min(Math.max((view.raceTick - GO_GONE_TICKS) / TICK_HZ / GO_GLIDE_SECONDS, 0), 1);
+  return 1 - t * t * (3 - 2 * t);
+}
+
+/**
  * Half the widest roundel's width, CSS px: GO!, whose three glyphs set ≈ 1.27 em of the countdown
  * size (measured in Chromium), taken as 1.3, plus s5 padding each side. Numbers are narrower.
  */

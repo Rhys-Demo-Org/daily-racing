@@ -27,7 +27,7 @@ export const CAMERA = {
    * the centred roundel instead of under it: by the roundel's half width (CSS px, converted at the
    * viewport's scale, so narrow phones shift further) plus this many units for the car's half length
    * (2.1) and outline, ≈ 2 units of look-ahead while it pulls away under GO!, and a margin. See
-   * countdownOffsetEast(); dropping the offset eases back with followHalfLife.
+   * countdownOffsetEast(); once GO! has gone the game glides it out (countdownFraming).
    */
   countdownClearance: 5.5,
 } as const;

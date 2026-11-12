@@ -21,7 +21,7 @@ import {
   type TrackData,
   type World,
 } from './sim/index.ts';
-import { countdownClearance } from './ui/countdown.ts';
+import { COUNTDOWN_HALF_WIDTH, countdownFraming } from './ui/countdown.ts';
 import { createRaceUi } from './ui/race-ui.ts';
 import { createStartScreen } from './ui/start-screen.ts';
 
@@ -187,8 +187,8 @@ export function createGame(root: HTMLElement): Game {
   function draw(r: Race, t: number, dt: number): void {
     const view = raceView(r.world);
     interpolate(r.drawn, r.prev, r.curr, t);
-    // The countdown sits in the screen centre; frame the player clear of it until GO! has gone.
-    r.scene.update(r.drawn, dt, countdownClearance(view));
+    // The countdown sits in the screen centre; frame the player clear of it until GO! has gone, then glide back.
+    r.scene.update(r.drawn, dt, COUNTDOWN_HALF_WIDTH, countdownFraming(view));
     r.scene.render();
     ui.sync(view, r.curr);
   }
@@ -294,7 +294,7 @@ export function createGame(root: HTMLElement): Game {
       // Each tick goes through the follow camera exactly as in play, so staged frames match real ones.
       for (const carInput of inputs) {
         tick(r, carInput);
-        r.scene.update(r.curr, DT, countdownClearance(raceView(r.world)));
+        r.scene.update(r.curr, DT, COUNTDOWN_HALF_WIDTH, countdownFraming(raceView(r.world)));
       }
       // Driver steps run even while paused; if the player finishes, the results screen replaces the pause.
       if (paused && r.world.racers[0]?.finishTick != null) setPaused(false);

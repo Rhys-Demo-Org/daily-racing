@@ -182,3 +182,40 @@
   width: calc(var(--space-s5) * var(--desktop-scale));
   height: calc(var(--space-s5) * var(--desktop-scale));
 }
+/* NEW BEST chip (board 05 #3): styled like BEST and tucked under it. At rest it hides behind BEST,
+   one chip-height up; a new best slides it down (200ms, snap), it holds 2s, then slides back.
+   Only transform and visibility change; colours cut. The timer stack isolates the stacking so
+   BEST covers the chip without rising over the overlays. */
+.ui-hud__timer {
+  isolation: isolate;
+}
+.ui-hud-best {
+  position: relative;
+  z-index: 1;
+}
+.ui-hud-new-best {
+  padding: var(--space-s1) var(--space-s2);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-rect) var(--radius-rect);
+  line-height: 1;
+  visibility: hidden;
+  transform: translateY(-100%);
+}
+.ui-hud-new-best.is-out,
+.ui-hud-new-best.is-back {
+  visibility: visible;
+  transition: transform var(--duration-slide) var(--ease-snap);
+}
+.ui-hud-new-best.is-out {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-hud-new-best.is-out,
+  .ui-hud-new-best.is-back {
+    transition: none;
+  }
+  /* Cut: no slide back, it just goes. */
+  .ui-hud-new-best.is-back {
+    visibility: hidden;
+  }
+}

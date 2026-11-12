@@ -5,6 +5,7 @@
 import { tokens, type PaletteName } from '@tokens';
 import { TRACKS } from '../../content/tracks.ts';
 import { trackLayout, type CarView, type RacerView, type RaceView } from '../../sim/index.ts';
+import { memoryBestLaps } from '../best-laps.ts';
 import { createRaceUi, type RaceUi } from '../race-ui.ts';
 
 /** Renders one UI state into `root` (an empty, full-screen #app). Must be deterministic. */
@@ -64,11 +65,11 @@ export function carColours(count: number): PaletteName[] {
 }
 
 /** The first registered track: its name, laps and minimap outline (every 8th centreline point, as in the game). */
-export function stageTrack(): { name: string; laps: number; outline: [number, number][]; centre: [number, number][] } {
+export function stageTrack(): { id: string; name: string; laps: number; outline: [number, number][]; centre: [number, number][] } {
   const track = TRACKS[0];
   if (!track) throw new Error('No registered tracks');
   const centre = trackLayout(track).centre;
-  return { name: track.name, laps: track.laps, outline: centre.filter((_, i) => i % 8 === 0), centre };
+  return { id: track.id, name: track.name, laps: track.laps, outline: centre.filter((_, i) => i % 8 === 0), centre };
 }
 
 /** A car parked on the centreline `at` (0..1) of the way round the lap. */
@@ -90,14 +91,25 @@ export interface RaceStageOptions {
   racers: RacerView[];
   /** Where each car sits round the lap (0..1), index-aligned with `racers`. */
   at: number[];
+  /** The track's stored best lap (ms, or null for none). Set it to keep best laps (in memory) so laps can set a new best. */
+  storedBestMs?: number | null;
 }
 
 /** The race screen's UI (HUD, countdown, touch controls, results, pause) in one fixed race state. */
 export function raceStage(root: HTMLElement, o: RaceStageOptions): RaceUi {
   const track = stageTrack();
-  const ui = createRaceUi(raceLayer(root), { onRaceAgain: noop, onNextRace: noop, onPause: noop, onResume: noop, onRestart: noop, onQuit: noop });
+  const stored = o.storedBestMs === undefined ? undefined : o.storedBestMs === null ? {} : { [track.id]: o.storedBestMs };
+  const ui = createRaceUi(raceLayer(root), {
+    onRaceAgain: noop,
+    onNextRace: noop,
+    onPause: noop,
+    onResume: noop,
+    onRestart: noop,
+    onQuit: noop,
+    ...(stored && { bestLaps: memoryBestLaps(stored) }),
+  });
   const numbers = o.racers.map((_, i) => (i === 0 ? 1 : 3 + i * 4));
-  ui.reset(track.laps, track.outline, carColours(o.racers.length), { trackName: track.name, carNumbers: numbers });
+  ui.reset(track.laps, track.outline, carColours(o.racers.length), { ...(stored && { trackId: track.id }), trackName: track.name, carNumbers: numbers });
   ui.sync(
     { phase: o.phase, countdown: o.countdown, raceTick: o.raceTick, racers: o.racers },
     o.at.map((a) => carOnTrack(track.centre, a)),

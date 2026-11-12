@@ -1,0 +1,32 @@
+{
+  "phase": "fix",
+  "model": "claude-opus-5-5",
+  "exit": 0,
+  "class": "ok",
+  "claudeExit": 0,
+  "wallMs": 74842,
+  "usage": {
+    "input_tokens": 28,
+    "cache_creation_input_tokens": 40551,
+    "cache_read_input_tokens": 432097,
+    "output_tokens": 5024,
+    "output_tokens_details": {
+      "thinking_tokens": 735
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 40551,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "total_cost_usd": 0.5114194,
+  "num_turns": 15
+}

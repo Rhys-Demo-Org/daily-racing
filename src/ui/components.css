@@ -230,3 +230,27 @@
   min-height: var(--touch-min-target);
   padding: 0;
 }
+
+/* Keycap (keyboard legend): a small key; .ui-panel.ui-panel--cream give the cream fill, ink glyph,
+   HUD-tier outline and shadow. The primary key (GAS) is rally-red with a cream glyph, as in the
+   desktop mockup. */
+.ui-keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--space-s6) + var(--space-s1));
+  height: calc(var(--space-s6) + var(--space-s1));
+  padding: 0 var(--space-s2);
+  font-size: var(--type-label-size-desktop);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+  line-height: 1;
+}
+.ui-keycap--primary {
+  background: var(--color-rally-red);
+  color: var(--color-cream);
+}
+.ui-keycap .ui-icon {
+  width: calc(var(--space-s4) + var(--space-s1));
+  height: calc(var(--space-s4) + var(--space-s1));
+}

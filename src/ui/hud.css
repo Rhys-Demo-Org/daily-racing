@@ -129,3 +129,56 @@
   font-weight: var(--type-label-weight);
   font-variant-numeric: var(--font-numeric);
 }
+
+/* Desktop (UI_RULES §5, mockup desktop-race-hud-1440x900): same layout at ×1.45, 32px margins,
+   4px outlines, desktop type sizes. Toggled live by layout.ts. */
+.ui-hud.is-desktop .ui-hud__tl {
+  left: var(--desktop-margin);
+  top: var(--desktop-margin);
+}
+.ui-hud.is-desktop .ui-hud__tr {
+  right: var(--desktop-margin);
+  top: var(--desktop-margin);
+}
+.ui-hud.is-desktop .ui-panel,
+.ui-hud.is-desktop .ui-hud-pause {
+  border-width: var(--desktop-outline);
+}
+/* The BEST chip keeps tucking under TIME with no top outline. */
+.ui-hud.is-desktop .ui-hud-best {
+  border-top: 0;
+}
+.ui-hud.is-desktop .ui-hud-panel {
+  padding: var(--space-s2) var(--space-s3);
+}
+.ui-hud.is-desktop .ui-label {
+  font-size: var(--type-label-size-desktop);
+}
+.ui-hud.is-desktop .ui-value {
+  font-size: var(--type-hud-l-size-desktop);
+}
+.ui-hud.is-desktop .ui-hud-pos__n {
+  font-size: var(--type-hud-xl-size-desktop);
+}
+.ui-hud.is-desktop .ui-hud-pos__of {
+  font-size: var(--type-button-size-desktop);
+}
+.ui-hud.is-desktop .ui-hud-best__value {
+  font-size: var(--type-label-size-desktop);
+}
+/* Minimap and PAUSE scale as a whole; the minimap's SVG keeps its viewBox and stretches. */
+.ui-hud.is-desktop .ui-hud-map {
+  width: calc((var(--space-s7) * 2 + var(--space-s2)) * var(--desktop-scale));
+  height: calc((var(--space-s7) + var(--space-s5)) * var(--desktop-scale));
+}
+.ui-hud.is-desktop .ui-hud-time {
+  min-width: calc((var(--space-s7) * 2 + var(--space-s4)) * var(--desktop-scale));
+}
+.ui-hud.is-desktop .ui-hud-pause {
+  width: calc(var(--touch-min-target) * var(--desktop-scale));
+  min-height: calc(var(--touch-min-target) * var(--desktop-scale));
+}
+.ui-hud.is-desktop .ui-hud-pause .ui-icon {
+  width: calc(var(--space-s5) * var(--desktop-scale));
+  height: calc(var(--space-s5) * var(--desktop-scale));
+}

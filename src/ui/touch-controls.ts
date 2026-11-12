@@ -7,6 +7,7 @@ import './components.css';
 import './touch-controls.css';
 import { h } from './dom.ts';
 import { icon } from './icons.ts';
+import { COARSE_POINTER } from './layout.ts';
 import { createTouchStateMachine, type TouchStateMachine, type TouchStateOptions, type TouchVisual } from './touch-state.ts';
 
 export interface TouchControls {
@@ -40,7 +41,7 @@ export function createTouchControls(root: HTMLElement, opts: TouchStateOptions =
     slots[id] = h('div', `ui-touch__slot ui-touch__slot--${id}`, [buttons[id]]);
   }
   const element = h('div', 'ui-layer ui-touch', TOUCH_CONTROL_IDS.map((id) => slots[id]));
-  element.hidden = !matchMedia('(pointer: coarse)').matches;
+  element.hidden = !matchMedia(COARSE_POINTER).matches;
   root.append(element);
 
   // What each button shows, including the short 'retracting' step before resting.

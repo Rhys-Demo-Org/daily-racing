@@ -1,0 +1,69 @@
+/* Keycap legend (UI_RULES §5 desktop, mockup desktop-race-hud-1440x900): a navy panel bottom-left
+   listing the keyboard controls during the first lap. Tokens only. */
+
+.ui-keys {
+  pointer-events: none;
+}
+
+.ui-keys__panel {
+  position: absolute;
+  left: var(--desktop-margin);
+  bottom: var(--desktop-margin);
+  display: flex;
+  align-items: center;
+  gap: var(--space-s5);
+  padding: var(--space-s4) var(--space-s5);
+  border-width: var(--desktop-outline);
+  box-shadow: var(--shadow-button);
+  /* HUD panels slide in from their own edge (bottom-left: from the left). No forwards fill, so the
+     finished entry leaves `transform` free for the exit transition below. */
+  animation: ui-keys-in var(--duration-slide) var(--ease-snap) backwards;
+}
+
+.ui-keys__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s2);
+}
+
+.ui-keys__label {
+  margin-left: var(--space-s1);
+  font-size: var(--type-label-size-desktop);
+}
+
+/* After lap 1 the panel slides down off its edge, then the layer cuts to hidden. A transition, so a
+   legend that is already out (e.g. shown again by a resize) never replays the exit. It comes back
+   with a cut on the next race. */
+.ui-keys.is-out {
+  animation: ui-keys-cut 0s linear var(--duration-slide) forwards;
+}
+.ui-keys.is-out .ui-keys__panel {
+  transform: translateY(calc(var(--desktop-margin) + 100%));
+  transition: transform var(--duration-slide) var(--ease-snap);
+}
+
+@keyframes ui-keys-in {
+  from {
+    transform: translateX(calc((var(--desktop-margin) + 100%) * -1));
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes ui-keys-cut {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-keys__panel,
+  .ui-keys.is-out .ui-keys__panel {
+    animation: none;
+    transition: none;
+  }
+  .ui-keys.is-out {
+    animation: ui-keys-cut 0s linear forwards;
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "reviewers": {
+    "R1": "ok",
+    "R2": "ok",
+    "R3": "ok",
+    "R4": "ok",
+    "R5": "ok"
+  },
+  "findings": [
+    {
+      "id": "R2-1",
+      "reviewer": "R2",
+      "severity": "minor",
+      "file": "src/input/gamepad.ts",
+      "line": 35,
+      "claim": "connectedPads() only guards against navigator.getGamepads being absent. Per the Gamepad spec the method throws a SecurityError when the gamepad permissions policy blocks it, e.g. the game embedded in a cross-origin iframe without allow=\"gamepad\". The throw is uncaught, so keyboard and touch players lose all input and the race never ticks.",
+      "evidence": "Code: `if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return [];` then `for (const p of navigator.getGamepads()) ...` with no try/catch. Trace: stub navigator.getGamepads to `() => { throw new DOMException('blocked', 'SecurityError'); }`, call createInput({keyTarget: new EventTarget(), pointerTarget: new EventTarget()}).read(): it throws, although AC4 says an unavailable Gamepad API must leave keyboard input working. In src/game.ts frame(), `if (confirmMenu()) return;` runs input.confirmPressed() -> readGamepads() -> connectedPads() on every animation frame before the `mode !== 'race'` check and before tick(r, input.read()). Every frame throws, so the countdown never advances and the menu loop is broken for everyone in that context. Before this diff, keyboard and touch worked there.",
+      "suggestedFix": "In connectedPads(), wrap the navigator.getGamepads() call in try/catch and return [] on a throw, so 'blocked' behaves like 'no pads', the same as the existing typeof guard: `let list: readonly (Gamepad | null)[]; try { list = navigator.getGamepads(); } catch { return []; }`. Add a test in tests/input/gamepad.test.ts with a throwing stub that checks keyboard read() still works."
+    },
+    {
+      "id": "R2-2",
+      "reviewer": "R2",
+      "severity": "minor",
+      "file": "src/input/gamepad.ts",
+      "line": 51,
+      "claim": "readGamepads() adds the analogue steer of every connected standard pad. If one physical controller is exposed twice (a driver or Steam Input virtual copy, both with mapping 'standard'), the stick effect doubles: half tilt saturates to full lock and gentle pushes turn twice as hard. Only the boolean buttons are safe to OR across pads.",
+      "evidence": "Code: `for (const p of pads) { const dpad = ...; steer += dpad + stickSteer(p.axes[0] ?? 0); ... } return { steer: clampSteer(steer), ... }`. Input: navigator.getGamepads() returns [padA, padB], both connected, mapping 'standard', axes[0] = 0.6. One pad gives stickSteer(0.6) = (0.6-0.15)/0.85 = 0.529 and read().steer 0.529. Two identical pads give 0.529 + 0.529 = 1.059, clamped to 1, so read().steer is 1. Any stick position at or past 0.575 already reads full lock. A test with `pads = [pad({x: 0.6}), pad({x: 0.6})]` and `input.read().steer` shows 1 where one pad gives 0.529.",
+      "suggestedFix": "Do not add analogue contributions across pads. Per pad compute `const s = clampSteer(dpad + stickSteer(p.axes[0] ?? 0)); if (Math.abs(s) > Math.abs(steer)) steer = s;` and keep gas, brake and confirm OR-ed. A single pad behaves exactly as now, so the existing AC tests are unaffected."
+    },
+    {
+      "id": "R3-1",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "src/input/index.ts",
+      "line": 56,
+      "claim": "The diff writes the same −1…+1 steer clamp twice: as `clampSteer` in gamepad.ts and again inline in index.ts. These are the only two `Math.max(-1, Math.min(1, …))` lines in src/.",
+      "evidence": "src/input/gamepad.ts:23 `const clampSteer = (v: number): number => Math.max(-1, Math.min(1, v));` and src/input/index.ts:56 `const steer = Math.max(-1, Math.min(1, (right ? 1 : 0) - (left ? 1 : 0) + p.steer));`. Grep for `Math\\.max\\(-1, Math\\.min\\(1` in src/ finds exactly these two lines.",
+      "suggestedFix": "Export `clampSteer` from src/input/gamepad.ts and use it in index.ts: `const steer = clampSteer((right ? 1 : 0) - (left ? 1 : 0) + p.steer);`. Behaviour stays the same."
+    },
+    {
+      "id": "R3-2",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "src/input/gamepad.ts",
+      "line": 7,
+      "claim": "`PAD_BUTTON`, `STICK_DEAD_ZONE`, `stickSteer`, `PadState` and `ConfirmEdge` are exported, but nothing outside gamepad.ts imports them. index.ts imports only `createConfirmEdge` and `readGamepads`, and neither new test imports gamepad.ts at all.",
+      "evidence": "Grep for `PAD_BUTTON|STICK_DEAD_ZONE|stickSteer|PadState|ConfirmEdge|readGamepads` over the repo: every hit is inside src/input/gamepad.ts, except `import { createConfirmEdge, readGamepads } from './gamepad.ts'` at src/input/index.ts:4. The tests read through `createInput()` only.",
+      "suggestedFix": "Drop the `export` keyword from PAD_BUTTON, STICK_DEAD_ZONE, stickSteer, PadState and ConfirmEdge. Keep exporting readGamepads and createConfirmEdge, which index.ts uses."
+    },
+    {
+      "id": "R5-1",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/input/gamepad.ts",
+      "line": 56,
+      "claim": "No test checks that the dead-zone edge is at 0.15. The tests only sample 0.15 (must be 0) and 0.2 (must be in (0, 0.1)), so moving STICK_DEAD_ZONE anywhere in about 0.15…0.19 passes every test, even though the spec sets the dead-zone at 0.15.",
+      "evidence": "Change `export const STICK_DEAD_ZONE = 0.15;` to `0.19`. AC3 inputs 0.12, -0.1, 0.15, -0.15 and 0 still give 0. steerAt(0.2) = (0.2-0.19)/0.81 ≈ 0.012, which is still in (0, 0.1). AC2: ±1 still gives ±1, 0.6 gives ≈0.506 and 0.4 gives ≈0.259, so s6 > s4 and s6 < 1 still hold. The AC4 clamp checks still give 1 and ≈-0.49. Every test in tests/input/gamepad.test.ts and tests/game/gamepad-menu.test.ts passes, but a stick at 0.17 now reads 0 when it should steer.",
+      "suggestedFix": "In a new test (tests are append-only), assert that a stick just past the edge steers: e.g. steerAt(0.16) > 0 and steerAt(-0.16) < 0. That pins the edge to (0.15, 0.16]."
+    },
+    {
+      "id": "R5-2",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/game.ts",
+      "line": 211,
+      "claim": "The spec says A activates the *focused* button, but no test moves focus off the primary button. The focused-button branch and its `menu.contains(focused)` guard can be removed or broken and every test still passes, for example with focus on the results screen's RETRY button.",
+      "evidence": "Mutation 1: replace line 211 with `const target = menu.querySelector<HTMLButtonElement>('.ui-button--primary');`. Mutation 2: drop `&& menu.contains(focused)`. Neither tests/game/gamepad-menu.test.ts (AC5, AC6, AC7) nor tests/input/gamepad.test.ts calls focus() on any button, and overlay().show() (src/ui/dom.ts:75) always focuses the primary button, so `focused` is always the primary in the tests. Both mutations pass. In the game, if the player tabs to Retry (results-screen.ts:71) and presses A, mutation 1 starts NEXT RACE instead of retrying. With mutation 2, a focused button outside the menu could be clicked.",
+      "suggestedFix": "Add a test in a new file. Run to the results screen as in AC6, call focus() on the Retry button, release A, then press it again and run a frame. Expect the same trackId with a new race in countdown (Retry), not nextTrackId. Also cover focus on a button outside the visible menu: A should still click the primary button."
+    }
+  ],
+  "rulings": [
+    {
+      "id": "R2-1",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R2-1.test.ts",
+      "trace": "I stubbed navigator.getGamepads to throw DOMException('blocked','SecurityError'), held ArrowLeft and called createInput().read(). Ran `pnpm vitest run --config vitest.config.ts tests/verify/R2-1.test.ts`. It FAILED: `expected [Function] to not throw an error but 'SecurityError: blocked' was thrown`. The cause is that connectedPads() (src/input/gamepad.ts:32-37) calls navigator.getGamepads() with no try/catch, and both readGamepads() and createConfirmEdge().poll() go through it. game.ts frame() calls confirmMenu() -> input.confirmPressed() on every frame, so every frame throws.",
+      "reason": "The Gamepad spec makes getGamepads() throw SecurityError when the permissions policy blocks it. The throw is uncaught, so keyboard input dies too, which goes against AC4's intent that an unavailable API is ignored. Wrapping the call in try/catch makes the test pass."
+    },
+    {
+      "id": "R2-2",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "I read readGamepads() at src/input/gamepad.ts:42-56. Summing steer across pads is intended: the spec says every pad is merged into one CarInput, the same way keys and the stick are summed and then clamped.",
+      "reason": "This depends on a duplicate virtual pad, which is a speculative setup, and the fix would change the agreed merge behaviour. That is a design preference, not a reproduced defect against the spec."
+    },
+    {
+      "id": "R3-1",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "diff.patch line 69 adds src/input/gamepad.ts:23 `const clampSteer = (v: number): number => Math.max(-1, Math.min(1, v));`. diff.patch line 161 adds src/input/index.ts:56 `const steer = Math.max(-1, Math.min(1, (right ? 1 : 0) - (left ? 1 : 0) + p.steer));`. Both clamp a steer value to -1..1 the same way. A grep over src/ finds only these two. Exporting clampSteer and using it in index.ts gives identical results.",
+      "reason": "The diff adds the same steer clamp twice, in the same module family. Reusing the existing helper changes no behaviour."
+    },
+    {
+      "id": "R3-2",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "A grep confirms that only createConfirmEdge and readGamepads are imported outside gamepad.ts. The other exports are a documented constant table, a dead-zone constant, a pure helper and interface types.",
+      "reason": "This is a style preference. Exporting a module's public constants and types is normal, harmless and has no behavioural effect."
+    },
+    {
+      "id": "R5-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "STICK_DEAD_ZONE is 0.15 (src/input/gamepad.ts:10). stickSteer returns 0 when |x| <= 0.15 and positive past it, so the code matches the spec. The finding is only about missing test coverage for a hypothetical mutation.",
+      "reason": "There is no defect on this branch, so no test fails. A coverage gap isn't a bug to fix."
+    },
+    {
+      "id": "R5-2",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "src/game.ts:206-214: confirmMenu clicks document.activeElement when it is a button inside the visible menu, otherwise the primary button. That is what the spec asks for. The finding only describes hypothetical mutations that the tests wouldn't catch.",
+      "reason": "The code behaves correctly, so no failing test is possible. This is a test-coverage suggestion, not a defect."
+    }
+  ],
+  "fixes": [
+    {
+      "id": "R2-1",
+      "status": "fixed",
+      "summary": "In src/input/gamepad.ts connectedPads(), the navigator.getGamepads() call is now wrapped in try/catch. On a throw it returns [], exactly like the existing guard for a missing API. The throw is the SecurityError the browser raises when the gamepad permissions policy blocks the API, for example in a cross-origin iframe without allow=\"gamepad\". readGamepads() and the confirm-edge poll both go through connectedPads(), so input.read() and input.confirmPressed() no longer throw. Keyboard and touch keep working, and frame() keeps ticking. When getGamepads works, nothing changes. Added the verifier's test as tests/input/gamepad-blocked.test.ts. It failed before the fix and passes after it. pnpm typecheck is clean and pnpm test passes (82 files, 623 tests).",
+      "tests": [
+        "tests/input/gamepad-blocked.test.ts"
+      ],
+      "commit": "8218467b15e590741fd2d132306a0bc7a8039bbb",
+      "kept": true
+    },
+    {
+      "id": "R3-1",
+      "status": "fixed",
+      "summary": "Removed the duplicated −1…+1 steer clamp. `clampSteer` in src/input/gamepad.ts is now exported, and src/input/index.ts imports it and uses it in read() (`const steer = clampSteer((right ? 1 : 0) - (left ? 1 : 0) + p.steer);`) in place of its own inline `Math.max(-1, Math.min(1, …))`. Both versions compute the same thing, so behaviour doesn't change. This is a duplication fix, so there is no red/green test; the existing gamepad, keyboard and touch input tests cover it. pnpm typecheck passes and pnpm test passes (82 files, 623 tests).",
+      "tests": [],
+      "commit": "d7998793a5ad7d72dca786b9d555783b835d73ae",
+      "kept": true
+    }
+  ],
+  "notes": [],
+  "checked": {
+    "R1": 9,
+    "R2": 16,
+    "R3": 7,
+    "R4": 6,
+    "R5": 7
+  }
+}

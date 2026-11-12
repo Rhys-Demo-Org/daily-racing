@@ -21,6 +21,7 @@ import {
   type TrackData,
   type World,
 } from './sim/index.ts';
+import { COUNTDOWN_HALF_WIDTH, countdownFraming } from './ui/countdown.ts';
 import { createRaceUi } from './ui/race-ui.ts';
 import { createStartScreen } from './ui/start-screen.ts';
 
@@ -184,16 +185,43 @@ export function createGame(root: HTMLElement): Game {
   }
 
   function draw(r: Race, t: number, dt: number): void {
+    const view = raceView(r.world);
     interpolate(r.drawn, r.prev, r.curr, t);
-    r.scene.update(r.drawn, dt);
+    // The countdown sits in the screen centre; frame the player clear of it until GO! has gone, then glide back.
+    r.scene.update(r.drawn, dt, COUNTDOWN_HALF_WIDTH, countdownFraming(view));
     r.scene.render();
-    ui.sync(raceView(r.world), r.curr);
+    ui.sync(view, r.curr);
+  }
+
+  /** The menu screen showing (start, or results once the player has finished), if any. */
+  function visibleMenu(): HTMLElement | null {
+    for (const layer of [menuLayer, raceLayer]) {
+      if (layer.hidden) continue;
+      for (const screen of layer.querySelectorAll<HTMLElement>('.ui-screen')) if (!screen.hidden) return screen;
+    }
+    return null;
+  }
+
+  /**
+   * Gamepad A activates the visible menu's focused button (its main button unless focus moved to another).
+   * Polled every frame whatever the mode, so a held A is seen as held across a mode change and never repeats.
+   */
+  function confirmMenu(): boolean {
+    if (!input.confirmPressed() || paused) return false;
+    const menu = visibleMenu();
+    if (!menu) return false;
+    const focused = document.activeElement;
+    const target = focused instanceof HTMLButtonElement && menu.contains(focused) ? focused : menu.querySelector<HTMLButtonElement>('.ui-button--primary');
+    target?.click();
+    return target != null;
   }
 
   function frame(now: number): void {
     rafId = requestAnimationFrame(frame);
     const dt = lastFrame === 0 ? DT : Math.min((now - lastFrame) / 1000, 0.25);
     lastFrame = now;
+    // A started a new race: its first ticks run from the next frame.
+    if (confirmMenu()) return;
     const r = race;
     if (mode !== 'race' || !r) return;
     accumulator += dt;
@@ -291,7 +319,7 @@ export function createGame(root: HTMLElement): Game {
       // Each tick goes through the follow camera exactly as in play, so staged frames match real ones.
       for (const carInput of inputs) {
         tick(r, carInput);
-        r.scene.update(r.curr, DT);
+        r.scene.update(r.curr, DT, COUNTDOWN_HALF_WIDTH, countdownFraming(raceView(r.world)));
       }
       // Driver steps run even while paused; if the player finishes, the results screen replaces the pause.
       if (paused && r.world.racers[0]?.finishTick != null) setPaused(false);

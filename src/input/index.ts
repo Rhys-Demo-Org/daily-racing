@@ -1,6 +1,7 @@
-// Combined player input: keyboard + on-screen touch controls → one CarInput per sim step.
+// Combined player input: keyboard + on-screen touch controls + gamepad → one CarInput per sim step.
 // Depends on the sim only for the CarInput type.
 import type { CarInput } from '../sim/types.ts';
+import { clampSteer, createConfirmEdge, readGamepads } from './gamepad.ts';
 import { createKeyboard } from './keyboard.ts';
 import { createTouchInput, type TouchListener, type TouchZone } from './touch.ts';
 
@@ -18,8 +19,11 @@ export interface InputOptions {
 }
 
 export interface Input {
-  /** Current input; digital steer is −1, 0 or +1 (left + right together cancel). */
+  /** Current input. Keys and touch steer −1, 0 or +1 (left + right together cancel); a gamepad stick adds
+   * analogue steer, and the sum is clamped to −1…+1. */
   read(): CarInput;
+  /** True once per fresh press of gamepad A (menu confirm); call it every frame so releases are seen. */
+  confirmPressed(): boolean;
   /** Releases everything held. */
   reset(): void;
   destroy(): void;
@@ -40,15 +44,19 @@ export function createInput(opts: InputOptions = {}): Input {
   // Keys and touches released while the window is unfocused never send keyup/pointerup.
   const hasWindow = typeof window !== 'undefined';
   if (hasWindow) window.addEventListener('blur', reset);
+  const confirm = createConfirmEdge();
 
   return {
     read() {
       const k = keyboard.state();
       const t = touch.state();
+      const p = readGamepads();
       const left = k.left || t.left;
       const right = k.right || t.right;
-      return { steer: (right ? 1 : 0) - (left ? 1 : 0), throttle: k.gas || t.gas, brake: k.brake || t.brake };
+      const steer = clampSteer((right ? 1 : 0) - (left ? 1 : 0) + p.steer);
+      return { steer, throttle: k.gas || t.gas || p.gas, brake: k.brake || t.brake || p.brake };
     },
+    confirmPressed: () => confirm.poll(),
     reset,
     destroy() {
       if (hasWindow) window.removeEventListener('blur', reset);

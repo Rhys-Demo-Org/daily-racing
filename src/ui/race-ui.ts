@@ -1,12 +1,13 @@
-// The race screen's UI (HUD, countdown, touch controls, results and pause screens), driven once per
-// frame from sim views. One HudState is kept and updated in place, so a frame where nothing changed allocates
-// nothing here and the HUD touches no DOM.
+// The race screen's UI (HUD, countdown, touch controls, the desktop keycap legend, results and pause
+// screens), driven once per frame from sim views. One HudState is kept and updated in place, so a
+// frame where nothing changed allocates nothing here and the HUD touches no DOM.
 import { tokens, type PaletteName } from '@tokens';
 import { TICK_HZ, type CarView, type RaceView } from '../sim/types.ts';
 import { localBestLaps, type BestLapStore } from './best-laps.ts';
 import { createCountdown, type CountdownStep } from './countdown.ts';
 import { ticksToMs } from './format.ts';
 import { createHud, type NewBestPhase } from './hud.ts';
+import { createKeycapLegend } from './keycap-legend.ts';
 import { createPauseScreen, type PauseScreenOptions } from './pause-screen.ts';
 import { createResultsScreen } from './results-screen.ts';
 import { createTouchControls, type TouchControls } from './touch-controls.ts';
@@ -60,6 +61,7 @@ export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
   const hud = createHud(root, opts);
   const countdown = createCountdown(root);
   const touch = createTouchControls(root);
+  const legend = createKeycapLegend(root);
   const results = createResultsScreen(root, { onRaceAgain: opts.onRaceAgain, onNextRace: opts.onNextRace ?? opts.onRaceAgain });
   const pauseScreen = createPauseScreen(root, {
     onResume: () => opts.onResume?.(),
@@ -70,6 +72,8 @@ export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
   let lastStep = -1;
   let lapsSeen = 0;
   let finishShown = false;
+  /** Cleared once the player completes lap 1; only reset() sets it again. */
+  let firstLap = false;
   let race: RaceInfo = {};
   const bestLaps = opts.bestLaps ?? localBestLaps;
   /** This race's best lap in ms (the HUD shows the lower of this and the stored best). */
@@ -98,6 +102,7 @@ export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
       lastStep = -1;
       lapsSeen = 0;
       finishShown = false;
+      firstLap = true;
       race = info;
       raceBestMs = null;
       newBestTick = null;
@@ -110,6 +115,7 @@ export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
       if (!state) throw new Error('RaceUi.sync() before reset()');
       const me = view.racers[0];
       if (me) {
+        if (me.lapsCompleted >= 1) firstLap = false;
         state.position = me.position;
         state.lap = me.lap;
         if (me.lapTicks.length !== lapsSeen) {
@@ -139,6 +145,7 @@ export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
         }
       }
       hud.update(state);
+      legend.setFirstLap(firstLap);
       hud.newBest(newBestPhase(view.raceTick));
 
       const step = view.phase === 'countdown' ? view.countdown : 0;

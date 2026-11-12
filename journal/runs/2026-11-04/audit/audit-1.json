@@ -1,0 +1,36 @@
+{
+  "verdict": "approve",
+  "summary": "The draft covers B05's scope and done_when using only tokens, UI_RULES §5 and the desktop mockup. Its criteria are observable through the DOM, stages and RaceView, and nothing needs retiring. The only open PR (#23, countdown framing) touches none of the expected files, so I see no blocker or major problem.",
+  "findings": [
+    {
+      "check": "design",
+      "severity": "minor",
+      "claim": "UI_RULES has no numeric desktop breakpoint. The draft picks 1224×566, the 844×390 reference frame ×1.45, derived from the tokens' desktop.scale. That is a reasonable reading of 'same layout at ×1.45', but it is still the draft's own choice.",
+      "suggestedFix": "Builder: compute the threshold from the tokens (reference frame × tokens.desktop.scale) in one place, with no literals. Mention the chosen threshold in the PR body so the owner can confirm it or add a breakpoint token."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "Parts of AC1 ('no touch control is visible' on a fine pointer) and AC6 ('legend never visible on touch/small viewport') already pass on main, because touch-controls.ts hides itself unless the pointer is coarse and the legend doesn't exist yet. The combined criteria still fail on main because of the 64px/4px/32px checks and the new stage.",
+      "suggestedFix": "Builder: make sure each AC test also asserts the part that is new tonight. For AC6, first show the legend in the desktop context at lap 1, then show it absent in the touch and small-viewport contexts, so the test can't pass vacuously."
+    },
+    {
+      "check": "scope",
+      "severity": "minor",
+      "claim": "tests/ui/hud.test.ts pins the minimap to a 98×66 map, and existing HUD tests call createHud and createRaceUi as they are now. If the ×1.45 desktop scale is applied by changing the minimap's SVG coordinates or the HUD API rather than through CSS, existing append-only tests would break.",
+      "suggestedFix": "Builder: apply the desktop scale and sizes in CSS (a desktop class or a media query driven by the tokens' CSS variables) and leave the minimap viewBox and the createHud/createRaceUi signatures unchanged."
+    },
+    {
+      "check": "design",
+      "severity": "minor",
+      "claim": "The rules don't cover a touch laptop with a fine pointer at ≥1224 wide, where touch controls appear after the first touch. Desktop sizing plus touch controls would both show.",
+      "suggestedFix": "Builder: keep the touch-controls reveal behaviour as it is and decide desktop mode by pointer and viewport only, as the draft says. Don't invent extra rules for this case."
+    }
+  ],
+  "overlapAssessment": "The only in-flight diff (/inputs/pr-23.diff, countdown framing) changes src/game.ts, src/render/camera.ts, src/render/index.ts, src/render/scene.ts and src/ui/countdown.ts, plus new tests. None of these is among the draft's expected files. The draft leaves the countdown unchanged and doesn't change game.ts, so there is no shared behaviour or shared lines, and it doesn't depend on #23.",
+  "waitsOn": null,
+  "designRequest": null,
+  "backlogChangeRequests": [
+    "B05's scope says 'viewport ≥ the desktop breakpoint', but UI_RULES.md and tokens.json define no breakpoint (only desktop.frame 1440×900 and scale 1.45). Consider adding a desktop breakpoint token so later items (B08 title screen, countdown/pause desktop sizes) share one value."
+  ]
+}

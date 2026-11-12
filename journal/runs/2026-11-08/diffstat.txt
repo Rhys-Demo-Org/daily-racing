@@ -1,0 +1,8 @@
+1	1	CLAUDE.md
+1	1	src/content/drivers.ts
+0	5	src/render/geometry.ts
+1	1	src/sim/bot.ts
+7	6	src/sim/car.ts
+1	1	src/sim/track.ts
+1	1	src/sim/types.ts
+58	0	tests/ui/no-inline-colour-overlays.test.ts

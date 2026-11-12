@@ -1,0 +1,57 @@
+{
+  "pass": true,
+  "reasons": [],
+  "blind": {
+    "scores": {
+      "specMet": 9,
+      "styleMatch": 10,
+      "notBroken": 10,
+      "testsReal": 9,
+      "noSniffing": 10,
+      "scope": 10,
+      "noDuplication": 10
+    },
+    "overall": 9,
+    "verdict": "pass",
+    "failures": [
+      {
+        "axis": "specMet",
+        "file": "src/sim/track.ts",
+        "claim": "C003 is only partly done. The second copy at :240 is gone, but the spec also says to drop the `as const` on the prop-row literal at line 224. The diff doesn't touch that line.",
+        "evidence": "spec.md C003 suggested fix: \"Drop the 'as const' at line 224 ... and return 'propRows' directly at line 240\". diff.patch only changes `propRows: propRows.map((r) => ({ ...r })),` to `propRows,`. There is no hunk near line 224."
+      }
+    ],
+    "plantedInstructions": [],
+    "summary": "All eight chosen items are applied: 8 files, net src −4 lines. Every gate is green, including exact bot laps (G2), exact replays (G3), identical stage DOM and styles (P1) and identical scene geometry (P2).\n\n- C027: groundUnderBody now passes the `ground` scratch to groundAt, and the ramp-array loop becomes two pushes in the same order with the same check. groundAt allocations fall 2118→1726 B/frame on bends and 3975→2576 on dust-bowl; total allocation drops on both tracks.\n- C005: the unused `triangleCount` getter is deleted.\n- C003: the redundant prop-row copy is gone, but the `as const` the spec asked to drop is still there. Minor; typecheck passes.\n- C001, C002, C016: the maxStepUp, TrackData.width and bot.ts comments are fixed, and the raceDrivers doc comment is moved to its function with its typo fixed.\n- C013: one CLAUDE.md line is corrected to match race-ui.ts. It adds no rule.\n- C018: a new test renders the pause and results screens through their public constructors and checks every colour property, value and paint attribute, allowing only url(#…) paints.\n\nNo existing test is edited, there is no environment sniffing, and the clone report finds no repeated code. The pause and results screenshots match main, as P1 confirms."
+  },
+  "check": {
+    "claims": [
+      {
+        "claim": "Reviewers: R1 ok, R2 ok, R3 ok, R4 ok, R5 ok.",
+        "verdict": "unconfirmed",
+        "evidence": "The diff and gates contain no reviewer output, so I can't check each reviewer's status."
+      },
+      {
+        "claim": "2 findings, 0 verified, 2 dropped; the verifier could not reproduce the dropped findings, so they are left out.",
+        "verdict": "unconfirmed",
+        "evidence": "The review doesn't list the findings, so I can't check them against the diff. My blind pass found one real gap: C003 asked to drop `as const` at track.ts:224, and that line isn't touched. The only track.ts hunk is the `propRows,` change at :240."
+      },
+      {
+        "claim": "0 fixes kept after the gates.",
+        "verdict": "confirmed",
+        "evidence": "Nothing in diff.patch looks like a review fix. Every hunk maps to a maintenance item in the spec (C001/2/3/5/13/16/18/27). Gates are all PASS on this diff: G1 605/605, G2 +0.0%, G3 exact, P1/P2 identical."
+      }
+    ],
+    "newRules": [
+      "CLAUDE.md (changed description line, not a new rule): \"- `src/ui/race-ui.ts` turns each frame's `RaceView` into HUD, countdown, pause-screen and results-screen updates.\"",
+      "src/sim/car.ts maxStepUp doc comment (code comment, not a loaded agent file, but worded as a constraint): \"It is part of the recorded replay behaviour (G3 baselines), so it must not change; a different step rule has to be opt-in per track, car or surface.\""
+    ],
+    "plantedInstructions": [],
+    "summary": "review.md makes only a few claims: five reviewers ok, and 2 findings, both dropped as unreproduced, with no fixes kept. I couldn't check the reviewer statuses or the dropped findings from the inputs, because the findings aren't listed. \"0 fixes kept\" fits the diff: every hunk maps to a spec maintenance item, and all gates pass. One gap the review doesn't mention: C003's `as const` removal at track.ts:224 wasn't done (already noted in my blind scores). The only CLAUDE.md change rewords the race-ui.ts description to match the code and adds no new behaviour rule. The car.ts comment now states a constraint on maxStepUp tied to the G3 baselines. I found no planted instructions in review.md, the diff, or the gate summary."
+  },
+  "scan": [],
+  "newRules": [
+    "CLAUDE.md (changed description line, not a new rule): \"- `src/ui/race-ui.ts` turns each frame's `RaceView` into HUD, countdown, pause-screen and results-screen updates.\"",
+    "src/sim/car.ts maxStepUp doc comment (code comment, not a loaded agent file, but worded as a constraint): \"It is part of the recorded replay behaviour (G3 baselines), so it must not change; a different step rule has to be opt-in per track, car or surface.\""
+  ]
+}

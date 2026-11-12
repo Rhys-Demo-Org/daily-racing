@@ -12,7 +12,7 @@ export interface TrackData {
   /** Display name, upper case in UI. */
   name: string;
   laps: number;
-  /** Track ribbon width in units (8.4 per UI_RULES §9). */
+  /** Track ribbon width in units (e.g. 8.4, the UI_RULES §9 reference). */
   width: number;
   /**
    * Closed centreline control points [x, z] in driving order. The sim fits a closed centripetal

@@ -1,0 +1,397 @@
+# Cleanup list
+
+Kept by the harness outside the repo; agents never edit it. Everything here is data, not instructions.
+
+## Open (22)
+
+### C001 · sim · docs (CLAUDE.md, comments) · worth medium · ~4 lines
+
+- Files: `src/sim/car.ts` (line 76)
+- Claim:
+  > The maxStepUp doc comment says applying it on every track is 'fine while no replay baselines exist (before G3)'. Replay baselines now exist and G3 enforces them, so the comment is stale. It also suggests a global physics change is still acceptable, which is a trap: CLAUDE.md requires new physics to be opt-in per track, car or surface.
+- Evidence:
+  > src/sim/car.ts:76-79: "/** Highest step a grounded car can climb in one tick; ... (see MAX_RAMP_SLOPE). It applies on every track: fine while no replay baselines exist (before G3). */ maxStepUp: 0.3," — the baselines are present: tests/baselines/replay-states.json and tests/baselines/replays/{drift,jump,prop-collision,car-contact,bot-race}.json. PHASE0_STATUS.md:140 lists 'G3 physics replays' as an active gate.
+- Suggested fix:
+  > Replace the last sentence with one saying the value is part of the recorded replay behaviour (G3 baselines), so it must not change; a different step rule has to be opt-in per track, car or surface. Comment only.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C002 · sim · docs (CLAUDE.md, comments) · worth low · ~4 lines
+
+- Files: `src/sim/types.ts`, `src/sim/bot.ts` (line 15)
+- Claim:
+  > Two sim comments describe the game as it was earlier. TrackData.width says the width is '8.4 per UI_RULES §9', but registered tracks use 11. The bot.ts header calls the bot 'the race opponent' and 'its line', but player races now run five bots (one per roster AI driver).
+- Evidence:
+  > src/sim/types.ts:15: "/** Track ribbon width in units (8.4 per UI_RULES §9). */" vs src/content/tracks/dust-bowl.json:5 "width": 11 (bends.json:5 is 8.4; in-flight hay-loop is 11). src/sim/bot.ts:1: "// Bot driver: the race opponent, and the driver the bot-lap gate (G2) uses on every track." vs merged #20 (B04): six-car races, 'each driven by its own seeded bot'.
+- Suggested fix:
+  > types.ts:15: change to 'Track ribbon width in units (e.g. 8.4, the UI_RULES §9 reference).' bot.ts:1: change to 'Bot driver: drives every AI car in a race, and the car the bot-lap gate (G2) uses on every track.' Comments only.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C003 · sim · simplify · worth low · ~2 lines
+
+- Files: `src/sim/track.ts` (line 224)
+- Claim:
+  > validateTrack copies every prop row twice. The map at line 224 already builds a fresh object literal per row, then line 240 spreads each one into another new object. The second copy does nothing.
+- Evidence:
+  > src/sim/track.ts:224: "return { kind: k, side, from, to, spacing, offset } as const;" and src/sim/track.ts:240: "propRows: propRows.map((r) => ({ ...r }))," — ramps (line 197/239) and props (line 230/241) are returned directly without a second copy.
+- Suggested fix:
+  > Drop the 'as const' at line 224 (side is already narrowed to 'left' | 'right' by the check at line 217) and return 'propRows' directly at line 240, matching ramps and props. Same values, one allocation fewer per row.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C004 · sim · duplication · worth low · ~12 lines
+
+- Files: `src/sim/track.ts`, `src/sim/vec.ts` (line 286)
+- Claim:
+  > The positive-modulo wrap ((v % n) + n) % n is written out by hand five times in track.ts: for spline control points, arc length and three segment indices. A small helper in vec.ts would give identical results.
+- Evidence:
+  > src/sim/track.ts:286 "points[((i % n) + n) % n]"; :429 "((s % t.length) + t.length) % t.length"; :461 "((segment % track.count) + track.count) % track.count"; :497 "((hintSeg % n) + n) % n"; :504 "(((centre + o) % n) + n) % n".
+- Suggested fix:
+  > Add 'export function wrapIndex(v: number, n: number): number { return ((v % n) + n) % n; }' (named for what it does) to src/sim/vec.ts and use it at the five sites. It runs the exact same operations, so results stay bit-identical.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: not chosen by the plan audit: It adds a helper and an import to src/sim to replace five one-line expressions, so src/ grows a little for no performance gain. It also touches hot sim paths for low value. Not worth a night under the delete-only rule for tidy-ups.
+
+### C005 · render · dead code · worth low · ~5 lines
+
+- Files: `src/render/geometry.ts` (line 134)
+- Claim:
+  > `MeshBuilder.triangleCount` is never read. Nothing in src/, tests/, harness/ or guardrails/ uses it; the only `triangleCount` matches are an unrelated journal field in harness/lib/journal.ts.
+- Evidence:
+  > src/render/geometry.ts:134-137:
+  >   /** Number of triangles added so far. */
+  >   get triangleCount(): number {
+  >     return this.solid.col.length + this.decal.col.length;
+  >   }
+  > Grep for `triangleCount` over src/, tests/, harness/ and guardrails/ finds only harness/lib/journal.ts:132 `triangleCount: null` and harness/tests/journal.test.ts:43, which are a journal metric and not this getter.
+- Suggested fix:
+  > Delete the getter and its doc comment (geometry.ts:134-137). Geometry output does not change.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C006 · render · dead code · worth medium · ~6 lines
+
+- Files: `src/render/index.ts` (line 5)
+- Claim:
+  > The render barrel re-exports seven names that nothing imports through it: `frameWidthFor`, `LIGHT_DIRECTION`, `TOON_STEPS`, `attachOutline`, `groundMesh`, `outlinedFlatMesh` and `type RenderRole`. This makes the public seam look wider than it is.
+- Evidence:
+  > src/render/index.ts:5 `export { CAMERA, cameraAngles, cameraDistance, createCameraRig, frameWidthFor, ... }`; :8 `... toonShade, LIGHT_DIRECTION, TOON_STEPS, TOP_FACE_MIN_Y ...`; :9 `export { attachOutline, groundMesh, outlinedFlatMesh, solidMesh, type RenderRole } from './outline.ts';`. Every importer of src/render/index.ts (src/game.ts:9, tests/render/*.test.ts, tests/content/drivers.test.ts:7, harness/tests/preserve*.test.ts, and harness/screens/scene.ts:182, which uses playerLivery, createRaceScene, createMaterials and buildCar) uses none of these seven. A grep outside src/ for attachOutline|frameWidthFor|LIGHT_DIRECTION|TOON_STEPS|outlinedFlatMesh|groundMesh|RenderRole finds no matches. Inside src they are imported directly from their modules (car.ts:15, dust.ts:14, scene.ts:22).
+- Suggested fix:
+  > Remove those seven names from the re-export lists in src/render/index.ts and leave the modules' own exports alone. Keep solidMesh only if someone imports it; it also has no importer through the index, so it can go too.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: skipped: touches files of open PR #23
+
+### C007 · render · dead code · worth low · ~5 lines
+
+- Files: `src/render/geometry.ts`, `src/render/outline.ts`, `src/render/materials/index.ts` (line 167)
+- Claim:
+  > Four module exports are only used inside their own file: `smoothNormals` (geometry.ts), `attachOutline` and `CREASE_ANGLE_DEG` (outline.ts, apart from the barrel), and `OUTLINE_PX_AT_844` and `MaterialKind` (materials/index.ts). Dropping the `export` keyword gives them a smaller surface and doesn't change behaviour.
+- Evidence:
+  > geometry.ts:167 `export function smoothNormals` is used only at geometry.ts:150. outline.ts:19 `export const CREASE_ANGLE_DEG = 25` is used only at outline.ts:55. outline.ts:84 `export function attachOutline` is used only at outline.ts:104 (plus the index.ts:9 re-export, which nothing imports). materials/index.ts:36 `export const OUTLINE_PX_AT_844` is used only at :148 and :173. materials/index.ts:20 `export type MaterialKind` is used only at :136. A grep over src/, tests/, harness/ and guardrails/ finds no other importer.
+- Suggested fix:
+  > Remove `export` from these declarations (after the index.ts re-export of attachOutline is dropped). No other change is needed.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: not chosen by the plan audit: Dropping `export` from attachOutline requires editing the re-export in src/render/index.ts. That file is touched by open PR #23 (which is also why C006 is held), and it is the gate-facing render seam. Wait for #23.
+
+### C008 · render · duplication · worth low · ~5 lines
+
+- Files: `src/render/outline.ts` (line 47)
+- Claim:
+  > outline.ts builds an all-ink palette attribute twice with the same expression: once for the decal-stripped hull and once for the crease lines.
+- Evidence:
+  > src/render/outline.ts:47 `out.setAttribute('paletteIndex', paletteAttribute(new Uint8Array(count).fill(paletteIndex('ink'))));`
+  > src/render/outline.ts:57 `crease.setAttribute('paletteIndex', paletteAttribute(new Uint8Array(n).fill(paletteIndex('ink'))));`
+- Suggested fix:
+  > Add a local `const inkAttribute = (count: number): BufferAttribute => paletteAttribute(new Uint8Array(count).fill(paletteIndex('ink')));` in outline.ts and call it at both sites. The bytes come out identical.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: not chosen by the plan audit: The local helper adds about as many lines as it saves (net ≥0) across two call sites. That is cosmetic churn, not a deletion.
+
+### C009 · render · duplication · worth low · ~8 lines
+
+- Files: `src/render/props.ts`, `src/render/track.ts`, `src/render/scene.ts` (line 12)
+- Claim:
+  > The 2D point type `[number, number]` is declared privately in two render modules and spelled out by hand a third time in scene.ts, even though shadow outlines pass from props.ts through scene.ts into track.ts.
+- Evidence:
+  > src/render/props.ts:12 `type Pt = [number, number];`
+  > src/render/track.ts:29 `type Pt = [number, number];`
+  > src/render/scene.ts:87 `const shadowOutlines: [number, number][][] = [];` (filled by placeShadow, which returns props' Pt[], and passed to buildGroundChunks, which takes track's `readonly Pt[][]`)
+- Suggested fix:
+  > Export one `type Pt2 = [number, number]` (e.g. next to `Vec3` in geometry.ts), import it in props.ts, track.ts and scene.ts, and delete the two local aliases. This is a types-only change.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: skipped: touches files of open PR #23
+
+### C010 · render · simplify · worth low · ~4 lines
+
+- Files: `src/render/car.ts` (line 68)
+- Claim:
+  > car.ts writes its geometry return type as `ReturnType<MeshBuilder['build']>` three times. That type is just `BufferGeometry`, which the other render modules name directly.
+- Evidence:
+  > src/render/car.ts:68 `export function buildCarGeometry(l: CarLivery): ReturnType<MeshBuilder['build']> {`
+  > src/render/car.ts:129 `export function buildRoundelGeometry(number: number): ReturnType<MeshBuilder['build']> {`
+  > src/render/car.ts:169 `export function buildMarkerGeometry(): ReturnType<MeshBuilder['build']> {`
+  > geometry.ts:140 declares `build(): BufferGeometry`; track.ts:58 and outline.ts use `BufferGeometry` directly.
+- Suggested fix:
+  > Add `type BufferGeometry` to the existing `three` import in car.ts (line 9) and use it in the three signatures. This is a types-only change.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: not chosen by the plan audit: A types-only rename with zero net lines. Cosmetic churn.
+
+### C011 · render · docs (CLAUDE.md, comments) · worth low · ~1 lines
+
+- Files: `src/render/scene.ts` (line 12)
+- Claim:
+  > The scene-graph comment, which tests and gates rely on, says each car Group holds the 'body mesh + player ▼ marker'. It leaves out the 'car-roundel' mesh that every car also carries.
+- Evidence:
+  > src/render/scene.ts:12 `//   ├─ cars     one Group per car (userData.kind = 'car'), body mesh + player ▼ marker`
+  > src/render/car.ts:191-193 `const body = solidMesh(buildCarGeometry(l), mats, 'car-body'); const roundel = solidMesh(buildRoundelGeometry(l.number), mats, 'car-roundel'); root.add(body, roundel);`
+- Suggested fix:
+  > Change the comment to `body mesh, roof roundel + player ▼ marker`. Only the comment changes.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: skipped: touches files of open PR #23
+
+### C013 · ui · docs (CLAUDE.md, comments) · worth low · ~2 lines
+
+- Files: `CLAUDE.md` (line 39)
+- Claim:
+  > CLAUDE.md says race-ui.ts produces 'finish-panel updates', but race-ui.ts shows the results screen and never uses the finish panel. A feature night that reads this would look in the dead finish-panel.ts instead of results-screen.ts.
+- Evidence:
+  > CLAUDE.md:39: "- `src/ui/race-ui.ts` turns each frame's `RaceView` into HUD, countdown and finish-panel updates." Meanwhile src/ui/race-ui.ts:10 has `import { createResultsScreen } from './results-screen.ts';` and :112-120 calls `results.update(...)` / `results.show(...)` when the phase is 'finished'. race-ui.ts:1 itself lists the parts as "HUD, countdown, touch controls, results and pause screens".
+- Suggested fix:
+  > Sunday edit to CLAUDE.md:39: "…into HUD, countdown, pause-screen and results-screen updates."
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C014 · ui · duplication · worth medium · ~20 lines
+
+- Files: `src/ui/components.css`, `src/ui/touch-controls.css` (line 122)
+- Claim:
+  > The button type and press-transition block (font-family, font-size, font-weight, font-style, line-height, text-transform, transition) is copied word for word in .ui-button and .ui-tc. clones.md flags it.
+- Evidence:
+  > src/ui/components.css:122-131 (.ui-button) and src/ui/touch-controls.css:47-56 (.ui-tc) both read:
+  >   font-family: var(--type-button-font);
+  >   font-size: var(--type-button-size);
+  >   font-weight: var(--type-button-weight);
+  >   font-style: var(--type-button-style);
+  >   line-height: 1;
+  >   text-transform: uppercase;
+  >   …
+  >   transition:
+  >     transform var(--duration-release) var(--ease-snap),
+  >     box-shadow var(--duration-release) var(--ease-snap);
+  > clones.md: `src/ui/components.css:122` = `src/ui/touch-controls.css:47`.
+- Suggested fix:
+  > In components.css, move these declarations into a grouped rule `.ui-button, .ui-tc { … }` placed where they are now, before .ui-button--primary. Delete them from .ui-tc in touch-controls.css. Every later override (.ui-button--primary, .ui-tc--gas, .ui-tc.is-resting `transition: none`, the :active and is-pressed transition-duration) has equal or higher specificity and comes later, so computed styles don't change. touch-controls.ts already imports components.css before touch-controls.css. Note that open PR #24 also edits components.css.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: skipped: touches files of open PR #24
+
+### C015 · ui · duplication · worth low · ~16 lines
+
+- Files: `src/ui/screens.css`, `src/ui/results.css` (line 115)
+- Claim:
+  > The full-width 4:2:1 stripe band (flex 1/4/2, width auto, height s3) is written twice, once for the pause card and once for the results screen. Only border-width differs.
+- Evidence:
+  > src/ui/screens.css:115-126:
+  > .ui-pause__stripes .ui-stripe { flex: 1; width: auto; height: var(--space-s3); border-width: var(--outline-default) 0; }
+  > .ui-pause__stripes .ui-stripe--red { flex: 4; }
+  > .ui-pause__stripes .ui-stripe--mustard { flex: 2; }
+  > 
+  > src/ui/results.css:28-39:
+  > .ui-results > .ui-stripes .ui-stripe { flex: 1; width: auto; height: var(--space-s3); border-width: 0 0 var(--outline-default); }
+  > .ui-results > .ui-stripes .ui-stripe--red { flex: 4; }
+  > .ui-results > .ui-stripes .ui-stripe--mustard { flex: 2; }
+  > (results.css:20 even says "4:2:1 like the pause card's")
+- Suggested fix:
+  > In screens.css, group the shared declarations: `.ui-pause__stripes .ui-stripe, .ui-results > .ui-stripes .ui-stripe { flex: 1; width: auto; height: var(--space-s3); }`, do the same for the --red (flex 4) and --mustard (flex 2) rules, and keep the two border-width declarations in their own rules. Each selector in a group keeps its own specificity, and no other rule sets flex, width or height on these elements, so computed styles stay the same.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: not chosen by the plan audit: Grouping the selectors would keep computed styles the same (specificity is unchanged). But it moves results-screen layout into screens.css, coupling two stylesheets for a few lines saved. Low value. Leave it for a night that touches the stripe styles anyway.
+
+### C016 · content · docs (CLAUDE.md, comments) · worth low · ~4 lines
+
+- Files: `src/content/drivers.ts` (line 21)
+- Claim:
+  > The JSDoc for raceDrivers sits above PLAYER_CAR_COUNT. That makes two stacked doc comments: editors and hovers attach both to the constant, and raceDrivers ends up with no doc at all. The next night that edits the roster could misread which comment describes what.
+- Evidence:
+  > src/content/drivers.ts:21-25:
+  > /** The drivers of an `carCount`-car race: the player (car 0), then the first carCount − 1 AI drivers. */
+  > /** Races the player starts (RACE, RETRY, RESTART RACE, NEXT RACE): YOU plus every roster AI driver. */
+  > export const PLAYER_CAR_COUNT = ROSTER.length;
+  > 
+  > export function raceDrivers(carCount: number): Driver[] {
+- Suggested fix:
+  > Move line 21's comment to directly above `export function raceDrivers` (line 25), and fix its typo 'an `carCount`-car' to 'a `carCount`-car'. Only comments change.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C018 · tests · tests (new tests only) · worth medium · ~45 lines
+
+- Files: `tests/ui/no-inline-colour-overlays.test.ts`
+- Claim:
+  > The 'no colour in any inline style or SVG paint attribute' rule is never checked for the pause screen. The results screen gets only a weaker check: 4 paint attributes instead of 7, and it does not allow hatch url() fills. Both screens use icons and the hatch, which is exactly where a stray fill/stroke attribute would slip in.
+- Evidence:
+  > tests/ui/no-inline-colour.test.ts:19-25 builds the HUD, touch controls, countdown, start screen and the dead finish panel, but not createPauseScreen (src/ui/pause-screen.ts:27) or the results screen. tests/ui/results-screen.test.ts:120-126 checks only `['fill','stroke','color','stop-color']`, while PAINT_ATTRS in no-inline-colour.test.ts:14 also has flood-color, lighting-color and bgcolor. No test checks inline colour on .ui-pause (grep COLOUR_PROPS: only those two files).
+- Suggested fix:
+  > Add a new test file. It renders createPauseScreen(...).show({lap:1,laps:3,timeMs:0}) and a createRaceUi synced to a finished RaceView (results visible). It then applies the same COLOUR_PROPS/COLOUR_VALUE/PAINT_ATTRS checks as no-inline-colour.test.ts, allowing only `url(#…)` paint references. It passes on main today: icons.ts and the hatch set no colour attributes.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C023 · seams · consistency · worth medium · ~18 lines
+
+- Files: `src/sim/index.ts`, `src/render/props.ts`, `src/render/scene.ts`, `src/render/track.ts`, `src/ui/race-ui.ts`, `src/ui/format.ts`, `src/ui/results-screen.ts`, `src/input/index.ts` (line 5)
+- Claim:
+  > CLAUDE.md and the sim barrel both say other layers import the sim only through src/sim/index.ts, but 8 imports in render, UI and input go straight to sim/types.ts or sim/track.ts. render/props.ts imports three constants that the barrel doesn't export at all, so the next feature night will copy the deep-import pattern.
+- Evidence:
+  > src/sim/index.ts:1 "Render, UI, input and driver code import only from here." CLAUDE.md: "import the sim only via `src/sim/index.ts`". Deep imports: src/render/props.ts:9 `import { HAY_BALE_LENGTH, HAY_BALE_WIDTH, TYRE_STACK_RADIUS } from '../sim/track.ts'` (not exported by index.ts:5, which only has `trackLayout, validateTrack`); src/render/props.ts:8, src/render/scene.ts:16, src/render/track.ts:5, src/ui/race-ui.ts:5, src/ui/format.ts:2, src/ui/results-screen.ts:7, src/input/index.ts:3 all `from '../sim/types.ts'`. Meanwhile src/render/car.ts:11 and src/render/dust.ts:11 already use '../sim/index.ts'.
+- Suggested fix:
+  > Add `HAY_BALE_LENGTH, HAY_BALE_WIDTH, TYRE_STACK_RADIUS` to the `./track.ts` re-export in src/sim/index.ts:5. Then point those 8 import lines at '../sim/index.ts'. types.ts is already `export *`, so the names are identical. Type-only, no runtime change. race-ui.ts, results-screen.ts (PR #26) and input/index.ts (PR #25) are in open PRs, so do those after the PRs land.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: skipped: touches files of open PR #26, #25, #23
+
+### C024 · seams · dead code · worth low · ~8 lines
+
+- Files: `src/render/index.ts` (line 5)
+- Claim:
+  > The render barrel re-exports about 12 names that nothing outside src/render imports: no src module, test, gate or harness file. The only consumer in src is game.ts (createRaceScene, createRenderer, RaceScene).
+- Evidence:
+  > src/render/index.ts:5 `frameWidthFor, type CameraRig`; :6 `type CarObject`; :7 `type DustPool`; :8 `LIGHT_DIRECTION, TOON_STEPS, type Materials`; :9 `attachOutline, groundMesh, outlinedFlatMesh, solidMesh, type RenderRole` (the whole line). Grep for `\b(frameWidthFor|attachOutline|groundMesh|outlinedFlatMesh|solidMesh|RenderRole|LIGHT_DIRECTION|TOON_STEPS|CameraRig|DustPool|CarObject|Materials)\b` over tests/, guardrails/ and harness/ finds nothing. harness/screens/scene.ts uses only playerLivery, createRaceScene, createMaterials and buildCar.
+- Suggested fix:
+  > Drop those names from the re-export lines in src/render/index.ts and delete line 9. Keep every name that tests or gates use: createRaceScene, buildCar, createMaterials, playerLivery, CELL_SIZE, PlacedProp, CAMERA, cameraAngles, cameraDistance, createCameraRig, cabinColour, validateLivery, CAR, CarLivery, createDust, DUST, isFactoryMaterial, toonShade, TOP_FACE_MIN_Y, addRamp, PROPS, CHUNK_ROWS, LAYER, MeshBuilder, allNormalsUp, pixelRatio, MAX_PIXEL_RATIO, createRenderer, RaceScene. Also update the line 1–2 comment.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: skipped: touches files of open PR #23
+
+### C025 · seams · duplication · worth low · ~8 lines
+
+- Files: `src/ui/stages/stage.ts`, `src/game.ts`, `src/ui/race-ui.ts` (line 71)
+- Claim:
+  > The stage fixture hard-codes the game's minimap stride as a bare `8`, and its comment says "as in the game". If MINIMAP_STRIDE in game.ts changes, the staged HUD silently stops matching the real one.
+- Evidence:
+  > src/game.ts:30 `const MINIMAP_STRIDE = 8;` and src/game.ts:251 `world.track.layout.centre.filter((_, i) => i % MINIMAP_STRIDE === 0)`. src/ui/stages/stage.ts:66 `(every 8th centreline point, as in the game)` and :71 `outline: centre.filter((_, i) => i % 8 === 0)`.
+- Suggested fix:
+  > Move the stride into the UI as an exported helper, e.g. `minimapOutline(centre)` next to the minimap code (a UI module both files already import from, such as src/ui/race-ui.ts). Call it from game.ts:251 and stage.ts:71 and delete MINIMAP_STRIDE from game.ts. game.ts is in open PRs #25/#26, so do this after they land.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: skipped: touches files of open PR #26, #25, #23
+
+### C026 · seams · docs (CLAUDE.md, comments) · worth medium · ~6 lines
+
+- Files: `CLAUDE.md`
+- Claim:
+  > Three CLAUDE.md statements about the seams don't match the code: race-ui's job (it drives results and pause screens, not the finish panel), registration by folder (cars and screens don't register by folder), and the content layout (there are no cars or features folders).
+- Evidence:
+  > CLAUDE.md: "`src/ui/race-ui.ts` turns each frame's `RaceView` into HUD, countdown and finish-panel updates." vs src/ui/race-ui.ts:1 "(HUD, countdown, touch controls, results and pause screens)": it imports createResultsScreen/createPauseScreen and never finish-panel.ts. CLAUDE.md: "tracks, cars and screens register by being in their folder (`import.meta.glob`)" vs cars being a hand-edited `ROSTER` array (src/content/drivers.ts:12), and screens imported directly (src/game.ts:24-25). The only globs are src/content/tracks.ts:6 and src/ui/stages/registry.ts:6. Layout: "src/content  tracks (src/content/tracks/*.json), cars, features" vs src/content containing only tracks/, tracks.ts and drivers.ts.
+- Suggested fix:
+  > Change the race-ui line to "…into HUD, countdown, results-screen and pause-screen updates". Change the registration line to "tracks and screen stages register by being in their folder…", and note that the driver roster (liveries) is data in src/content/drivers.ts. Change the layout line to "tracks (src/content/tracks/*.json), driver roster (drivers.ts)".
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: not chosen by the plan audit: It overlaps C013 (chosen) on the race-ui line. Its other edits rewrite the owner's conventions: what registers by folder, and the planned cars/features content layout. Whether to drop or keep those as intent is the owner's call, not an unattended refactor's.
+
+### C027 · performance · performance · worth high · ~10 lines
+
+- Files: `src/sim/car.ts` (line 192)
+- Claim:
+  > groundUnderBody (called through carView→visualPose for every car on every tick via carViews) calls groundAt without the module's scratch `ground`. groundAt's default parameter therefore allocates a new Ground object for every sample. The function also builds a throwaway `[-1e-6, -r.length]` array for every ramp. groundAt is the top allocation site in dust-bowl and the third in bends.
+- Evidence:
+  > src/sim/car.ts:206 `return { ts, hs: ts.map((t) => groundAt(track, car.x + fx * t, car.z + fz * t).h) };` takes the default at src/sim/track.ts:555 `out: Ground = { h: 0, gx: 0, gz: 0, ramp: null }`. The hot path already passes scratch: car.ts:370 and 580 `groundAt(track, car.x, car.z, ground)`, with the scratch at car.ts:324 `const ground: Ground = ...`. car.ts:201 `for (const a of [-1e-6, -r.length]) {` runs once per ramp per call. perf.json allocation per frame: groundAt 2118 B (bends) and 3975 B (dust-bowl, the top site); groundUnderBody 1168 B and 2295 B; visualPose 1197 B (dust-bowl). Only `.h` is read, straight away, and groundUnderBody never runs inside stepCars' use of `ground`, so the numbers can't change.
+- Suggested fix:
+  > In groundUnderBody, pass the existing scratch: `groundAt(track, car.x + fx * t, car.z + fz * t, ground).h`. Replace the literal-array loop with two explicit pushes in the same order: compute t for a = -1e-6, then for a = -r.length, keeping the `Math.abs(t) < half` check. Same ts order and same hs values, so replays, bot laps and car poses are identical.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C028 · performance · performance · worth medium · ~6 lines
+
+- Files: `src/game.ts` (line 190)
+- Claim:
+  > draw() calls raceView(r.world) on every rendered frame, but the world only changes in tick(). Each call allocates a distances array, the positions() order array with its sort and forEach closures and result array, and per racer a RacerView with `lapTicks.slice()`. Frames that ran no tick (any display above 60 Hz) and frames that ran several ticks still pay for it.
+- Evidence:
+  > src/game.ts:190 `ui.sync(raceView(r.world), r.curr);` runs in draw(), which frame() calls on every animation frame (game.ts:207) whether or not a tick ran. src/sim/world.ts:128-134: `world.racers.map(...)`, `positions(...)`, `world.racers.map((r, i) => racerView(...))`. src/sim/race.ts:96-112 shows map, sort with a closure, `new Array().fill`, and forEach. race.ts:121 has `lapTicks: r.lapTicks.slice()`. perf.json (bends): `sort ((native))` 968 B/frame and `map ((native))` 924 B/frame. Note: game.ts is also in open PRs #25 and #26.
+- Suggested fix:
+  > Add `view: RaceView | null` to the Race record. Set it to null in tick() after stepWorld and in startRace, and in draw() use `ui.sync((r.view ??= raceView(r.world)), r.curr)`. raceView is a pure function of the world, so the UI receives identical values. Apply after #25 and #26 land, since both touch game.ts.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+- History:
+  > 2026-11-08: skipped: touches files of open PR #26, #25, #23
+
+
+## Needs the owner (test pins internals) (6)
+
+### C012 · ui · needs owner: test pins internals · worth high · ~90 lines
+
+- Files: `src/ui/finish-panel.ts`, `src/ui/screens.css`, `tests/ui/screens.test.ts`, `tests/ui/no-inline-colour.test.ts` (line 25)
+- Claim:
+  > src/ui/finish-panel.ts is dead code: no file in src/ imports it since the results screen (B02) replaced it, and only two existing tests import createFinishPanel. Its CSS (.ui-finish__card, .ui-finish__stats, .ui-finish__stat in screens.css) is dead with it, because nothing else uses those classes.
+- Evidence:
+  > Grep for `finish-panel` in src/ finds nothing that imports it. Imports exist only in tests/ui/screens.test.ts:3 `import { createFinishPanel } from '../../src/ui/finish-panel.ts';` and tests/ui/no-inline-colour.test.ts:6 (the same import). race-ui.ts:10 uses createResultsScreen. The classes `ui-finish__card` (finish-panel.ts:31), `ui-finish__stats` (:34) and `ui-finish__stat` (:35-36) appear only in that file, so screens.css:62-81 (`.ui-finish__card {…} .ui-finish__stats {…} .ui-finish__stat {…}`) is dead CSS. The bare `ui-finish` class must stay: results-screen.ts:64 sets it, and tests/ui/results-screen.test.ts:34 and tests/ui/race-ui.test.ts:16 check it.
+- Suggested fix:
+  > Owner: delete src/ui/finish-panel.ts and the .ui-finish__* rules at screens.css:62-81. Retarget or delete the createFinishPanel cases in tests/ui/screens.test.ts and tests/ui/no-inline-colour.test.ts (no-inline-colour could render createResultsScreen instead). Keep the `ui-finish` class on the results overlay.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C017 · tests · needs owner: test pins internals · worth medium · ~4 lines
+
+- Files: `src/ui/results-screen.ts`, `tests/ui/race-ui.test.ts`, `tests/ui/results-screen.test.ts` (line 64)
+- Claim:
+  > The results screen's root still carries the legacy `ui-finish` class only so that old finish-panel tests keep finding it. No CSS rule targets `.ui-finish` on its own. Tests should find the results screen by role or text, not by this leftover class.
+- Evidence:
+  > src/ui/results-screen.ts:64 `'ui-results ui-finish',`. In src, `ui-finish` otherwise appears only as `.ui-finish__*` in finish-panel.ts and screens.css:63-81. Pinned by tests/ui/race-ui.test.ts:16 `finish: () => q('.ui-finish')` (test title :47 'shows the finish panel once') and tests/ui/results-screen.test.ts:34 `expect(el.classList.contains('ui-finish')).toBe(true)`.
+- Suggested fix:
+  > Owner: make race-ui.test.ts look the screen up through `[role="table"][aria-label="Results"]` (or `.ui-results`) and drop the assertion at results-screen.test.ts:34. Then drop ` ui-finish` from results-screen.ts:64, together with the finish-panel removal.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C019 · tests · needs owner: test pins internals · worth medium · ~90 lines
+
+- Files: `tests/game/pause.test.ts`, `tests/game/pause-review.test.ts`, `tests/game/pause-results.test.ts`, `tests/game/results-drivers.test.ts`, `tests/game/start-race-invalid-count.test.ts`, `tests/game/helpers.ts` (line 57)
+- Claim:
+  > Game tests copy the same harness again and again: a hand-driven requestAnimationFrame stub with runFrames, setup(), esc(), the render mock, and the 'bot drives car 0 of a twin world' input recorder. The recorder is already shared as twinPlayerInputs in tests/game/helpers.ts. The render mocks also still stub `playerLivery`, which game.ts no longer imports.
+- Evidence:
+  > runFrames is identical in pause.test.ts:41-48, pause-review.test.ts:39-46 and pause-results.test.ts:36-43, along with the rAF/cAF stubs at :27-30, :25-28 and :24-27. esc() is copied at pause.test.ts:57 and pause-results.test.ts:70. The twin-world recorders pause-results.test.ts:57-68 `winningInputs()` and results-drivers.test.ts:23-33 `playerInputs()` duplicate tests/game/helpers.ts:9-20 `twinPlayerInputs(trackId, seed, carCount, maxTicks)` (same loop, 2 cars, 60*60*10 ticks). Stale mock entries: `playerLivery: (n) => …` at pause.test.ts:14, pause-review.test.ts:13, pause-results.test.ts:12 and start-race-invalid-count.test.ts:10, while tests/content/drivers.test.ts:80 asserts game.ts does not mention playerLivery.
+- Suggested fix:
+  > Owner: move runFrames, the rAF stub install and esc() into tests/game/helpers.ts (or a new tests/game/frames.ts). Replace winningInputs/playerInputs with twinPlayerInputs(TRACK, SEED, 2, 36000), and drop the playerLivery mock lines. vi.mock must stay in each file because it is hoisted per module.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C020 · tests · needs owner: test pins internals · worth medium · ~35 lines
+
+- Files: `tests/ui/race-ui.test.ts`, `tests/ui/results-screen.test.ts`, `tests/ui/results-review.test.ts`, `tests/ui/results-drivers.test.ts`, `tests/game/pause.test.ts`, `tests/ui/helpers.ts` (line 8)
+- Claim:
+  > The RacerView/RaceView/CarView fixture builders are copied word for word into five test files, while tests/ui/helpers.ts already holds the shared hudState/outline fixtures and tests/render/helpers.ts:21 has an equivalent carView(). If RacerView gains a required field, a feature night has to touch five append-only files it cannot edit.
+- Evidence:
+  > `const racer = (over: Partial<RacerView> = {}): RacerView => ({ lapsCompleted: 0, lap: 1, lapTicks: [], finishTick: null, position: 1, ...over });` appears in race-ui.test.ts:8, results-screen.test.ts:9, results-review.test.ts:9, results-drivers.test.ts:9 and pause.test.ts:68. `const finished = (racers) => ({ phase: 'finished', countdown: 0, raceTick: 8000, racers })` appears in results-screen.test.ts:10, results-review.test.ts:10 and results-drivers.test.ts:10. `const car = (x) => ({ x, y: 0, z: 0, heading: 0, pitch: 0, speed: 0, slip: 0, surface: 'dirt', airborne: false })` appears in race-ui.test.ts:7, results-screen.test.ts:8 and pause.test.ts:67, and duplicates tests/render/helpers.ts:21-23 carView().
+- Suggested fix:
+  > Owner: export racerView(over), finishedView(racers) and carAt(x) from tests/ui/helpers.ts, reusing render/helpers carView for the latter. Then replace the local copies with imports.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C021 · tests · needs owner: test pins internals · worth medium · ~8 lines
+
+- Files: `tests/content/drivers.test.ts`, `src/game.ts` (line 76)
+- Claim:
+  > drivers.test.ts AC5 reads src/game.ts as text and uses a regex to require one exact import statement. It pins how game.ts imports the roster, not what the game does. Any behaviour-preserving refactor of game.ts (splitting it, importing via a content index, aliasing) fails this test.
+- Evidence:
+  > tests/content/drivers.test.ts:76-80: `const game = readFileSync('src/game.ts', 'utf8'); expect(game).toMatch(/import \{[^}]*\braceDrivers\b[^}]*\} from '\.\/content\/drivers\.ts'/); expect(game).not.toMatch(/LIVERIES/); expect(game).not.toMatch(/\bbody:\s*'/); expect(game).not.toMatch(/playerLivery/);`. The behaviour it guards (game races use roster liveries) is already covered through the DOM by tests/game/results-drivers.test.ts:48-54 and tests/game/six-car-grid.test.ts.
+- Suggested fix:
+  > Owner: replace the source-text assertions with a behavioural one, such as the started game's state/RaceView driver names or the createRaceScene mock receiving raceDrivers(n) liveries. Or drop them, since results-drivers and six-car-grid already cover it.
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+### C022 · tests · needs owner: test pins internals · worth low · ~25 lines
+
+- Files: `tests/sim/ramp-pose.test.ts`, `tests/sim/ramp-lip-roll.test.ts`, `tests/sim/helpers.ts` (line 13)
+- Claim:
+  > The body-into-ground probe clipDepth(world, view) is implemented twice, with slightly different sampling (41 samples vs 81), in two sim tests. tests/sim/helpers.ts is the shared home for such geometry probes (propOverlap, circleOverlap and others).
+- Evidence:
+  > tests/sim/ramp-pose.test.ts:13-24 `function clipDepth(world: World, v: CarView): number { const fx = Math.sin(v.heading); const fz = -Math.cos(v.heading); … for (let i = 0; i < SAMPLES; i++) { const t = -1 + (2 * i) / (SAMPLES - 1); …groundAt(world.track, v.x + fx * along, v.z + fz * along).h - body` versus tests/sim/ramp-lip-roll.test.ts:16-26, the same body with `for (let i = 0; i <= 80; i++) { const t = -1 + i / 40;`. Both also redeclare `const HALF = CAR_LENGTH / 2` (:9 and :13).
+- Suggested fix:
+  > Owner: export clipDepth(world, view, samples = 81) from tests/sim/helpers.ts and import it in both files (ramp-pose passes 41).
+- Seen 1× (first 2026-11-08, last 2026-11-08)
+
+
+## In an open maintenance PR (0)
+
+None.
+
+
+## Stale (no longer reproduced) (0)
+
+None.
+
+
+## Closed: merged, do not report again (0)
+
+None.
+

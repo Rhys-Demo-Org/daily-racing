@@ -18,10 +18,10 @@ export const ROSTER: readonly Driver[] = [
   { name: 'OTTO', number: 12, body: 'grass', stripe: 'cream', player: false },
 ];
 
-/** The drivers of an `carCount`-car race: the player (car 0), then the first carCount − 1 AI drivers. */
 /** Races the player starts (RACE, RETRY, RESTART RACE, NEXT RACE): YOU plus every roster AI driver. */
 export const PLAYER_CAR_COUNT = ROSTER.length;
 
+/** The drivers of a `carCount`-car race: the player (car 0), then the first carCount − 1 AI drivers. */
 export function raceDrivers(carCount: number): Driver[] {
   const player = ROSTER.filter((d) => d.player);
   const ai = ROSTER.filter((d) => !d.player);

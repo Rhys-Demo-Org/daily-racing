@@ -1,0 +1,90 @@
+{
+  "verdict": "approve",
+  "rounds": 1,
+  "items": [
+    {
+      "id": "C027",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C003",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C005",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C001",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C002",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C016",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C013",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C018",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C004",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C007",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C008",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C010",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C015",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C026",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    }
+  ]
+}

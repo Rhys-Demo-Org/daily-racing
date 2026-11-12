@@ -22,6 +22,14 @@ export const CAMERA = {
   lookAheadMax: 6,
   /** Follow smoothing half-life in seconds (exponential, frame-rate independent). */
   followHalfLife: 0.12,
+  /**
+   * While the countdown is on screen the target sits east of the player so the car shows west of
+   * the centred roundel instead of under it: by the roundel's half width (CSS px, converted at the
+   * viewport's scale, so narrow phones shift further) plus this many units for the car's half length
+   * (2.1) and outline, ≈ 2 units of look-ahead while it pulls away under GO!, and a margin. See
+   * countdownOffsetEast(); once GO! has gone the game glides it out (countdownFraming).
+   */
+  countdownClearance: 5.5,
 } as const;
 
 const DEG = Math.PI / 180;
@@ -29,6 +37,14 @@ const DEG = Math.PI / 180;
 /** Frame width in world units for a viewport aspect ratio. */
 export function frameWidthFor(aspect: number): number {
   return aspect >= CAMERA.mobileMinAspect ? CAMERA.frameWidth.mobile : CAMERA.frameWidth.desktop;
+}
+
+/**
+ * Units east of the player for the camera target that keep the car clear of a centred overlay
+ * `halfWidthPx` CSS px each side of the screen centre in a `width`×`height` viewport (0: no offset).
+ */
+export function countdownOffsetEast(halfWidthPx: number, width: number, height: number): number {
+  return halfWidthPx > 0 ? (halfWidthPx * frameWidthFor(width / height)) / width + CAMERA.countdownClearance : 0;
 }
 
 /** Camera-to-target distance so the frame is frameWidthFor(aspect) units across at the target. */
@@ -62,6 +78,8 @@ export interface CameraRig {
   snap(x: number, z: number, vx?: number, vz?: number): void;
   /** Current ground target (x, z). */
   target(): { x: number; z: number };
+  /** Shifts the ground target by (dx, dz) units from the followed point (default 0, 0); follow eases to it, snap jumps. */
+  setTargetOffset(dx: number, dz: number): void;
 }
 
 export function createCameraRig(width = 844, height = 390): CameraRig {
@@ -70,6 +88,7 @@ export function createCameraRig(width = 844, height = 390): CameraRig {
   camera.rotation.set(-CAMERA.pitchDeg * DEG, 0, 0, 'YXZ'); // fixed for life: never touched again
   let distance = cameraDistance(width / height);
   const tgt = { x: 0, z: 0 };
+  const offset = { x: 0, z: 0 };
 
   const place = (): void => {
     const p = CAMERA.pitchDeg * DEG;
@@ -96,17 +115,21 @@ export function createCameraRig(width = 844, height = 390): CameraRig {
     follow(x, z, vx, vz, dt) {
       const s = aheadSeconds(vx, vz);
       const k = dt > 0 ? 1 - Math.pow(0.5, dt / CAMERA.followHalfLife) : 0;
-      tgt.x += (x + vx * s - tgt.x) * k;
-      tgt.z += (z + vz * s - tgt.z) * k;
+      tgt.x += (x + offset.x + vx * s - tgt.x) * k;
+      tgt.z += (z + offset.z + vz * s - tgt.z) * k;
       place();
     },
     snap(x, z, vx = 0, vz = 0) {
       const s = aheadSeconds(vx, vz);
-      tgt.x = x + vx * s;
-      tgt.z = z + vz * s;
+      tgt.x = x + offset.x + vx * s;
+      tgt.z = z + offset.z + vz * s;
       place();
     },
     target: () => ({ ...tgt }),
+    setTargetOffset(dx, dz) {
+      offset.x = dx;
+      offset.z = dz;
+    },
   };
   rig.resize(width, height);
   return rig;

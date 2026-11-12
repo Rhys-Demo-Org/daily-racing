@@ -223,7 +223,7 @@
     "spikes/m2-game/run.ts": "e7716d5aae1e9b59f4cb0bcf67ca57c50a10ae830bde7a0fc348666b9dcc9e94",
     "src/driver/index.ts": "2be7000bcd2506a393fa1a1c36f025e07072e6fecea6c64b5e2694290ab75664",
     "tests/baselines/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "tests/baselines/bot-laps.json": "93ea8a823507b9f54e4274e63503987cc85b2ba82ba0a65d9a5cf3e940824887",
+    "tests/baselines/bot-laps.json": "3f85c7c8d6d07ee94ce765b5f690fbede033c6e07b2f47783bb103dead89d965",
     "tests/baselines/replay-states.json": "0b2fca8ae325ab742ea84fd809736137f3d94cfc94c76d71eba3a3d2416deba3",
     "tests/baselines/replays/bot-race.json": "4239447ef55f63d19865af594a5023a3b84e29d824d8d2dd8457be379f33ef02",
     "tests/baselines/replays/car-contact.json": "cd12b6d3bb012bb8ae34b4edb13678993c1ea29f2590914069541a8d25c55143",

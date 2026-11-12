@@ -1,0 +1,107 @@
+{
+  "pass": true,
+  "reasons": [],
+  "blind": {
+    "scores": {
+      "specMet": 9,
+      "styleMatch": 9,
+      "notBroken": 9,
+      "testsReal": 8,
+      "noSniffing": 10,
+      "scope": 8,
+      "noDuplication": 10
+    },
+    "overall": 8,
+    "verdict": "pass",
+    "failures": [
+      {
+        "axis": "scope",
+        "file": "tests/content/hay-loop-bales.test.ts",
+        "claim": "This extra test file isn't in the spec's Expected files. It is labelled with a review-round tag (R4-1) rather than an acceptance criterion. It picks out the hairpin bales with a hard-coded world coordinate (p.x > 200), so it silently checks nothing if the layout moves.",
+        "evidence": "Spec Expected files lists only hay-loop.json, hay-loop.test.ts, hay-loop-bot.test.ts and hay-loop-scene.test.ts. diff line 133: `.filter((p) => p.kind === 'hay-bale' && p.x > 200); // the hairpin's inside row`. It has no check that the filtered list is non-empty."
+      },
+      {
+        "axis": "styleMatch",
+        "file": "src/content/tracks/hay-loop.json",
+        "claim": "The JSON file has no trailing newline. Other content files presumably end with one, so add it.",
+        "evidence": "diff line 87: `\\ No newline at end of file`"
+      }
+    ],
+    "plantedInstructions": [],
+    "summary": "The PR adds Hay Loop as a JSON-only third track (3 laps, width 11). It has a straight start, an S-bend bump, a teardrop hairpin at the east end with legs about 28 units apart, and one ramp at 0.63 on the back straight. Hay-bale rows sit inside the hairpin, tyre stacks outside it and at the west end, and 22 explicit cone trees fill the infield. There are no sim, render or UI changes. All gates pass: 623/623 unit tests, and the G2 bot lap on Hay Loop is 50.61 s, inside the 48–56 s target. The tests cover AC1–AC7 through public seams: the registry and nextTrackId, trackLayout, validateTrack, the runBotRace helper with one run per seed, and the race scene's prop cells. Each would fail on main because the track doesn't exist there. In the screenshots, the hairpin has a bale ring inside and tyre stacks outside. The minimap matches the S6 thumbnail shape, the six-car grid starts cleanly, and the results screen reads HAY LOOP. Nothing is broken or overlapping. Two minor problems: an extra review-tagged bale-overlap test that isn't in Expected files and picks the bales with a hard-coded coordinate filter, and a missing trailing newline in the JSON. There's no environment sniffing, and the PR doesn't repeat any merged or in-flight work."
+  },
+  "check": {
+    "claims": [
+      {
+        "claim": "R3-1 fix: tests/content/hay-loop.test.ts imports headingOf and wrapAngle from src/sim/vec.ts and uses them in place of inline atan2 heading and angle-wrap maths.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch line 200 adds `import { headingOf, wrapAngle } from '../../src/sim/vec.ts';`. Line 214 is `return headingOf(bx - ax, bz - az);` and line 221 uses `wrapAngle(d)`. No inline atan2 heading or wrap is left in geometry()."
+      },
+      {
+        "claim": "Before the fix, the test used inline `Math.atan2(bx - ax, -(bz - az))` and `Math.atan2(Math.sin(d), Math.cos(d))`, and the helpers give the same values.",
+        "verdict": "unconfirmed",
+        "evidence": "The diff only shows the final state of this new file, so the earlier inline code and the helpers' definitions in src/sim/vec.ts can't be seen."
+      },
+      {
+        "claim": "Other tests already import these helpers (tests/sim/helpers.ts:14, tests/sim/track.test.ts:23).",
+        "verdict": "unconfirmed",
+        "evidence": "Neither file is in the diff or in the working folder."
+      },
+      {
+        "claim": "R4-1 fix: the single hairpin inside hay-bale row (0.41–0.475, spacing 4, offset 2) became three rows at offset 1: 0.41–0.43 spacing 4, 0.437–0.463 spacing 6, 0.47–0.49 spacing 4.",
+        "verdict": "confirmed",
+        "evidence": "hay-loop.json propRows (diff lines 52-54) holds exactly these three left hay-bale rows at offset 1. The earlier single row isn't visible because the file is new in the diff, but the final state matches."
+      },
+      {
+        "claim": "With width 11, the old offset 2 put bales 7.5 units from the centreline and the new offset 1 puts them at 6.5.",
+        "verdict": "confirmed",
+        "evidence": "Width is 11 (diff line 11), so half-width is 5.5. 5.5+2 = 7.5 and 5.5+1 = 6.5. This assumes the offset is measured from the edge, which matches the AC6 test using half + 1."
+      },
+      {
+        "claim": "New test tests/content/hay-loop-bales.test.ts runs a separating-axis overlap check on the hairpin's inside bales (x > 200).",
+        "verdict": "confirmed",
+        "evidence": "diff lines 88-143 add the SAT corners/overlap functions using HAY_BALE_LENGTH/WIDTH, filter to hay-bale props with p.x > 200, and expect no overlapping pairs."
+      },
+      {
+        "claim": "The new bale test failed before the fix with 6 intersecting pairs.",
+        "verdict": "unconfirmed",
+        "evidence": "There is no pre-fix run output in the inputs."
+      },
+      {
+        "claim": "pnpm typecheck is clean and all 623 tests in 83 files pass.",
+        "verdict": "confirmed",
+        "evidence": "gates.md G1: typecheck and build ok, 623/623 tests passed. The file count isn't shown."
+      },
+      {
+        "claim": "No sim, render or UI code changed.",
+        "verdict": "confirmed",
+        "evidence": "The diff touches only src/content/tracks/hay-loop.json and test files. There are no src/sim, src/render or UI changes. G8 also passes for protected files."
+      },
+      {
+        "claim": "AC6 still holds: at least 6 inside bales in the hairpin window, near the edge and off the ribbon.",
+        "verdict": "confirmed",
+        "evidence": "The AC6 test (diff lines 328-345) checks this, and G1 reports all tests passing."
+      },
+      {
+        "claim": "In the regenerated 1440×900 hay-loop mid-race screenshot, the hairpin bales are separate boxes with clean outlines.",
+        "verdict": "confirmed",
+        "evidence": "In screenshots/1440x900/race/hay-loop-mid-race.png the inside-hairpin hay bales are separate, non-overlapping outlined boxes."
+      },
+      {
+        "claim": "The S-bend hay-bale row (0.13–0.17, spacing 2.1) was left alone.",
+        "verdict": "confirmed",
+        "evidence": "diff line 57: the hay-bale row from 0.13 to 0.17 at spacing 2.1, offset 2 is still there."
+      },
+      {
+        "claim": "Line references: hay-loop.json:46 is the hairpin bale row, and hay-loop.test.ts:19 is the heading helper in geometry().",
+        "verdict": "confirmed",
+        "evidence": "File line 46 of hay-loop.json maps to diff line 52, the first hairpin hay-bale row. Test file line 19 falls inside the heading lambda in geometry()."
+      }
+    ],
+    "newRules": [],
+    "plantedInstructions": [],
+    "summary": "The review's claims match the diff. R3-1 (use headingOf/wrapAngle from vec.ts) shows in the final hay-loop.test.ts. R4-1 (hairpin bales split into three rows at offset 1 with wider spacing at the tip, plus a SAT overlap test) shows in hay-loop.json and the new hay-loop-bales.test.ts, and the 1440×900 mid-race screenshot shows separate, outlined bales. The gates confirm 623/623 tests pass. Claims about the earlier code (the inline atan2 maths, the old single row, 6 failing pairs) and about tests outside the diff can't be checked, because every file in the diff is new. No changes to CLAUDE.md or other agent rule files, and no planted instructions in review.md, the spec, the diff or the screenshot I checked."
+  },
+  "scan": [],
+  "newRules": []
+}

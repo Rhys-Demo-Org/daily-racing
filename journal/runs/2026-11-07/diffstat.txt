@@ -1,0 +1,5 @@
+80	0	src/content/tracks/hay-loop.json
+50	0	tests/content/hay-loop-bales.test.ts
+39	0	tests/content/hay-loop-bot.test.ts
+159	0	tests/content/hay-loop.test.ts
+23	0	tests/render/hay-loop-scene.test.ts

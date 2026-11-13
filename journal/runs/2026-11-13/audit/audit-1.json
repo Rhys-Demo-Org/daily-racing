@@ -1,0 +1,34 @@
+{
+  "verdict": "approve",
+  "summary": "I'm approving the draft. It covers B08's scope and done_when, the S6 mockup and the UI_RULES screen-change and chequer-band rules cover its visuals, and the existing start-screen tests still pass (h1 text, RACE as first and focused button, subtitle option). No open PR touches its files, and nothing needs retiring. The four findings are minor and go to the builder: how the stripe reveal should look, keeping track counts out of the tests, and two test-seam notes.",
+  "findings": [
+    {
+      "check": "design",
+      "severity": "minor",
+      "claim": "UI_RULES says the new screen \"cuts in under the red stripe\". The draft switches state at once under the overlay. Done literally, the menu would show ahead of the stripes before they cover the old screen.",
+      "suggestedFix": "Keep the DOM/state switch immediate, because existing pause and quit tests expect it. Visually, the outgoing screen should stay covered until the red stripe passes. For example, the overlay's leading edge hides what is ahead of it, and the new screen shows only behind the red stripe. Use the sweep easing (.6,0,.4,1), wipe 250 ms and stagger 40 ms tokens, with no literals."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "AC1 lists today's tracks (Bramble Bends, Dust Bowl, Hay Loop). If the test hard-codes three cards or those names, it breaks when B11 adds Pine Ridge, and tests are append-only.",
+      "suggestedFix": "In the AC1 test, get the expected card count, names and order from the exported TRACKS list, not hard-coded values."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "The harness lint flags AC8 for naming startRace(). It is the public Game control surface that the driver and many existing tests already call, so it is acceptable. window.__racer.startRace would be the cleaner seam.",
+      "suggestedFix": "Write the 'no overlay on direct start' half of AC8 against the driver's window.__racer.startRace, or Game.startRace as the existing game tests do. Do not reach into internal helpers."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "In AC7 and AC8, reduced motion cuts the overlay. If happy-dom's matchMedia reports reduced motion, or the code treats a missing matchMedia as reduced motion, the overlay assertions could pass or fail by accident.",
+      "suggestedFix": "Treat a missing matchMedia as 'motion allowed'. In the tests, stub matchMedia explicitly. Optionally add a test that reduced motion adds no screen-change element."
+    }
+  ],
+  "overlapAssessment": "The harness reports no file overlap. The only diff in /inputs, pr-29.diff, touches guardrails/manifest.json, tests/baselines/bot-laps.json and a new tests/game/best-lap-e2e.test.ts. None of those are in the draft's expectedFiles, and none of them change start-screen or screen-change behaviour, so building this now is safe.",
+  "waitsOn": null,
+  "designRequest": null,
+  "backlogChangeRequests": []
+}

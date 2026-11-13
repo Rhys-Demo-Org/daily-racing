@@ -1,0 +1,133 @@
+2026-11-13T02:00:06Z live run 2026-11-13 (manual=0) main=ed404983856305a450e1840c5790d224853decbe
+2026-11-13T02:00:07Z work: backlog B08 · Title and track select (S6) with stripe screen change
+2026-11-13T02:00:08Z phase ideate-1: start (max turns 40, wall 10m)
+2026-11-13T02:01:43Z phase ideate-1: exit 0
+2026-11-13T02:01:43Z phase audit-1: start (max turns 50, wall 10m)
+2026-11-13T02:02:26Z phase audit-1: exit 0
+2026-11-13T02:02:27Z plan audit 1 (B08, round 1): approve
+2026-11-13T02:02:27Z spec locked: sha256 ec4f94d34c1047ba121ffe376a170785074d313c15fb8bfd0cd6e65bbaaff921
+2026-11-13T02:02:27Z phase build-1: start (max turns 60, wall 75m)
+2026-11-13T02:10:23Z phase build-1: exit 0
+2026-11-13T02:10:23Z gates attempt 1 on 80661241ab8526aed6affc984cd0506e69b90973
+# Gates: PASS
+
+Branch `80661241ab85` vs main `ed4049838563`, 25.9 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 25.6 s | typecheck, build ok; 732/732 tests passed (main 716) |
+| G2 Bot laps | pass | 1.9 s | bends 15.48 s (+0.0%), dust-bowl 17.70 s (+0.0%), hay-loop 53.61 s (new); worst step 0.406 |
+| G3 Physics replays | pass | 1.2 s | 5 replays reproduce main's end states (±0.000001) |
+| G8 Protected files | pass | 0.7 s | only allowed paths changed; manifest and tokens match |
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+captured 52 screenshots (14 stages, 3 race(s)) into /out
+2026-11-13T02:11:02Z screenshots: 52 in /home/admin_rhysharris_altostrat_com/.daily-racer/work/2026-11-13/review-in/screenshots
+2026-11-13T02:11:03Z phase r1-1: start (max turns 120, wall 40m)
+2026-11-13T02:11:03Z phase r2-1: start (max turns 120, wall 40m)
+2026-11-13T02:11:03Z phase r3-1: start (max turns 120, wall 40m)
+2026-11-13T02:11:03Z phase r4-1: start (max turns 120, wall 40m)
+2026-11-13T02:11:03Z phase r5-1: start (max turns 120, wall 40m)
+2026-11-13T02:11:44Z phase r3-1: exit 0
+2026-11-13T02:11:58Z phase r5-1: exit 0
+2026-11-13T02:12:08Z phase r1-1: exit 0
+2026-11-13T02:13:06Z phase r4-1: exit 0
+2026-11-13T02:26:51Z phase r2-1: exit 0
+2026-11-13T02:26:51Z review: 8 findings; checked: R1 9, R2 20, R3 9, R4 11, R5 8
+2026-11-13T02:26:51Z phase verify-1: start (max turns 80, wall 30m)
+2026-11-13T02:28:20Z phase verify-1: exit 0
+2026-11-13T02:28:20Z verify: 6 of 8 findings verified
+2026-11-13T02:28:21Z phase fix-1: start (max turns 40, wall 20m)
+2026-11-13T02:29:18Z phase fix-1: exit 0
+2026-11-13T02:29:19Z gates attempt 2 on 5f25ddf198077392bb0d8dee204b86a02074b9d8
+# Gates: PASS
+
+Branch `5f25ddf19807` vs main `ed4049838563`, 16.9 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 16.5 s | typecheck, build ok; 733/733 tests passed (main 716) |
+| G2 Bot laps | pass | 1.5 s | bends 15.48 s (+0.0%), dust-bowl 17.70 s (+0.0%), hay-loop 53.61 s (new); worst step 0.406 |
+| G3 Physics replays | pass | 1.1 s | 5 replays reproduce main's end states (±0.000001) |
+| G8 Protected files | pass | 0.6 s | only allowed paths changed; manifest and tokens match |
+2026-11-13T02:29:37Z phase fix-2: start (max turns 40, wall 20m)
+2026-11-13T02:30:30Z phase fix-2: exit 0
+2026-11-13T02:30:31Z gates attempt 3 on b4e54ef35205d64912a274381c3a0e23767ad8a9
+# Gates: PASS
+
+Branch `b4e54ef35205` vs main `ed4049838563`, 17.1 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 16.8 s | typecheck, build ok; 734/734 tests passed (main 716) |
+| G2 Bot laps | pass | 1.6 s | bends 15.48 s (+0.0%), dust-bowl 17.70 s (+0.0%), hay-loop 53.61 s (new); worst step 0.406 |
+| G3 Physics replays | pass | 1.0 s | 5 replays reproduce main's end states (±0.000001) |
+| G8 Protected files | pass | 0.5 s | only allowed paths changed; manifest and tokens match |
+2026-11-13T02:30:50Z phase fix-3: start (max turns 40, wall 20m)
+2026-11-13T02:31:43Z phase fix-3: exit 0
+2026-11-13T02:31:44Z gates attempt 4 on 4f6607b549f8fbdee4dd003a47913879399a7168
+# Gates: PASS
+
+Branch `4f6607b549f8` vs main `ed4049838563`, 17.2 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 16.8 s | typecheck, build ok; 735/735 tests passed (main 716) |
+| G2 Bot laps | pass | 1.6 s | bends 15.48 s (+0.0%), dust-bowl 17.70 s (+0.0%), hay-loop 53.61 s (new); worst step 0.406 |
+| G3 Physics replays | pass | 1.0 s | 5 replays reproduce main's end states (±0.000001) |
+| G8 Protected files | pass | 0.7 s | only allowed paths changed; manifest and tokens match |
+2026-11-13T02:32:03Z phase fix-4: start (max turns 40, wall 20m)
+2026-11-13T02:32:50Z phase fix-4: exit 0
+2026-11-13T02:32:52Z gates attempt 5 on 2441d8687c4c388b5c9ec40f66c148a7de518930
+# Gates: PASS
+
+Branch `2441d8687c4c` vs main `ed4049838563`, 17.0 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 16.6 s | typecheck, build ok; 735/735 tests passed (main 716) |
+| G2 Bot laps | pass | 1.6 s | bends 15.48 s (+0.0%), dust-bowl 17.70 s (+0.0%), hay-loop 53.61 s (new); worst step 0.406 |
+| G3 Physics replays | pass | 1.1 s | 5 replays reproduce main's end states (±0.000001) |
+| G8 Protected files | pass | 0.5 s | only allowed paths changed; manifest and tokens match |
+2026-11-13T02:33:10Z phase fix-5: start (max turns 40, wall 20m)
+2026-11-13T02:35:31Z phase fix-5: exit 0
+2026-11-13T02:35:32Z gates attempt 6 on fc86829f54464b13443a7045e1251b4387637dd8
+# Gates: PASS
+
+Branch `fc86829f5446` vs main `ed4049838563`, 17.4 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 17.1 s | typecheck, build ok; 737/737 tests passed (main 716) |
+| G2 Bot laps | pass | 1.6 s | bends 15.48 s (+0.0%), dust-bowl 17.70 s (+0.0%), hay-loop 53.61 s (new); worst step 0.406 |
+| G3 Physics replays | pass | 1.1 s | 5 replays reproduce main's end states (±0.000001) |
+| G8 Protected files | pass | 0.6 s | only allowed paths changed; manifest and tokens match |
+2026-11-13T02:35:51Z phase fix-6: start (max turns 40, wall 20m)
+2026-11-13T02:37:21Z phase fix-6: exit 0
+2026-11-13T02:37:22Z gates attempt 7 on 7b5ffb6514ae77e8e619d236c68b22c6c2e951ff
+# Gates: PASS
+
+Branch `7b5ffb6514ae` vs main `ed4049838563`, 17.8 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 17.5 s | typecheck, build ok; 738/738 tests passed (main 716) |
+| G2 Bot laps | pass | 1.5 s | bends 15.48 s (+0.0%), dust-bowl 17.70 s (+0.0%), hay-loop 53.61 s (new); worst step 0.406 |
+| G3 Physics replays | pass | 1.1 s | 5 replays reproduce main's end states (±0.000001) |
+| G8 Protected files | pass | 0.5 s | only allowed paths changed; manifest and tokens match |
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+captured 52 screenshots (14 stages, 3 race(s)) into /out
+2026-11-13T02:37:54Z screenshots: 52 in /home/admin_rhysharris_altostrat_com/.daily-racer/work/2026-11-13/shots-final
+2026-11-13T02:37:54Z phase judge-1: start (max turns 50, wall 15m)
+2026-11-13T02:38:36Z phase judge-1: exit 0
+2026-11-13T02:38:36Z phase judgecheck-1: start (max turns 50, wall 15m)
+2026-11-13T02:39:12Z phase judgecheck-1: exit 0
+2026-11-13T02:39:12Z judge round 1: pass
+2026-11-13T02:39:12Z outcome: pass

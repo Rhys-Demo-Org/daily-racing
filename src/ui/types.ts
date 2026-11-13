@@ -18,3 +18,11 @@ export interface MinimapState {
   outline: [number, number][];
   cars: { x: number; z: number; colour: PaletteName; player: boolean }[];
 }
+
+/** One track on the start screen's track select (S6). */
+export interface TrackCardView {
+  id: string;
+  name: string;
+  /** Closed centreline [x, z] in world units; the card fits it into its outline drawing. */
+  outline: [number, number][];
+}

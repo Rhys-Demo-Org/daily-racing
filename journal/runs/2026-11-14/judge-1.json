@@ -1,0 +1,148 @@
+{
+  "pass": true,
+  "reasons": [],
+  "blind": {
+    "scores": {
+      "specMet": 9,
+      "styleMatch": 8,
+      "notBroken": 9,
+      "testsReal": 8,
+      "noSniffing": 10,
+      "scope": 8,
+      "noDuplication": 9
+    },
+    "overall": 8,
+    "verdict": "pass",
+    "failures": [
+      {
+        "axis": "styleMatch",
+        "file": "src/ui/hud.css",
+        "claim": "The bump scale is hard-coded as 1.12 (`--ui-hud-bump: 1.12`), but tokens.json already has `motion.bumpScale: 1.12`. The roll's 120 ms comes from `--duration-release`, the token for the button release, rather than a named roll/snap value. Take the bump scale from the token, as the plan audit asked ('built from tokens').",
+        "evidence": "hud.css: `.ui-hud { --ui-hud-bump: 1.12; --ui-hud-stamp: 1.18; }` and `.ui-hud-pos__n.is-roll { animation: ui-hud-roll var(--duration-release) var(--ease-snap); }`; tokens.json motion: `\"bumpScale\": 1.12`."
+      },
+      {
+        "axis": "testsReal",
+        "file": "tests/ui/hud-entry-restart.test.ts",
+        "claim": "Two of the extra happy-dom tests pin internal class names instead of checking behaviour through a public seam. hud-entry-restart asserts `.ui-hud` and `classList.contains('is-entering')` plus MutationObserver records. touch-zones-entry-slide dispatches `animationend`, but no code listens for it. It passes only because zones are re-measured until GO, so the test describes a mechanism that doesn't exist.",
+        "evidence": "hud-entry-restart.test.ts: `document.querySelector('.ui-hud')`, `expect(hud.classList.contains('is-entering')).toBe(true)`; touch-zones-entry-slide.test.ts: `s.dispatchEvent(new Event('animationend', ...))`, while touch-controls.ts only re-measures while `entering` is true and never handles animationend."
+      },
+      {
+        "axis": "scope",
+        "file": "src/ui/dom.ts",
+        "claim": "The diff adds files that aren't in the spec's Expected files: a new `restartClass` helper in dom.ts and five test files beyond the three listed (entry-restart, bump-overshoot, entry-direction, restart, second-race, window, touch-zones-entry-slide). Each is small and relevant, but the change is bigger than planned.",
+        "evidence": "The spec's Expected files list only hud.ts/css, race-ui.ts, touch-controls.ts/css, the stage files and three tests. The diff also touches src/ui/dom.ts and adds tests/ui/hud-entry-restart.test.ts, hud-motion-bump-overshoot.test.ts, hud-motion-entry-direction.test.ts, hud-motion-restart.test.ts, hud-motion-second-race.test.ts, hud-motion-window.test.ts and touch-zones-entry-slide.test.ts."
+      }
+    ],
+    "plantedInstructions": [],
+    "summary": "This builds B09 HUD event motion. On a position change the Pos panel bumps (scale 1.12, stamp 160 ms) and its digit rolls up inside a clip-path box (snap 120 ms). On a new lap the Lap panel stamps from scale 1.18 with the 6px shadow landing to 3px. Both are cleared in sim time, 10 ticks after the event, and an `is-again` copy of the keyframes restarts a move that is still playing. The race entry starts from reset() through a single enter() function and ends at GO. The top panels slide down and the touch slots slide up, with 40 ms stagger delays from 0 to 0.32s. Everything sits inside prefers-reduced-motion: no-preference, so the press sink is kept. Touch zones are re-measured while the slots are moving. The stage and Chromium tests cover AC1–AC7, including the no-preference control the plan audit asked for, plus restart, window, direction and second-race cases. All gates are green. Screenshots at 844×390 and 1440×900 show the HUD and controls laid out correctly with no overlap, and matching the S1/S2 mockup. Small issues: the bump scale is a literal instead of the bumpScale token, two happy-dom tests check internal class names, and the change is somewhat larger than the expected file list."
+  },
+  "check": {
+    "claims": [
+      {
+        "claim": "R1-1 fix: race-ui.ts enter() guard is now `if (!on && !entering) return`, so every enter(true) from reset() goes through to the HUD and touch layers.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch race-ui.ts: `function enter(on) { if (!on && !entering) return; entering = on; hud.enter(on); touch.enter(on); }`, and reset() calls enter(true)."
+      },
+      {
+        "claim": "R1-1 fix: a new restartClass(el, className, on) in dom.ts removes the class and, when on is true, reads offsetWidth before adding it back.",
+        "verdict": "confirmed",
+        "evidence": "dom.ts: `el.classList.remove(className); if (!on) return; void el.offsetWidth; el.classList.add(className);`"
+      },
+      {
+        "claim": "R1-1 fix: hud.ts enter() has no entering guard or flag of its own and uses restartClass, and touch-controls.ts enter() uses restartClass too.",
+        "verdict": "confirmed",
+        "evidence": "hud.ts: `enter(on) { restartClass(element, 'is-entering', on); }`. touch-controls.ts: `enter(on) { restartClass(element, 'is-entering', on); entering = on; invalidate(); }`."
+      },
+      {
+        "claim": "R1-1: at GO, enter(false) removes the class once, so a resume never replays the entry.",
+        "verdict": "confirmed",
+        "evidence": "race-ui.ts sync: `if (step === 0) { enter(false); touch.wake(); }` runs only when step changes. The second enter(false) returns early because entering is false. The 'resumed' stage and AC6 test cover it."
+      },
+      {
+        "claim": "R1-1: the new test tests/ui/hud-entry-restart.test.ts also checks that the touch layer ends with is-entering.",
+        "verdict": "confirmed",
+        "evidence": "The test asserts mutation records on both hud and touch, and `expect(touch.classList.contains('is-entering')).toBe(true)`."
+      },
+      {
+        "claim": "R1-1: with the old guard put back, the test fails with 'HUD entry restarted: expected 0 to be greater than 0'.",
+        "verdict": "unconfirmed",
+        "evidence": "The assertion message 'HUD entry restarted' is in the test, but the failing run isn't in the inputs."
+      },
+      {
+        "claim": "R2-1 fix: zones() no longer caches while entering (`entering ? measure() : (cache ??= measure())`), and enter(false) at GO clears the flag and invalidates the cache.",
+        "verdict": "confirmed",
+        "evidence": "touch-controls.ts: `zones: () => (entering ? measure() : (cache ??= measure()))`, and enter() sets `entering = on` and calls invalidate()."
+      },
+      {
+        "claim": "R2-1: the new test tests/ui/touch-zones-entry-slide.test.ts fails without the fix ('expected 520 to be 325') and passes with it.",
+        "verdict": "unconfirmed",
+        "evidence": "The test exists. It expects 325+195 mid-slide, then 325 after the slide ends, still in the countdown. Without the fix the cached 520 would stay, so the quoted failure is plausible, but the run isn't in the inputs."
+      },
+      {
+        "claim": "R3-2 not fixed because it no longer applies: hud.ts has no entering flag, its enter is at hud.ts:195-197, and the only entering state left is at race-ui.ts:93 and touch-controls.ts:99.",
+        "verdict": "confirmed",
+        "evidence": "Counting lines from the hunk headers: hud.ts lines 195-197 are `enter(on) { restartClass(...); }`, race-ui.ts line 93 is `let entering = false;` and touch-controls.ts line 99 is `let entering = false;`. hud.ts has no entering flag."
+      },
+      {
+        "claim": "R4-3 fix: ui-hud-bump and ui-hud-bump-again are now landings, `from { transform: scale(var(--ui-hud-bump)); }`, and the element rule is unchanged (0.16s, stamp).",
+        "verdict": "confirmed",
+        "evidence": "hud.css: both keyframes have only `from { transform: scale(var(--ui-hud-bump)); }`. `.ui-hud-pos.is-bump { animation: ui-hud-bump var(--duration-stamp) var(--ease-stamp); }`."
+      },
+      {
+        "claim": "R4-3: Chromium ignores var() in a keyframe's timing function, and the existing source-rules.test.ts only allows transform, box-shadow, clip-path and visibility inside @keyframes.",
+        "verdict": "unconfirmed",
+        "evidence": "source-rules.test.ts isn't in the diff, and the Chromium behaviour isn't shown in the inputs."
+      },
+      {
+        "claim": "R4-3: the new test hud-motion-bump-overshoot.test.ts samples the Pos panel's scale every 2 ms and checks that the peak is 1.12 and that the scale leaves [1, 1.12] at most once. Before the fix it failed (1.1296).",
+        "verdict": "confirmed",
+        "evidence": "The test loops `t += 2` up to 160 with toBeCloseTo(1.12) and toBeLessThanOrEqual(peak+1e-3), and checks excursions <= 1. The pre-fix number of 1.1296 isn't shown."
+      },
+      {
+        "claim": "R5-1 fix: an everyTick helper plus 'overtake-late' (syncs 1202–1210) and 'new-lap-late' (syncs 2423–2431) stages, a new hud-motion-window.test.ts checking the animation is still running at since = 9, product code unchanged.",
+        "verdict": "confirmed",
+        "evidence": "The stage file has everyTick(), `...everyTick(1202, 1210, field(2))` and `...everyTick(2423, 2431, field(2, 2422))`. hud-motion-window.test.ts asserts that name is not null. In this fix race-ui.ts only has EVENT_TICKS = msToTicks(stamp)."
+      },
+      {
+        "claim": "R5-1: with EVENT_TICKS = 1 both new tests failed, and restored they pass.",
+        "verdict": "unconfirmed",
+        "evidence": "The mutation run isn't in the inputs."
+      },
+      {
+        "claim": "R5-2: race-ui.ts already has `synced = false;` in reset(). A 'second-race' stage reuses one UI, calls reset(), syncs race 2 at P4 on lap 2/3 at raceTick 600, and the test checks Pos 4, Lap 2/3 and no animation.",
+        "verdict": "confirmed",
+        "evidence": "reset() has `synced = false;`. The second-race stage does `race(root, ...OVERTAKE, ...NEW_LAP.slice(1)); ui.reset(...); syncStage(ui, racing(600, field(4, 300)))`. The test asserts /^4\\//, '2/3' and AT_REST x3."
+      },
+      {
+        "claim": "R5-3 fix: an 'overtake-twice' stage (P2→P1 at tick 1205) and hud-motion-restart.test.ts, which checks that the Pos panel and digit animate with different animation names than after the first overtake.",
+        "verdict": "confirmed",
+        "evidence": "Stage: `race(root, ...OVERTAKE, racing(1205, field(1)))`. The test asserts pos2.name != pos1.name and digit2.name != digit1.name, plus 0.16s STAMP and 0.12s SNAP."
+      },
+      {
+        "claim": "R5-3: the red/green check deleted 'the is-again toggle at hud.ts:52'.",
+        "verdict": "unconfirmed",
+        "evidence": "By the diff's hunk header (+39), hud.ts:52 is `el.classList.toggle(cls, n !== null)` and the is-again toggle is on line 53. The line number is off by one, or the mutation was on the wrong line. The run itself can't be checked."
+      },
+      {
+        "claim": "R5-4: the HUD entry keyframe is translateY(-50vh) and the touch one is translateY(50vh). The new direction test expects the 5 HUD panels to start above their place (negative) and the 4 touch controls below (positive). src/ is unchanged by this fix.",
+        "verdict": "confirmed",
+        "evidence": "hud.css `@keyframes ui-hud-enter { from { transform: translateY(-50vh); } }`. touch-controls.css `ui-touch-enter ... translateY(50vh)`. The test checks `if (i < 5) toBeLessThan(0) else toBeGreaterThan(0)`."
+      },
+      {
+        "claim": "Final test count: pnpm test passes 114 files, 744 tests.",
+        "verdict": "confirmed",
+        "evidence": "gates.md G1: '744/744 tests passed (main 716)'."
+      },
+      {
+        "claim": "All kept fixes pass the gates.",
+        "verdict": "confirmed",
+        "evidence": "gates.md: Gates PASS on branch febdc8b39062 (the last fix's commit). G1, G2, G3 and G8 all pass."
+      }
+    ],
+    "newRules": [],
+    "plantedInstructions": [],
+    "summary": "I checked the 8 verified findings in review.md against diff.patch, and they largely hold up. The code changes the review describes are all in the diff:\n- R1-1: the entry guard and restartClass.\n- R2-1: touch zones are measured fresh while the controls slide in.\n- R4-3: the Pos bump is now a landing from ×1.12.\n- R3-2: correctly marked as no longer applying. The cited lines hud.ts:195-197, race-ui.ts:93 and touch-controls.ts:99 match.\n\nThe test-only fixes (R5-1, R5-2, R5-3, R5-4) add the stages and tests the review names. The final count of 744 tests matches gates.md, and all gates pass.\n\nWhat I couldn't confirm:\n- The mutation and red/green runs, and the claims about Chromium and the existing source-rules test. None of that is in the inputs.\n- One small mismatch in R5-3: it says it deleted the is-again toggle at hud.ts:52, but in the diff that toggle is on line 53. Line 52 is the main class toggle.\n\nI found no false claims. The diff adds no new agent rules (no CLAUDE.md or other agent-instruction file is changed), and there are no planted instructions in review.md or the diff."
+  },
+  "scan": [],
+  "newRules": []
+}

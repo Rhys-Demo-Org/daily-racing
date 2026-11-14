@@ -1,0 +1,49 @@
+{
+  "verdict": "revise",
+  "summary": "The draft matches B09's scope and UI_RULES §7 / board 05 #3 and #9. However, AC1–AC4 pin four new CSS class names (is-bump, is-roll, is-stamp, is-entering). Because tests are append-only, those names would be frozen forever, and B07's tests deliberately avoided doing that. A rewrite should state each event as observable motion on the labelled panel and tighten a few underspecified details.",
+  "findings": [
+    {
+      "check": "testability",
+      "severity": "major",
+      "claim": "AC1, AC2, AC3 and AC4 are written in terms of internal CSS class names (is-bump, is-roll, is-stamp, is-entering on the HUD and touch layers). Tests are append-only, so asserting those names freezes them forever. The B07 NEW BEST tests (tests/ui/new-best-chip.test.ts) avoided class names for this reason. The harness lint missed it because the names are written without code formatting.",
+      "suggestedFix": "Restate each criterion as motion on the element found by role or text, in Chromium via a stage. E.g. 'after a sync where the position changes, the panel labelled Pos and its digit run a CSS animation (getAnimations / computed animation-name not none); after an unchanged sync or the first sync after reset they don't'. Do the same for Lap on a new lap and for the HUD corners and touch controls after a reset (not a resume). Keep AC3's 10-tick expiry and clear-on-reset, phrased as 'no longer animating'."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "AC6 alone passes on main, where nothing animates and every element already computes animation-name none. The pressed-control sink also already exists. As written, it only fails on main because the new stage file is missing.",
+      "suggestedFix": "In the same reduced-motion test, first show that the stage really is in the event state (for example the Pos digit shows the new position and the Lap panel reads 2/3). Then assert there is no animation, and that the press sink still applies. Or merge AC6 into AC5 as the reduce-motion half of one criterion."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "AC5 says 'each next panel delayed 40 ms more' but never says which panels enter or in what order. The keycap legend already slides in from the left on desktop (keycap-legend.css), and the draft doesn't say whether it joins the stagger.",
+      "suggestedFix": "List the entering panels and their order, e.g. top-left POS, LAP, minimap, then top-right TIME/BEST, PAUSE, then the touch slots left, right, brake, gas. State that the keycap legend keeps its existing slide, unchanged."
+    },
+    {
+      "check": "design",
+      "severity": "minor",
+      "claim": "Board 05 #3 says the roll is 42px and the lap stamp scale is 1.18. Neither is a token (tokens.json motion has bumpScale 1.12 and dropScale 1.25 only). CLAUDE.md forbids raw pixel sizes in src/.",
+      "suggestedFix": "Express the roll as one digit height (e.g. translateY(100%) inside a clip-path or overflow-clipped value box) or as a calc from tokens, not a 42px literal. A unitless 1.18 scale is fine and follows the existing 0.9 in touch-controls.css. Note the board's source next to each value."
+    },
+    {
+      "check": "scope",
+      "severity": "minor",
+      "claim": "Board 05 #3 also says the POS panel's fill cuts to grass on a gain or rally-red on a loss for 600 ms. The draft leaves this out without saying so. B09's scope text lists only the motions, so leaving it out is defensible, but the omission should be deliberate.",
+      "suggestedFix": "State in the summary that the gain/loss fill cut is out of scope tonight (a colour cut, not motion) and leave it to a backlog item, or add it with its own AC and a 600 ms tick window."
+    },
+    {
+      "check": "overlap",
+      "severity": "minor",
+      "claim": "Board 05 #9 says the HUD slides in after the screen-change wipe. B08 (#30, in flight) adds that wipe and changes state 'at once under the overlay'. Once #30 merges, an entry slide triggered on reset may play hidden under the 250 ms band. #30 lists no files, so this is behaviour only, not a code conflict.",
+      "suggestedFix": "Keep triggering on race reset (correct on main tonight). Add a note to the spec that once B08 lands, the entry may need to wait for the wipe. Don't build on #30."
+    }
+  ],
+  "overlapAssessment": "The harness reports no file overlap. The only in-flight diff in /inputs (pr-29) touches the manifest, the baselines and one e2e test. #30 (B08) lists no files. Its screen-change wipe will affect when the entry slide is visible, but B09 doesn't build on it, and triggering on RaceUi.reset is correct on main. Building now is safe, with a follow-up note.",
+  "waitsOn": null,
+  "designRequest": null,
+  "backlogChangeRequests": [
+    "B09: say whether board 05 #3's POS fill cut (grass on a gain, rally-red on a loss, 600 ms) belongs to B09 or to a separate item. The current scope lists only the motions.",
+    "B09 / B08: board 05 #9 places the HUD slide-in after the screen-change wipe. Once B08 merges, add a follow-up (or a note on B09) to sequence the entry after the wipe."
+  ]
+}

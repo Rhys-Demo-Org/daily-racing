@@ -1,0 +1,317 @@
+{
+  "reviewers": {
+    "R1": "ok",
+    "R2": "ok",
+    "R3": "ok",
+    "R4": "ok",
+    "R5": "ok"
+  },
+  "findings": [
+    {
+      "id": "R1-1",
+      "reviewer": "R1",
+      "severity": "major",
+      "file": "src/ui/race-ui.ts",
+      "line": 106,
+      "claim": "A race reset doesn't replay the entry if it happens before GO. If the owner pauses during the countdown and taps RESTART RACE, `reset()` calls `enter(true)` while `entering` is still true. The early return means `is-entering` is never removed and re-added, so the CSS animations don't restart and the panels and controls don't slide in for the new race. The spec says 'A race reset slides HUD panels and touch slots in'.",
+      "evidence": "race-ui.ts:106-111: `function enter(on) { if (on === entering) return; entering = on; hud.enter(on); touch.enter(on); }`. hud.ts has the same guard: `enter(on) { if (on === entering) return; ... }`. Only a step-0 sync calls `enter(false)` (race-ui.ts:198-199). Trace: tap RACE → startRace → ui.reset → enter(true) and the class is added. While the countdown shows 3, press PAUSE. setPaused allows this in race mode before the finish (game.ts:165), and the HUD stays rendered (no display:none on pause). Press RESTART RACE → `restart` → game.startRace → ui.reset → enter(true) is a no-op. setMode('race') changes nothing because raceLayer was never hidden. The `.ui-hud.is-entering ...` animations stay on the same elements and never restart, so the new race starts with no slide-in. Pausing and retrying after GO does slide in, because GO sets entering to false first.",
+      "suggestedFix": "Make reset() restart the entry every time. In race-ui.ts reset(), call `enter(false)` and then `enter(true)`. In hud.ts and touch-controls.ts `enter`, force a restart when the class is re-added, e.g. `element.classList.remove('is-entering'); void element.offsetWidth; element.classList.add('is-entering')`, or drop the `on === entering` guard in hud.ts and do the remove, reflow, add there."
+    },
+    {
+      "id": "R2-1",
+      "reviewer": "R2",
+      "severity": "major",
+      "file": "src/ui/touch-controls.ts",
+      "line": 129,
+      "claim": "Touch hit zones are cached from getBoundingClientRect(), which now includes the race-entry slide transform. A pointerdown shortly after reset() (roughly the first 0.3-0.5 s) caches mid-slide positions (GAS and BRAKE still ~50vh below their rest spot), and nothing re-measures until GO. Presses on the controls in their final place then miss for the rest of the countdown, and a finger held on GAS through GO never registers.",
+      "evidence": "touch-controls.ts:129 `zones: () => (cache ??= measure())`; measure() (l.103-116) reads `slots[id].getBoundingClientRect()`. touch-controls.css:139-151 animates the slots: `animation: ui-touch-enter 200ms snap backwards; animation-delay: calc(40ms*5..8)` with `@keyframes ui-touch-enter { from { transform: translateY(50vh) } }`; the backwards fill holds the `from` offset during the delay, and getBoundingClientRect includes it. enter() (l.134-138) only invalidates once, and the next zones() call re-caches whatever it sees.\nSequence at 844x390 (50vh = 195px): (1) RACE or RETRY tapped -> race-ui.reset() -> touch.enter(true) -> cache=null. (2) t=250ms: any pointerdown, e.g. the left thumb landing on the steer pad that has just appeared, or a double tap -> createTouchInput.onDown -> zones() -> measure(). GAS (delay 320ms) and BRAKE (280ms) are still at the `from` keyframe, 195px below rest, and get cached. (3) t>=0.6s: the slide is over and the user presses GAS where it is drawn. hitTest(zones,x,y) -> null (distance ~145px > hitSlop 12), so no `held` entry and no press(). (4) GO at t=3s: enter(false)/wake() invalidate the cache, but src/input/touch.ts onMove returns early for pointers not in `held` (`if (!cur) return`), so the finger resting on GAS is never registered. The car doesn't accelerate until the finger lifts and presses again.\nBefore this diff the slots never moved (old comment: 'Slots hold the drawn shape and never move').\nRepro: tests/ui/hud-motion.ts stage('entry'), which has createTouchInput on window. page.mouse.click right after render, __settle(), then mouse.down at the Accelerate boundingBox centre: the button never gets is-pressed, and ui.touch.zones() GAS cy is ~195px off the slot's rect.",
+      "suggestedFix": "In createTouchControls keep `let entering = false`, set it in enter(), and don't cache while it is true: `zones: () => (entering ? measure() : (cache ??= measure()))`. enter(false) already invalidates at GO, so caching resumes from the settled layout."
+    },
+    {
+      "id": "R2-2",
+      "reviewer": "R2",
+      "severity": "minor",
+      "file": "src/ui/race-ui.ts",
+      "line": 107,
+      "claim": "enter() returns early while `entering` is already true, and `entering` is only cleared at GO. A reset() during the countdown (pause -> RESTART RACE) therefore never replays the entry: is-entering is already set, so the HUD panels and touch slots don't slide in for the restarted race. This contradicts the spec's 'A race reset slides HUD panels and touch slots in from their own edge'.",
+      "evidence": "race-ui.ts:106-111 `function enter(on) { if (on === entering) return; entering = on; hud.enter(on); touch.enter(on); }`. entering goes false only at l.198-200 (`if (step === 0) { enter(false); ... }`). reset() calls `enter(true)` at l.143.\nSequence: tap RACE -> reset() (entering=true; HUD and touch slide in over 0-520ms). At t~1s (countdown 3->2) tap PAUSE. game.ts setPaused only blocks menu mode and a finished player (l.165), so pausing in the countdown is allowed. Tap RESTART RACE -> game.startRace -> ui.reset() -> enter(true) -> `on === entering` -> return. `.ui-hud` and `.ui-touch` still carry is-entering from the first reset, with their animations long finished, so nothing replays. The restarted race's HUD and controls just sit in place.\nRepro in Chromium: raceStage(countdown) plus __settle() (document.getAnimations() all finished), then ui.reset() and a countdown sync again. getAnimations() still lists the old finished animations (currentTime >= 520ms) instead of fresh ones at 0.\nQuit to menu -> RACE does replay, only because the hidden layer's display:none -> shown restarts CSS animations. Restarts after GO also replay, since entering is false by then.",
+      "suggestedFix": "In reset(), end a still-running entry and flush style before starting the new one so the animations restart: `if (entering) { entering = false; hud.enter(false); touch.enter(false); void root.offsetWidth; }` and then `enter(true)`. Alternatively give Hud/TouchControls enter() the same running-count is-again alternation that hud.events() uses."
+    },
+    {
+      "id": "R3-1",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "tests/ui/hud-motion.ts",
+      "line": 69,
+      "claim": "The new `stage()` helper copies `renderStage` from harness/screens/browser.ts (open STAGES_PAGE, then `__stages.render(n)` in page.evaluate). The only extra is setting reduced motion, which other tests already do by calling `emulateMedia` after `renderStage`. The copy also skips `__settle` and the font wait that every other stage test gets.",
+      "evidence": "tests/ui/hud-motion.ts:69-77:\n```\nconst ctx = await context(browser, PHONE);\nconst page = await open(ctx, origin, STAGES_PAGE, STAGES_READY);\nawait page.emulateMedia({ reducedMotion });\nawait page.evaluate((n) => { const w = window as unknown as { __stages: { render(n: string): void } }; w.__stages.render(n); }, `hud-motion--${name}`);\n```\nharness/screens/browser.ts:123 `renderStage(ctx, origin, name)` already does open + `__stages.render(n)` (+ `__settle()` + `document.fonts.ready`). tests/ui/keycap-legend-slide.test.ts:85-86 uses `renderStage(...)` and then `page.emulateMedia({ reducedMotion: 'reduce' })`. `__settle` finishes animations but does not change the computed `animation-name`/duration/delay that `probe` reads.",
+      "suggestedFix": "Change the body of `stage()` to `const page = await renderStage(await context(browser, PHONE), origin, \\`hud-motion--${name}\\`); await page.emulateMedia({ reducedMotion }); return page;` and drop the `open`, `STAGES_PAGE` and `STAGES_READY` imports."
+    },
+    {
+      "id": "R3-2",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "src/ui/hud.ts",
+      "line": 197,
+      "claim": "`hud.enter()` has its own `entering` flag and early return, but its only caller is race-ui's `enter()`, which already returns early on the same check (race-ui.ts:107). So the HUD's guard can never fire and its state duplicates race-ui's. `classList.toggle(cls, on)` is idempotent in any case.",
+      "evidence": "src/ui/hud.ts:104 `let entering = false;` and :196-199 `enter(on) { if (on === entering) return; entering = on; element.classList.toggle('is-entering', on); }`. src/ui/race-ui.ts:106-111 `function enter(on) { if (on === entering) return; entering = on; hud.enter(on); touch.enter(on); }`. A Grep for `\\.enter\\(` in src/ finds only race-ui.ts:109-110, so hud.enter is never called twice with the same value.",
+      "suggestedFix": "In hud.ts, delete `let entering = false;` and make the method `enter(on) { element.classList.toggle('is-entering', on); }`, which is the same shape as touch-controls' `enter`."
+    },
+    {
+      "id": "R4-1",
+      "reviewer": "R4",
+      "severity": "major",
+      "file": "src/ui/touch-controls.ts",
+      "line": 134,
+      "claim": "The race entry moves the touch slots with a transform. zones() measures them with getBoundingClientRect and caches the result until enter(false) at GO. A touch during the roughly 560 ms slide caches the shifted rects, so for the rest of the countdown presses on GAS, BRAKE or the steer pads miss. A thumb held on GAS through GO also gives no throttle.",
+      "evidence": "`enter(on) { element.classList.toggle('is-entering', on); invalidate(); }` with `zones: () => (cache ??= measure())`, and `measure()` uses `slots[id].getBoundingClientRect()`, which includes the transform. The cache is only cleared on resize, wake() or enter(). Trace at 844×390: reset() calls enter(true) and the slots get `animation: ui-touch-enter 200ms … backwards` with delays of 200–320 ms, so with backwards fill they sit at translateY(50vh) = +195 px. A pointerdown 100 ms after reset runs touch.ts:75 `hitTest(opts.zones(), …)`. That caches GAS at cy ≈ 390−21−50+195 = 514, off screen. Every later pointerdown on the real GAS position (cy ≈ 319) misses until GO runs enter(false). The finger already held there is not re-tested, because onMove only re-tests pointers that are already held. Nothing is pressed and nothing turns mustard during the countdown, and there is no throttle at GO.",
+      "suggestedFix": "Clear the cache when the slide ends as well as when it starts. In createTouchControls, add `element.addEventListener('animationend', invalidate)`, or check `e.target` is a slot. Another option is to skip caching while the layer has `is-entering`: `zones: () => element.classList.contains('is-entering') ? measure() : (cache ??= measure())`."
+    },
+    {
+      "id": "R4-2",
+      "reviewer": "R4",
+      "severity": "minor",
+      "file": "src/ui/race-ui.ts",
+      "line": 229,
+      "claim": "Restarting from the pause screen during the countdown doesn't replay the race entry. `entering` is still true because GO never came, so the reset() for the new race does nothing to the entry. The spec says a race reset slides the HUD panels and touch slots in.",
+      "evidence": "In race-ui.ts, `function enter(on) { if (on === entering) return; … }` and reset() calls `enter(true)`. The entry is only turned off by `if (step === 0) { enter(false); … }`. Steps: start a race, which calls reset() and sets entering = true. Pause during the countdown and press Restart, which calls game.startRace and then ui.reset(). The race layer stays visible (game.ts:156). In reset(), enter(true) returns early and hud.enter and touch.enter are guarded the same way. `is-entering` never leaves the element, so the panels sit still while the new race counts down. Restarting after GO does play the entry, because entering was false.",
+      "suggestedFix": "In reset(), restart the entry when it is already on. For example, call `enter(false)` and then `enter(true)` with a forced reflow in between: in hud.enter and touch.enter, read `void element.offsetWidth` after removing the class. Another option is to toggle an alternate keyframes name, like the `is-again` pattern used for the event motion."
+    },
+    {
+      "id": "R4-3",
+      "reviewer": "R4",
+      "severity": "minor",
+      "file": "src/ui/hud.css",
+      "line": 240,
+      "claim": "The POS bump applies the stamp easing to both halves of its keyframes. The panel overshoots on the way up and again on the way down, dipping below its rest size. UI_RULES §7 and board 05 allow one overshoot at most and use the stamp easing for landings only.",
+      "evidence": "The rule is `.ui-hud-pos.is-bump { animation: ui-hud-bump var(--duration-stamp) var(--ease-stamp); }` and the keyframes are `@keyframes ui-hud-bump { 50% { transform: scale(var(--ui-hud-bump)); } }`. The timing function runs once per keyframe interval. cubic-bezier(.3,1.5,.5,1) peaks at y ≈ 1.08 (s ≈ 0.6: 0.432+0.432+0.216). From 0 to 50% the scale goes 1→1.12 and overshoots to about 1.13. From 50% to 100% it goes 1.12→1 and overshoots to 1 − 0.12×0.08 ≈ 0.99, below rest. That is two overshoots, and the second dips below the panel's rest size. UI_RULES §7 says stamp is 'one overshoot, landings only', and board 05 says 'one overshoot at most'.",
+      "suggestedFix": "Set the easing for each segment. Use snap on the way up and stamp only for the landing: `@keyframes ui-hud-bump { from { animation-timing-function: var(--ease-snap); } 50% { transform: scale(var(--ui-hud-bump)); animation-timing-function: var(--ease-stamp); } }`, and do the same in ui-hud-bump-again. The computed animation-timing-function on the element stays the stamp curve, so AC1 still holds."
+    },
+    {
+      "id": "R5-1",
+      "reviewer": "R5",
+      "severity": "major",
+      "file": "src/ui/race-ui.ts",
+      "line": 201,
+      "claim": "Nothing checks that the bump, roll and stamp classes stay on for the whole move. Every 'animating' stage syncs on the event tick itself (since = 0), and every 'done' stage syncs at since = 10. So shrinking EVENT_TICKS still passes, even though in the game the class would come off on the next frame and cut the 160 ms bump after one tick.",
+      "evidence": "Mutation: `const EVENT_TICKS = 1;` (or `since < EVENT_TICKS` → `since < 1` at race-ui.ts:99). In the overtake stage, posTick = 1201 and the last sync is at 1201: since = 0 < 1, so the class is on and AC1/AC3/AC7 pass. In the overtake-done stage the sync is at 1211: since = 10 ≥ 1, so the class is off and AC4 passes. In game.ts the UI syncs every frame, so at raceTick 1202 eventMotion returns null, hud.events(null, …) removes is-bump/is-roll/is-stamp, and the animation stops about 16 ms into its 160 ms. No stage syncs at a tick between 1 and 9 after the event.",
+      "suggestedFix": "Add a stage to hud-motion.stage.ts, e.g. `'overtake-late'`, that runs `race(root, ...OVERTAKE, racing(1210, field(2)))` (since = 9), plus a `'new-lap-late'` equivalent at 2431. Add a new test asserting that Pos, its digit and Lap still compute a non-none animation there. Together with AC4 at since = 10, this pins the window to exactly 10 ticks."
+    },
+    {
+      "id": "R5-2",
+      "reviewer": "R5",
+      "severity": "major",
+      "file": "src/ui/race-ui.ts",
+      "line": 140,
+      "claim": "No test covers resetting `synced` in reset(). Every stage builds a fresh createRaceUi, where `synced` already starts false. game.ts, though, creates one race UI and calls ui.reset() for every race. Deleting the reset makes the second race's first sync count as an overtake and a new lap, so Pos bumps and Lap stamps during the countdown, and all tests still pass.",
+      "evidence": "Mutation: delete `synced = false;` at race-ui.ts:140. The tests still pass because hud-motion.stage.ts calls raceStage() → createRaceUi() per stage, so `let synced = false` (line 92) already holds. Game trace: game.ts:107 creates `ui` once, and startRace (game.ts:277) calls ui.reset() on every race. After race 1, synced is true. reset() sets state.position = 1 and state.lap = 1 (lines 122-125). Race 2's first sync has the player at P4 on lap 1, so `me.position !== state.position` raises posEvents/posTick, and AC2 ('first sync … is not an event') is broken for every race after the first.",
+      "suggestedFix": "Add a stage that resets the same RaceUi twice, e.g. `raceStage(...)`, then `syncStage(ui, racing(1200, field(3)))`, then `ui.reset(...)` again, then a countdown sync at P4. Add a new test asserting that Pos, its digit and Lap compute animation-name none."
+    },
+    {
+      "id": "R5-3",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/ui/hud.ts",
+      "line": 140,
+      "claim": "No test covers restarting the move when a second event lands inside the window (the `is-again` copy-keyframes path the plan audit asked for). Removing it leaves every test passing, but a quick second overtake would no longer re-bump.",
+      "evidence": "Mutation: delete `el.classList.toggle('is-again', n !== null && n % 2 === 1);` (hud.ts:140). AC1 only checks that some animation name is present (`expect(pos?.name).not.toBeNull()`), which holds with or without is-again. No stage syncs a second position change within 10 ticks of the first. Behaviour: P3→P2 at tick 1201, then P2→P1 at 1205. posEvents goes 1→2 while the class stays on, so with the mutation the keyframes name doesn't change and the bump doesn't restart.",
+      "suggestedFix": "Add a stage `'overtake-twice'` that runs `race(root, ...OVERTAKE, racing(1205, field(1)))`. Add a test asserting that the Pos panel's animation-name differs from the one in the 'overtake' stage (e.g. ui-hud-bump vs ui-hud-bump-again), proving the animation restarts."
+    },
+    {
+      "id": "R5-4",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/ui/hud.css",
+      "line": 104,
+      "claim": "Nothing tests the slide direction (top panels down from above, touch slots up from below; spec summary 'from their own edge', audit note on board 05 #9). Flipping either translate sign passes every test.",
+      "evidence": "Mutation: `transform: translateY(-50vh)` → `translateY(50vh)` at hud.css:104, or `translateY(50vh)` → `translateY(-50vh)` at touch-controls.css:156. probe() in tests/ui/hud-motion.ts reads only animationName, duration, timing and delay, never the keyframes or the transform, so AC5 still passes while the top panels rise from below.",
+      "suggestedFix": "In a new entry test, read `document.getAnimations()` on the Pos panel and the Accelerate slot (or call `getKeyframes()` on their CSSAnimation) and assert that the first keyframe's transform translates by a negative Y for HUD panels and a positive Y for touch slots."
+    }
+  ],
+  "rulings": [
+    {
+      "id": "R1-1",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R1-1.test.ts",
+      "trace": "Ran `pnpm vitest run --config vitest.config.ts tests/verify/R1-1.test.ts` (happy-dom). The test creates the race UI, resets it, syncs countdown 3 (.ui-hud has is-entering), pauses, then reset() again and syncs countdown 3, which is the pause → RESTART RACE path (game.ts:106 restart → startRace → ui.reset at :277; setPaused allows a pause in the countdown, :165). A MutationObserver watches the class attribute on .ui-hud and .ui-touch. It fails: 'HUD entry restarted: expected 0 to be greater than 0'. race-ui.ts:107 `if (on === entering) return` makes enter(true) a no-op, because entering is only cleared at GO (:198-199). The class never changes, so the CSS slide doesn't restart.",
+      "reason": "A reset during the countdown never touches the entry classes, so the restarted race gets no slide-in. That breaks the spec's 'A race reset slides HUD panels and touch slots in'."
+    },
+    {
+      "id": "R2-1",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R2-1.test.ts",
+      "trace": "Ran `pnpm vitest run --config vitest.config.ts tests/verify/R2-1.test.ts` (happy-dom). The test stubs each slot's getBoundingClientRect with a +195px offset (the mid-slide translateY(50vh) at 390px, touch-controls.css:139-157 with backwards fill), then reset() and a countdown sync. zones() gives GAS cy=520 and caches it (touch-controls.ts:129 `cache ??= measure()`). Then the offset goes to 0, animationend fires on the slots and countdown 2 is synced. zones() still returns cy 520: 'expected 520 to be 325'. Only resize, wake() and enter() invalidate, and enter(false) runs only at GO. src/input/touch.ts:85 onMove ignores pointers that aren't held, so a finger resting on GAS through GO is never picked up.",
+      "reason": "Zones cached mid-slide stay stale until GO, so presses on the controls where they are drawn miss during the countdown."
+    },
+    {
+      "id": "R2-2",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Same mechanism as R1-1 (race-ui.ts:107 guard, reset during the countdown).",
+      "reason": "duplicate of R1-1"
+    },
+    {
+      "id": "R3-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Compared tests/ui/hud-motion.ts:69-77 with harness/screens/browser.ts:123-138. renderStage also calls __settle() (it finishes animations or pauses them at 0) and waits for fonts. stage() deliberately sets reducedMotion before rendering and leaves animations unsettled.",
+      "reason": "The two helpers do different jobs (settle vs no settle, media emulated before render). This is a four-line test-plumbing overlap, and changing it could alter what the AC tests observe. That is a style preference, not a defect."
+    },
+    {
+      "id": "R3-2",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "src/ui/hud.ts:104 `let entering = false;` and :196-200 `enter(on) { if (on === entering) return; entering = on; element.classList.toggle('is-entering', on); }`. src/ui/race-ui.ts:93 `let entering = false;` and :106-111 `function enter(on) { if (on === entering) return; entering = on; hud.enter(on); touch.enter(on); }`. A grep for `\\.enter(` in src finds only race-ui.ts:109-110. So hud's flag mirrors race-ui's exactly, and its guard can never fire. touch-controls.ts:134-138 enter() has no such flag. The extra guard also blocks the R1-1 restart.",
+      "reason": "Duplicated state and guard: the HUD's own entering flag does the same job as race-ui's flag, which already guards its only caller."
+    },
+    {
+      "id": "R4-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Same stale zones() cache during the entry slide (touch-controls.ts:129, 134-138).",
+      "reason": "duplicate of R2-1"
+    },
+    {
+      "id": "R4-2",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Same race-ui.ts enter() guard during a reset in the countdown.",
+      "reason": "duplicate of R1-1"
+    },
+    {
+      "id": "R4-3",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "src/ui/hud.css:240 `.ui-hud-pos.is-bump { animation: ui-hud-bump var(--duration-stamp) var(--ease-stamp); }` and :282-286 `@keyframes ui-hud-bump { 50% { transform: scale(var(--ui-hud-bump)); } }` (1.12). The 0% and 100% keyframes are implicit (scale 1). A CSS timing function applies per keyframe interval, so the stamp curve cubic-bezier(.3,1.5,.5,1) (tokens.css:110) runs on 0→50% and again on 50→100%. Its output peaks at y(0.6)=3·0.16·0.6·1.5+3·0.4·0.36+0.216=1.08. Segment 1: 1+0.12·1.08≈1.13 (overshoot up). Segment 2: 1.12−0.12·1.08≈0.99, which dips below rest. UI_RULES.md:69 says 'stamp … one overshoot, landings only' and board 05 says 'one overshoot at most'.",
+      "reason": "The bump overshoots twice and the second dips the panel below its rest size, which breaks the one-overshoot and landings-only stamp rule."
+    },
+    {
+      "id": "R5-1",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "src/ui/race-ui.ts:96-100 eventMotion uses `since < EVENT_TICKS`. src/ui/stages/hud-motion.stage.ts syncs events only at since=0 (overtake 1200→1201, new-lap 2421→2422) and since=10 ('-done' at 1211/2432). grep finds EVENT_TICKS and is-bump/is-stamp in no other test. With EVENT_TICKS=1, AC1/AC3/AC7 still see the class at since 0 and AC4 sees none at 10, so every test passes. In the game, sync runs every frame, so hud.events(null…) would strip the class at the next tick and cut the 160ms move after about 16ms.",
+      "reason": "Nothing tests that the motion classes stay on for the whole move. A shortened window survives every test, while the game syncs every frame."
+    },
+    {
+      "id": "R5-2",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "src/ui/race-ui.ts:140 `synced = false;` in reset(). Every hud-motion stage builds a fresh createRaceUi through raceStage() (stage.ts:101-115), so `let synced = false` (race-ui.ts:92) already holds and no test resets the same UI twice while checking event classes (race-ui.test.ts checks only the countdown roundel). game.ts creates one ui and calls ui.reset() per race (:277). Without line 140, race 2's first sync at P4 differs from the reset state.position=1 (:123), so posEvents/posTick are set and Pos bumps during the countdown, breaking AC2's 'first sync is not an event' for every race after the first. No test fails.",
+      "reason": "Resetting the baseline across races, the path the real game uses, has no test. Deleting it survives every test."
+    },
+    {
+      "id": "R5-3",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "src/ui/hud.ts:46-54 motion() toggles `is-again` on `n % 2 === 1`, and hud.css:243/249/256 swap the keyframe names. No stage syncs a second position or lap change within 10 ticks (hud-motion.stage.ts), and AC1 only asserts animation-name is non-null. With the is-again toggle deleted, all tests pass, but a second overtake inside the window keeps the same animation-name, so CSS doesn't restart the bump. The plan audit explicitly required this restart.",
+      "reason": "The restart path the plan audit asked for has no test, and removing it leaves every test passing."
+    },
+    {
+      "id": "R5-4",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "hud.css @keyframes ui-hud-enter `from { transform: translateY(-50vh) }` and touch-controls.css:154-157 ui-touch-enter `from { transform: translateY(50vh) }`. tests/ui/hud-motion.ts probe() reads only animationName, animationDuration, animationTimingFunction and animationDelay, never keyframes or transforms. Flipping either sign keeps AC5 passing. The plan audit noted that 'AC5 doesn't check the direction' and asked for down/up slides.",
+      "reason": "The slide direction the plan audit called out (top panels down, controls up) has no test, so reversing it passes every test."
+    }
+  ],
+  "fixes": [
+    {
+      "id": "R1-1",
+      "status": "fixed",
+      "summary": "Fixed: a race reset during the countdown (pause, then RESTART RACE) now replays the slide-in entry. Before, `reset()` called `enter(true)` while the entry flag was still set, so the guards in `race-ui.ts` and `hud.ts` made it do nothing and the panels never slid in for the new race.\n\nChanges:\n- `src/ui/race-ui.ts` `enter()`: the guard now only skips repeat `enter(false)` calls (`if (!on && !entering) return`), so every `enter(true)` from `reset()` goes through to the HUD and touch layers.\n- New `restartClass(el, className, on)` in `src/ui/dom.ts`: removes the class and, when `on` is true, reads `offsetWidth` to force a style flush before adding the class back, so the CSS animation starts over.\n- `src/ui/hud.ts` `enter()`: drops its own `entering` guard and flag and uses `restartClass`.\n- `src/ui/touch-controls.ts` `enter()`: uses `restartClass` instead of `classList.toggle`.\n\nAt GO, `enter(false)` still removes the class once, so a resume never replays the entry. Nothing changes for a first reset or a reset after GO.\n\nNew test: `tests/ui/hud-entry-restart.test.ts`, the verifier's test with one extra check that the touch layer ends with `is-entering`. With the old guard put back, it fails with \"HUD entry restarted: expected 0 to be greater than 0\". With the fix, it passes. `pnpm typecheck` is clean and `pnpm test` passes: 108 files, 733 tests. I didn't run the screenshot capture, because the slide-in only shows as motion and a still screenshot can't show it restarting.",
+      "tests": [
+        "tests/ui/hud-entry-restart.test.ts"
+      ],
+      "commit": "e3c95b479f7514a7497e2f6e0e85e87ce46d7917",
+      "kept": true
+    },
+    {
+      "id": "R2-1",
+      "status": "fixed",
+      "summary": "In src/ui/touch-controls.ts, createTouchControls now keeps an `entering` flag that enter(on) sets. zones() no longer caches while the flag is true: `entering ? measure() : (cache ??= measure())`. While the slots slide in, every hit test reads the slots' current position, so a touch in the first part of the countdown can't leave a mid-slide GAS/BRAKE zone cached. enter(false) at GO clears the flag and invalidates the cache as before, so caching starts again from the settled layout. Nothing else changes: no visuals, no physics, and the cache works as before outside the entry. Added tests/ui/touch-zones-entry-slide.test.ts, the verifier's test with the helpers import adjusted. It fails without the fix ('expected 520 to be 325') and passes with it. pnpm typecheck passes, and pnpm test passes 109 files, 734 tests.",
+      "tests": [
+        "tests/ui/touch-zones-entry-slide.test.ts"
+      ],
+      "commit": "df7234b8bf84f4b34533cef5358afc3f23b7a108",
+      "kept": true
+    },
+    {
+      "id": "R5-1",
+      "status": "fixed",
+      "summary": "The finding was real: every existing HUD-motion stage synced either on the event tick (since = 0) or at since = 10, so if EVENT_TICKS were shortened to 1, every test would still pass. In the game, though, the bump, roll and stamp would then come off on the next frame. Product code is unchanged; the fix pins the 10-tick window with tests.\n\nChanges:\n- In src/ui/stages/hud-motion.stage.ts I added an `everyTick(from, to, racers)` helper that syncs once per tick, like the game does. I also added two stages: 'overtake-late' (the overtake, then syncs at 1202–1210, so since = 9) and 'new-lap-late' (the new lap, then syncs at 2423–2431). I updated the header comment to match.\n- The new test file tests/ui/hud-motion-window.test.ts checks in Chromium that the Pos panel and its digit (overtake-late) and the Lap panel (new-lap-late) still compute a non-none animation at since = 9. Together with the existing AC4 check at since = 10, the window is pinned to exactly 10 ticks.\n\nRed/green: I temporarily set `const EVENT_TICKS = 1;` and both new tests failed, then restored the original line and both passed. Before this change the tests would also fail because the stages didn't exist. pnpm typecheck is clean and pnpm test passes all 738 tests in 110 files.",
+      "tests": [
+        "tests/ui/hud-motion-window.test.ts"
+      ],
+      "commit": "009037d312d9ccb6258eef88c1821d9658c1ad1a",
+      "kept": true
+    },
+    {
+      "id": "R5-2",
+      "status": "fixed",
+      "summary": "The finding is real, and it is a gap in the tests, not a bug: race-ui.ts already has `synced = false;` in reset(), but no test failed if that line was deleted. I left game code alone and added the missing coverage. In src/ui/stages/hud-motion.stage.ts I added a stage, 'second-race'. It uses one race UI the way game.ts does. Race 1 runs the overtake to P2 and then a new lap to 2/3. Then the stage calls ui.reset() on the same UI, and race 2's first sync is already racing at P4 on lap 2/3 (raceTick 600, so the entry slide has ended at GO). The new test, tests/ui/hud-motion-second-race.test.ts, renders that stage in Chromium at 844×390. It checks that Pos reads 4 and Lap reads 2/3, and that the Pos panel, its digit and the Lap panel all compute animation-name none. Red/green: with `synced = false;` removed from reset(), the test fails (ui-hud-bump, ui-hud-roll and ui-hud-stamp all play). With the line restored, it passes. pnpm typecheck is clean, and pnpm test passes all 111 files and 740 tests.",
+      "tests": [
+        "tests/ui/hud-motion-second-race.test.ts"
+      ],
+      "commit": "ef4b8e914eb47e42e336f121188528f183fdbab2",
+      "kept": true
+    },
+    {
+      "id": "R3-2",
+      "status": "not-fixed",
+      "summary": "The finding no longer applies to the current code, so I changed nothing. src/ui/hud.ts has no `let entering` flag and no early-return guard any more. Its `enter(on)` is just `restartClass(element, 'is-entering', on);` (hud.ts:195-197), which is the same shape as touch-controls' `enter`. The only `entering` state left is in race-ui.ts:93, which guards the single caller, and in touch-controls.ts:99, where it is used by `zones()`, so it isn't a duplicate. The duplicated state and dead guard the reviewer describes were already removed, apparently by the earlier R1-1 restart fix that the verifier mentions. There is no duplication or dead code left to delete, so there is no change and no test.",
+      "tests": [],
+      "commit": null,
+      "kept": null
+    },
+    {
+      "id": "R4-3",
+      "status": "fixed",
+      "summary": "The finding is real. The Pos bump keyframes (`50% { scale(1.12) }` with implicit 0% and 100% at rest) ran the stamp easing twice. In Chromium the panel overshot to about ×1.13 on the way up and dipped below rest on the way down. The new test measured a peak of 1.12959 before the fix.\n\nThe suggested fix (a per-keyframe animation-timing-function of var(--ease-snap)) could not be used, for two reasons:\n1. Chromium ignores var() in a keyframe's timing function. getKeyframes() still reported the stamp curve on every keyframe.\n2. The existing tests/ui/source-rules.test.ts only allows transform, box-shadow, clip-path and visibility inside @keyframes.\n\nInstead, in src/ui/hud.css, ui-hud-bump and ui-hud-bump-again are now landings, the same shape as the lap stamp: `from { transform: scale(var(--ui-hud-bump)); }`. The panel starts at ×1.12 and lands at rest on the stamp easing, so it overshoots only once, on the landing (UI_RULES §7). Trade-off: the panel now jumps straight to ×1.12 instead of growing into it. The element rule is unchanged (0.16s, stamp), so AC1 still holds, and only tokens are used.\n\nNew test tests/ui/hud-motion-bump-overshoot.test.ts renders the overtake stage in Chromium, pauses the Pos panel's animation and samples its scale every 2 ms. It checks that the peak is ×1.12, never more, and that the scale leaves [1, 1.12] at most once. It failed before the fix (1.1296) and passes after. pnpm typecheck is clean; pnpm test passes (112 files, 741 tests).",
+      "tests": [
+        "tests/ui/hud-motion-bump-overshoot.test.ts"
+      ],
+      "commit": "94893e68d6afca86db003166e5692e645c75aac3",
+      "kept": true
+    },
+    {
+      "id": "R5-3",
+      "status": "fixed",
+      "summary": "Test-strength gap; no game behaviour changed. I added the stage 'overtake-twice' to src/ui/stages/hud-motion.stage.ts. It runs race(root, ...OVERTAKE, racing(1205, field(1))), so P3→P2 at tick 1201 is followed by P2→P1 at tick 1205, inside the first move's 10-tick window. I also updated the file's header comment to list it. The new test tests/ui/hud-motion-restart.test.ts renders 'overtake' and 'overtake-twice' in Chromium at 844×390. It checks that the second stage reads Pos 1, and that the Pos panel (0.16s stamp) and its digit (0.12s snap) still animate. It also checks that both run a different animation-name than after the first overtake, which proves the bump and roll restart. Red/green: with the mutation from the finding (deleting the is-again toggle at hud.ts:52), the test fails with \"expected 'ui-hud-bump' not to be 'ui-hud-bump'\". With hud.ts restored, it passes. pnpm typecheck is clean and pnpm test passes (113 files, 743 tests).",
+      "tests": [
+        "tests/ui/hud-motion-restart.test.ts"
+      ],
+      "commit": "04f12f0db49c88a42bfd85f5844bf1113b56fcf1",
+      "kept": true
+    },
+    {
+      "id": "R5-4",
+      "status": "fixed",
+      "summary": "This was a gap in the tests, not a bug in the game, so I added a test and left `src/` unchanged. The new file is `tests/ui/hud-motion-entry-direction.test.ts`. It renders the hud-motion 'entry' stage in Chromium at 844×390 and goes through each element that slides in at race start (Pos, Lap, Track map, Time, Pause, then Steer left, Steer right, Brake or reverse, Accelerate). For each one it takes the element or its nearest animated wrapper and reads the first keyframe of its animation through `getAnimations()` and `getKeyframes()`. It applies that keyframe's transform to a separate test element and reads back the vertical offset in pixels. The five HUD panels must start above their place (offset below 0) and the four touch controls below theirs (offset above 0), as board 05 #9 asks.\n\nRed then green: with the HUD keyframe flipped to `translateY(50vh)` in `src/ui/hud.css`, the test fails (\"Pos: expected 195 to be less than 0\"). With the touch keyframe flipped to `translateY(-50vh)` in `src/ui/touch-controls.css`, it fails (\"Steer left: expected -195 to be greater than 0\"). On the real code it passes. Both mutations were undone by hand because git isn't available in the sandbox, and grep confirms the two lines are back to the original values. `pnpm typecheck` passes and `pnpm test` passes (114 files, 744 tests). I couldn't run eslint on the new file because there is no `eslint` command in the sandbox.",
+      "tests": [
+        "tests/ui/hud-motion-entry-direction.test.ts"
+      ],
+      "commit": "febdc8b39062e11b18fb8a9184ee606bfc969d93",
+      "kept": true
+    }
+  ],
+  "notes": [],
+  "checked": {
+    "R1": 8,
+    "R2": 12,
+    "R3": 11,
+    "R4": 9,
+    "R5": 7
+  }
+}

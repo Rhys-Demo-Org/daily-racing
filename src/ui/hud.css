@@ -219,3 +219,103 @@
     visibility: hidden;
   }
 }
+
+/* Event motion (board 05 #3): transform and box-shadow only, colours cut. race-ui.ts clears each
+   class in sim time once its move is done; `is-again` runs a copy of the keyframes so an event
+   inside the last one's window restarts it. Reduced motion: none of it plays. */
+.ui-hud {
+  --ui-hud-bump: 1.12;
+  --ui-hud-stamp: 1.18;
+}
+.ui-hud-pos__roll {
+  display: block;
+  clip-path: inset(0);
+}
+.ui-hud-pos__n {
+  display: block;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* Position change: the panel bumps to ×1.12 (stamp) and the digit rolls up one digit (snap). */
+  .ui-hud-pos.is-bump {
+    animation: ui-hud-bump var(--duration-stamp) var(--ease-stamp);
+  }
+  .ui-hud-pos.is-bump.is-again {
+    animation-name: ui-hud-bump-again;
+  }
+  .ui-hud-pos__n.is-roll {
+    animation: ui-hud-roll var(--duration-release) var(--ease-snap);
+  }
+  .ui-hud-pos__n.is-roll.is-again {
+    animation-name: ui-hud-roll-again;
+  }
+  /* New lap: the panel stamps down from 1.18 as its shadow lands 6 → 3px. */
+  .ui-hud-lap.is-stamp {
+    animation: ui-hud-stamp var(--duration-stamp) var(--ease-stamp);
+  }
+  .ui-hud-lap.is-stamp.is-again {
+    animation-name: ui-hud-stamp-again;
+  }
+
+  /* Race entry (board 05 #9): the top panels slide down from above the screen, 40ms apart, in
+     reading order: POS, LAP, map, TIME (BEST rides with it), PAUSE. The touch controls follow
+     (touch-controls.css). Backwards fill only, so a pressed PAUSE still sinks afterwards. */
+  .ui-hud.is-entering .ui-hud-pos,
+  .ui-hud.is-entering .ui-hud-lap,
+  .ui-hud.is-entering .ui-hud-map,
+  .ui-hud.is-entering .ui-hud__timer,
+  .ui-hud.is-entering .ui-hud-pause {
+    animation: ui-hud-enter var(--duration-slide) var(--ease-snap) backwards;
+  }
+  .ui-hud.is-entering .ui-hud-lap {
+    animation-delay: var(--duration-stagger);
+  }
+  .ui-hud.is-entering .ui-hud-map {
+    animation-delay: calc(var(--duration-stagger) * 2);
+  }
+  .ui-hud.is-entering .ui-hud__timer {
+    animation-delay: calc(var(--duration-stagger) * 3);
+  }
+  .ui-hud.is-entering .ui-hud-pause {
+    animation-delay: calc(var(--duration-stagger) * 4);
+  }
+}
+/* Like the lap stamp, the bump is a landing: from ×1.12 down to rest on the stamp easing, so it
+   overshoots once, on the landing (UI_RULES §7). */
+@keyframes ui-hud-bump {
+  from {
+    transform: scale(var(--ui-hud-bump));
+  }
+}
+@keyframes ui-hud-bump-again {
+  from {
+    transform: scale(var(--ui-hud-bump));
+  }
+}
+@keyframes ui-hud-roll {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes ui-hud-roll-again {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes ui-hud-stamp {
+  from {
+    transform: scale(var(--ui-hud-stamp));
+    box-shadow: var(--shadow-overlay);
+  }
+}
+@keyframes ui-hud-stamp-again {
+  from {
+    transform: scale(var(--ui-hud-stamp));
+    box-shadow: var(--shadow-overlay);
+  }
+}
+/* Half the viewport clears every top panel (the map's bottom edge included) on phone and desktop. */
+@keyframes ui-hud-enter {
+  from {
+    transform: translateY(-50vh);
+  }
+}

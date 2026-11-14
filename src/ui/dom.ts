@@ -36,6 +36,17 @@ export function button(className: string, children: (Node | string)[], onClick: 
   return b;
 }
 
+/**
+ * Sets or clears a class that starts a CSS animation. Setting it again drops it and forces a style
+ * flush first, so the animation plays from the start.
+ */
+export function restartClass(el: HTMLElement, className: string, on: boolean): void {
+  el.classList.remove(className);
+  if (!on) return;
+  void el.offsetWidth;
+  el.classList.add(className);
+}
+
 /** The triple stripe: red, mustard, cream at 4:2:1 (board header / screen-change pattern). */
 export function stripes(className = ''): HTMLElement {
   const stripe = (colour: string): HTMLElement => h('span', `ui-stripe ui-stripe--${colour}`);

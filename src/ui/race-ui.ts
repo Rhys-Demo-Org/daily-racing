@@ -22,6 +22,8 @@ const msToTicks = (ms: number): number => Math.ceil((ms * TICK_HZ) / 1000);
 /** Ticks after the lap that the chip starts sliding back, and is gone. */
 const NEW_BEST_BACK_TICKS = msToTicks(tokens.motion.durationMs.slide + NEW_BEST_HOLD_MS);
 const NEW_BEST_GONE_TICKS = msToTicks(2 * tokens.motion.durationMs.slide + NEW_BEST_HOLD_MS);
+/** The POS bump (and digit roll) and the LAP stamp are cleared this many ticks after their event. */
+const EVENT_TICKS = msToTicks(tokens.motion.durationMs.stamp);
 
 /** Optional race details for the results screen. */
 export interface RaceInfo {
@@ -81,6 +83,33 @@ export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
   /** raceTick at the end of the last lap that set a new stored best, or null. */
   let newBestTick: number | null = null;
 
+  /** Position and lap changes so far, and the raceTick of the latest of each (null: none yet). */
+  let posEvents = 0;
+  let posTick: number | null = null;
+  let lapEvents = 0;
+  let lapTick: number | null = null;
+  /** False until the first sync after reset(): that one sets the baseline, it isn't an event. */
+  let synced = false;
+  let entering = false;
+
+  /** The event count while its move is still playing at `raceTick`, else null. */
+  function eventMotion(events: number, tick: number | null, raceTick: number): number | null {
+    if (tick === null) return null;
+    const since = raceTick - tick;
+    return since >= 0 && since < EVENT_TICKS ? events : null;
+  }
+
+  /**
+   * Race entry (board 05 #9): the HUD panels and touch controls slide in from reset() until GO.
+   * The one place it starts, so it can later wait for a screen wipe. A reset before GO starts it again.
+   */
+  function enter(on: boolean): void {
+    if (!on && !entering) return;
+    entering = on;
+    hud.enter(on);
+    touch.enter(on);
+  }
+
   function newBestPhase(raceTick: number): NewBestPhase {
     if (newBestTick === null) return null;
     const since = raceTick - newBestTick;
@@ -106,7 +135,12 @@ export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
       race = info;
       raceBestMs = null;
       newBestTick = null;
+      posTick = null;
+      lapTick = null;
+      synced = false;
       hud.newBest(null);
+      hud.events(null, null);
+      enter(true);
       results.hide();
       countdown.hide();
       pauseScreen.hide();
@@ -116,6 +150,15 @@ export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
       const me = view.racers[0];
       if (me) {
         if (me.lapsCompleted >= 1) firstLap = false;
+        if (synced && me.position !== state.position) {
+          posEvents++;
+          posTick = view.raceTick;
+        }
+        if (synced && me.lap !== state.lap) {
+          lapEvents++;
+          lapTick = view.raceTick;
+        }
+        synced = true;
         state.position = me.position;
         state.lap = me.lap;
         if (me.lapTicks.length !== lapsSeen) {
@@ -147,11 +190,15 @@ export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
       hud.update(state);
       legend.setFirstLap(firstLap);
       hud.newBest(newBestPhase(view.raceTick));
+      hud.events(eventMotion(posEvents, posTick, view.raceTick), eventMotion(lapEvents, lapTick, view.raceTick));
 
       const step = view.phase === 'countdown' ? view.countdown : 0;
       if (step !== lastStep) {
         countdown.show(step as CountdownStep);
-        if (step === 0) touch.wake();
+        if (step === 0) {
+          enter(false);
+          touch.wake();
+        }
         lastStep = step;
       }
       if (step === 0 && view.raceTick >= GO_HIDE_TICKS && countdown.current !== null) countdown.hide();

@@ -5,7 +5,7 @@ import { tokens } from '@tokens';
 import { TOUCH_CONTROL_IDS, type TouchControlId, type TouchZone } from '../input/touch.ts';
 import './components.css';
 import './touch-controls.css';
-import { h } from './dom.ts';
+import { h, restartClass } from './dom.ts';
 import { icon } from './icons.ts';
 import { COARSE_POINTER } from './layout.ts';
 import { createTouchStateMachine, type TouchStateMachine, type TouchStateOptions, type TouchVisual } from './touch-state.ts';
@@ -18,6 +18,8 @@ export interface TouchControls {
   zones(): readonly TouchZone[];
   /** Race start or resume: every control wakes for 4 s. */
   wake(): void;
+  /** Race entry (board 05 #9): the controls slide up from the bottom edge while true. */
+  enter(on: boolean): void;
   destroy(): void;
 }
 
@@ -91,8 +93,10 @@ export function createTouchControls(root: HTMLElement, opts: TouchStateOptions =
   const unsubscribe = machine.subscribe(sync);
 
   // Zones are measured once, then cached until the layer resizes (viewport resize, orientation
-  // change, or this layer or an ancestor being hidden or shown).
+  // change, or this layer or an ancestor being hidden or shown). While the slots slide in they
+  // move every frame, so each hit test measures afresh until the entry ends.
   let cache: TouchZone[] | null = null;
+  let entering = false;
   const invalidate = (): void => {
     cache = null;
   };
@@ -124,10 +128,16 @@ export function createTouchControls(root: HTMLElement, opts: TouchStateOptions =
   return {
     element,
     machine,
-    zones: () => (cache ??= measure()),
+    zones: () => (entering ? measure() : (cache ??= measure())),
     wake() {
       invalidate();
       machine.wake();
+    },
+    enter(on) {
+      restartClass(element, 'is-entering', on);
+      entering = on;
+      // The slots move while they slide in: measure them again afterwards.
+      invalidate();
     },
     destroy() {
       unsubscribe();

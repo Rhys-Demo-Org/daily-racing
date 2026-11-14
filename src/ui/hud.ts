@@ -4,7 +4,7 @@
 import { tokens } from '@tokens';
 import './components.css';
 import './hud.css';
-import { button, h, s } from './dom.ts';
+import { button, h, restartClass, s } from './dom.ts';
 import { formatOptionalTime, formatTime } from './format.ts';
 import { icon } from './icons.ts';
 import { watchDesktop } from './layout.ts';
@@ -16,6 +16,13 @@ export interface Hud {
   update(state: HudState): void;
   /** Shows the NEW BEST chip under BEST: 'out' slides it down, 'back' slides it back up, null hides it. */
   newBest(phase: NewBestPhase): void;
+  /**
+   * Event motion (board 05 #3): `pos` bumps the POS panel and rolls its digit, `lap` stamps the LAP
+   * panel. Each is a running count of events (a new count restarts the move) or null once it's done.
+   */
+  events(pos: number | null, lap: number | null): void;
+  /** Race entry (board 05 #9): the panels slide in from their own edge while true. */
+  enter(on: boolean): void;
 }
 
 export type NewBestPhase = 'out' | 'back' | null;
@@ -31,6 +38,20 @@ const PLAYER_R = tokens.space.s1 + tokens.outline.small / 2;
 
 /** Rounds to 0.1 user units so tiny movements don't rewrite attributes. */
 const r1 = (v: number): number => Math.round(v * 10) / 10;
+
+/**
+ * Plays `cls` on `el` while `n` (an event count) is non-null. Odd counts add `is-again`, which runs
+ * a copy of the keyframes, so an event inside the last one's window restarts the move.
+ */
+function motion(el: HTMLElement, cls: string): (n: number | null) => void {
+  let last: number | null = null;
+  return (n) => {
+    if (n === last) return;
+    last = n;
+    el.classList.toggle(cls, n !== null);
+    el.classList.toggle('is-again', n !== null && n % 2 === 1);
+  };
+}
 
 /** A Text node rewritten only when its value changes. */
 function field<T>(format: (v: T) => string): { node: Text; set(v: T): void } {
@@ -70,15 +91,20 @@ export function createHud(root: HTMLElement, opts: HudOptions = {}): Hud {
   const pause = button('ui-button--icon ui-hud-pause', [icon('pause')], () => opts.onPause?.());
   pause.setAttribute('aria-label', 'Pause');
 
+  // The POS digit rolls inside a clipped box one digit high.
+  const posDigit = h('span', 'ui-hud-pos__n', [pos.node]);
+  const posPanel = h('div', 'ui-panel ui-panel--navy ui-hud-panel ui-hud-pos', [
+    h('span', 'ui-label', ['Pos']),
+    h('span', 'ui-hud-pos__value', [h('span', 'ui-hud-pos__roll', [posDigit]), h('span', 'ui-hud-pos__of', ['/', count.node])]),
+  ]);
+  const lapPanel = h('div', 'ui-panel ui-panel--cream ui-hud-panel ui-hud-lap', [h('span', 'ui-label', ['Lap']), h('span', 'ui-value', [lap.node, '/', laps.node])]);
+  const bump = motion(posPanel, 'is-bump');
+  const roll = motion(posDigit, 'is-roll');
+  const stamp = motion(lapPanel, 'is-stamp');
+
   const element = h('div', 'ui-layer ui-hud', [
     h('div', 'ui-hud__tl', [
-      h('div', 'ui-hud__row', [
-        h('div', 'ui-panel ui-panel--navy ui-hud-panel ui-hud-pos', [
-          h('span', 'ui-label', ['Pos']),
-          h('span', 'ui-hud-pos__value', [h('span', 'ui-hud-pos__n', [pos.node]), h('span', 'ui-hud-pos__of', ['/', count.node])]),
-        ]),
-        h('div', 'ui-panel ui-panel--cream ui-hud-panel ui-hud-lap', [h('span', 'ui-label', ['Lap']), h('span', 'ui-value', [lap.node, '/', laps.node])]),
-      ]),
+      h('div', 'ui-hud__row', [posPanel, lapPanel]),
       h('div', 'ui-panel ui-panel--navy ui-hud-map', [map]),
     ]),
     h('div', 'ui-hud__tr', [
@@ -160,6 +186,14 @@ export function createHud(root: HTMLElement, opts: HudOptions = {}): Hud {
       newBestChip.classList.toggle('is-out', phase === 'out');
       newBestChip.classList.toggle('is-back', phase === 'back');
       newBestChip.setAttribute('aria-hidden', String(phase === null));
+    },
+    events(p, l) {
+      bump(p);
+      roll(p);
+      stamp(l);
+    },
+    enter(on) {
+      restartClass(element, 'is-entering', on);
     },
   };
 }

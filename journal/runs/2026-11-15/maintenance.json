@@ -1,0 +1,347 @@
+{
+  "synced": {
+    "closed": 7,
+    "reopened": 0,
+    "inPr": 0
+  },
+  "list": {
+    "size": 43,
+    "open": 35,
+    "in-pr": 0,
+    "stale": 1,
+    "closed": 7
+  },
+  "survey": {
+    "passes": {
+      "sim": "ok",
+      "render": "ok",
+      "ui": "ok",
+      "content": "ok",
+      "tests": "ok",
+      "seams": "ok",
+      "duplication": "ok",
+      "performance": "ok"
+    },
+    "findings": 16,
+    "new": 15,
+    "merged": 1,
+    "confirmed": 19,
+    "staled": 1,
+    "reopened": 0,
+    "dropped": 0,
+    "gone": 0
+  },
+  "candidates": {
+    "eligible": [
+      "C006",
+      "C014",
+      "C023",
+      "C026",
+      "C028",
+      "C031",
+      "C041",
+      "C042",
+      "C004",
+      "C007",
+      "C008",
+      "C009",
+      "C010",
+      "C011",
+      "C015",
+      "C024",
+      "C025",
+      "C029",
+      "C030",
+      "C033",
+      "C034",
+      "C035",
+      "C040",
+      "C043"
+    ],
+    "skipped": [],
+    "ownerOnly": [
+      "C012",
+      "C017",
+      "C019",
+      "C020",
+      "C021",
+      "C032",
+      "C036",
+      "C022",
+      "C037",
+      "C038",
+      "C039"
+    ]
+  },
+  "ownerOnly": [
+    {
+      "id": "C012",
+      "claim": "src/ui/finish-panel.ts is dead code: no file in src/ imports it since the results screen (B02) replaced it, and only two existing tests import createFinishPanel. Its CSS (.ui-finish__card, .ui-finish__stats, .ui-finish__stat in screens.css) is dead with it, because nothing else uses those classes.",
+      "files": [
+        "src/ui/finish-panel.ts",
+        "src/ui/screens.css",
+        "tests/ui/screens.test.ts",
+        "tests/ui/no-inline-colour.test.ts"
+      ]
+    },
+    {
+      "id": "C017",
+      "claim": "The results screen's root still carries the legacy `ui-finish` class only so that old finish-panel tests keep finding it. No CSS rule targets `.ui-finish` on its own. Tests should find the results screen by role or text, not by this leftover class.",
+      "files": [
+        "src/ui/results-screen.ts",
+        "tests/ui/race-ui.test.ts",
+        "tests/ui/results-screen.test.ts"
+      ]
+    },
+    {
+      "id": "C019",
+      "claim": "Game tests copy the same harness again and again: a hand-driven requestAnimationFrame stub with runFrames, setup(), esc(), the render mock, and the 'bot drives car 0 of a twin world' input recorder. The recorder is already shared as twinPlayerInputs in tests/game/helpers.ts. The render mocks also still stub `playerLivery`, which game.ts no longer imports.",
+      "files": [
+        "tests/game/pause.test.ts",
+        "tests/game/pause-review.test.ts",
+        "tests/game/pause-results.test.ts",
+        "tests/game/results-drivers.test.ts",
+        "tests/game/start-race-invalid-count.test.ts",
+        "tests/game/helpers.ts"
+      ]
+    },
+    {
+      "id": "C020",
+      "claim": "The RacerView/RaceView/CarView fixture builders are copied word for word into five test files, while tests/ui/helpers.ts already holds the shared hudState/outline fixtures and tests/render/helpers.ts:21 has an equivalent carView(). If RacerView gains a required field, a feature night has to touch five append-only files it cannot edit.",
+      "files": [
+        "tests/ui/race-ui.test.ts",
+        "tests/ui/results-screen.test.ts",
+        "tests/ui/results-review.test.ts",
+        "tests/ui/results-drivers.test.ts",
+        "tests/game/pause.test.ts",
+        "tests/ui/helpers.ts"
+      ]
+    },
+    {
+      "id": "C021",
+      "claim": "drivers.test.ts AC5 reads src/game.ts as text and uses a regex to require one exact import statement. It pins how game.ts imports the roster, not what the game does. Any behaviour-preserving refactor of game.ts (splitting it, importing via a content index, aliasing) fails this test.",
+      "files": [
+        "tests/content/drivers.test.ts",
+        "src/game.ts"
+      ]
+    },
+    {
+      "id": "C032",
+      "claim": "`countdownOnScreen` and `countdownClearance` in countdown.ts are dead in src/. game.ts now passes `COUNTDOWN_HALF_WIDTH` and `countdownFraming(view)` to the scene. The only importer of these two functions is tests/render/countdown-framing.test.ts, so removing them needs the owner.",
+      "files": [
+        "src/ui/countdown.ts",
+        "tests/render/countdown-framing.test.ts"
+      ]
+    },
+    {
+      "id": "C036",
+      "claim": "Three Hay Loop tests each copy the same centreline-analysis code: the wrapped `pt(i)`, segment `heading(i)` and lap length. Two of them also copy the CORNER_RADIUS/SPAN corner-run detector almost line for line. B11 (Pine Ridge, next in the backlog) will need the same analysis and can't import any of it, so it will make a fourth copy.",
+      "files": [
+        "tests/content/hay-loop-tight.test.ts",
+        "tests/content/hay-loop-corners.test.ts",
+        "tests/content/hay-loop.test.ts"
+      ]
+    },
+    {
+      "id": "C022",
+      "claim": "The body-into-ground probe clipDepth(world, view) is implemented twice, with slightly different sampling (41 samples vs 81), in two sim tests. tests/sim/helpers.ts is the shared home for such geometry probes (propOverlap, circleOverlap and others).",
+      "files": [
+        "tests/sim/ramp-pose.test.ts",
+        "tests/sim/ramp-lip-roll.test.ts",
+        "tests/sim/helpers.ts"
+      ]
+    },
+    {
+      "id": "C037",
+      "claim": "hay-loop-bales.test.ts writes its own oriented-box corner function and SAT overlap test. tests/sim/helpers.ts already exports both as boxCorners and polygonOverlap, which the other prop-overlap tests use.",
+      "files": [
+        "tests/content/hay-loop-bales.test.ts",
+        "tests/sim/helpers.ts"
+      ]
+    },
+    {
+      "id": "C038",
+      "claim": "The three B07 best-lap tests copy their helpers. The m:ss.cc formatter `fmt` appears three times, `visibleNewBest` twice, and new-best-chip's `twinRace` repeats the loop of the shared twinPlayerInputs. All three also keep the stale `playerLivery` render mock. None of these files is among C019's six.",
+      "files": [
+        "tests/ui/new-best-chip.test.ts",
+        "tests/game/best-lap-persistence.test.ts",
+        "tests/game/best-lap-storage-blocked.test.ts",
+        "tests/game/helpers.ts"
+      ]
+    },
+    {
+      "id": "C039",
+      "claim": "Three keycap-legend tests each write their own matchMedia stub. Two of them are the same media-query evaluator, one with the device fixed and one taking it as a parameter. No shared stub exists in tests/ui/helpers.ts, so the next desktop or reduced-motion UI test (B08/B09 are in flight) will copy it a fourth time.",
+      "files": [
+        "tests/ui/keycap-legend.test.ts",
+        "tests/ui/keycap-legend-keys.test.ts",
+        "tests/ui/keycap-legend-slide-state.test.ts"
+      ]
+    }
+  ],
+  "chosen": [
+    {
+      "id": "C024",
+      "category": "dead-code",
+      "files": [
+        "src/render/index.ts"
+      ],
+      "claim": "The render barrel re-exports about 12 names that nothing outside src/render imports: no src module, test, gate or harness file. The only consumer in src is game.ts (createRaceScene, createRenderer, RaceScene).",
+      "why": "Checked: in render/index.ts, frameWidthFor, CameraRig, CarObject, DustPool, LIGHT_DIRECTION, TOON_STEPS, Materials and all of line 9 have no importer through the barrel. A grep of tests/, harness/, guardrails/ and spikes/ finds none. Delete line 9, remove the other names, and update the line 1–2 comment. This is a superset of C006. Keep everything else, including countdownOffsetEast (tests/render/countdown-*.test.ts import it, though C024's keep list leaves it out) and createRaceScene, buildCar, createMaterials and playerLivery. Net negative lines."
+    },
+    {
+      "id": "C007",
+      "category": "dead-code",
+      "files": [
+        "src/render/geometry.ts",
+        "src/render/outline.ts",
+        "src/render/materials/index.ts"
+      ],
+      "claim": "Four module exports are only used inside their own file: `smoothNormals` (geometry.ts), `attachOutline` and `CREASE_ANGLE_DEG` (outline.ts, apart from the barrel), and `OUTLINE_PX_AT_844` and `MaterialKind` (materials/index.ts). Dropping the `export` keyword gives them a smaller surface and doesn't change behaviour.",
+      "why": "Apply after C024 so that attachOutline's barrel re-export is already gone. Drop `export` from smoothNormals (geometry.ts:162), CREASE_ANGLE_DEG and attachOutline (outline.ts:19,84), and OUTLINE_PX_AT_844 and MaterialKind (materials/index.ts:36,20). Grep confirms there is no importer outside each file anywhere in the repo. Keyword-only change with no runtime effect. It completes tonight's narrowing of the render surface."
+    },
+    {
+      "id": "C042",
+      "category": "performance",
+      "files": [
+        "src/sim/car.ts"
+      ],
+      "claim": "groundUnderBody still allocates two arrays on every call: the `ts` literal and the `hs` array from `ts.map` with a closure. visualPose also returns a fresh `{ y, pitch }` object. Both run for every car on every tick through carViews→carView, so a 6-car race makes about 18 short-lived allocations per tick. C027 (closed) only removed the groundAt default object and the per-ramp `[-1e-6, -r.length]` array; these allocations were left.",
+      "why": "Performance item. groundUnderBody (car.ts:193-208) allocates ts, a ts.map array and a closure, and visualPose returns a new {y,pitch}, for every car on every tick (perf.json: about 1.2–1.9 KB/frame). Use module scratch next to `ground` (bodyTs/bodyHs reset with length=0, and a pose object that carView reads at once). Push -half, 0, half, then lips and feet in the same order, and fill hs with a plain loop calling the same groundAt. Same maths in the same order, display-only, so replays and bot laps stay bit-identical. Small growth, allowed for performance."
+    },
+    {
+      "id": "C011",
+      "category": "docs",
+      "files": [
+        "src/render/scene.ts"
+      ],
+      "claim": "The scene-graph comment, which tests and gates rely on, says each car Group holds the 'body mesh + player ▼ marker'. It leaves out the 'car-roundel' mesh that every car also carries.",
+      "why": "Real: scene.ts:12 says each car Group holds 'body mesh + player ▼ marker', but car.ts:191-193 also adds the 'car-roundel' mesh. This is the scene-graph map that render tests and feature nights rely on. Comment-only fix: 'body mesh, roof roundel + player ▼ marker'."
+    },
+    {
+      "id": "C030",
+      "category": "docs",
+      "files": [
+        "src/sim/world.ts"
+      ],
+      "claim": "The grid comment says slots from GRID_CURVED_FROM on are reached only by six-car races. But GRID_CURVED_FROM is 4, so slot index 4 is used by any race with five or more cars, and startRace accepts 1 to 6 cars.",
+      "why": "Real: world.ts:46 says only six-car races reach slots from GRID_CURVED_FROM (=4) on, but i=4 is used by any race of five or more cars (createWorld accepts any positive carCount). Comment-only fix: '(races of five or more cars reach them)'. No code or constants change."
+    },
+    {
+      "id": "C040",
+      "category": "docs",
+      "files": [
+        "src/game.ts"
+      ],
+      "claim": "A comment in tick() still describes the Phase 0 finish panel. Since B02, the results screen is what takes over once the player finishes. That is the same stale reference C013 fixed in CLAUDE.md, and it would send a feature night looking at the dead finish-panel.ts.",
+      "why": "Real: game.ts:178 says 'the panel takes over the controls', but since B02 the results screen does, and finish-panel.ts is dead (C012). A one-word comment fix so the next feature night isn't sent to the dead module. Inside tick() and away from the start-screen code that B08 (#30) reshapes, so a conflict is unlikely and trivial."
+    }
+  ],
+  "rejected": [
+    {
+      "id": "C006",
+      "reason": "Subsumed by C024 (chosen), which removes the same seven names plus the other unused barrel re-exports."
+    },
+    {
+      "id": "C014",
+      "reason": "Real duplication. But touch-controls.css is very likely edited by in-flight B09 (#31: touch slots slide in on race reset), and components.css may be too. Moving .ui-tc declarations across files while that PR is open invites a cascade-order conflict. Do it after #31 lands."
+    },
+    {
+      "id": "C023",
+      "reason": "Incomplete: it misses a ninth deep import (src/ui/countdown.ts:5). It is net-zero import-path churn across 9 files, several of them (race-ui.ts, countdown.ts, results-screen.ts) likely touched by in-flight B08/B09. Better done once #30/#31 land."
+    },
+    {
+      "id": "C026",
+      "reason": "The race-ui line it targets is already fixed in CLAUDE.md. The rest rewrites the owner's stated conventions (what registers by folder, the planned cars/features layout). That is the owner's call, not an unattended refactor's."
+    },
+    {
+      "id": "C028",
+      "reason": "Touches game.ts draw(), which in-flight B08 (#30) changes. Caching one RaceView across frames also changes object identity for ui.sync, while B09 (#31) adds position and lap change detection in the UI that may keep or compare views. Re-check after both land."
+    },
+    {
+      "id": "C031",
+      "reason": "Real rule violation (raw 844/390 in src/render). But reading the token needs new imports and a constant in three files, so src/ grows a few lines for a non-performance item, against tonight's delete-only rule. Pair it with a render feature night."
+    },
+    {
+      "id": "C041",
+      "reason": "Duplicate of C031 (same 844×390 literals in the same three files). Rejected for the same net-growth reason."
+    },
+    {
+      "id": "C004",
+      "reason": "Still adds a helper and an import to src/sim to replace five one-line expressions on hot sim paths. src/ grows for no performance gain, which the delete-only rule doesn't allow."
+    },
+    {
+      "id": "C008",
+      "reason": "The local helper adds about as many lines as it removes at two call sites. Cosmetic churn."
+    },
+    {
+      "id": "C009",
+      "reason": "Types-only alias move: one export plus three imports to delete two local aliases. Net growth for no behaviour or safety gain."
+    },
+    {
+      "id": "C010",
+      "reason": "Types-only spelling change with zero net lines. Cosmetic churn."
+    },
+    {
+      "id": "C015",
+      "reason": "Groups results-screen stripe rules into screens.css, coupling two stylesheets for a few lines. screens.css is likely reshaped by in-flight B08 (#30, the S6 stripe screen change). Low value now."
+    },
+    {
+      "id": "C025",
+      "reason": "Needs a new exported helper plus edits to game.ts, race-ui.ts and the stage fixture, all likely in in-flight B08/B09. Net lines about zero. Wait until #30/#31 land."
+    },
+    {
+      "id": "C029",
+      "reason": "Claim is wrong: CAR_LENGTH is imported through the barrel by src/render/car.ts:11. The sim barrel is also the documented sole entry for other layers. Trimming the RNG and replay API would push the next feature (e.g. B12 pickups) into deep imports, against C023's goal."
+    },
+    {
+      "id": "C033",
+      "reason": "Moving msToTicks to format.ts needs a new import in countdown.ts (net about +1 line). It edits race-ui.ts and countdown.ts, which in-flight B09 (HUD event motion, #31) very likely changes along with their tick timings. Revisit after #31."
+    },
+    {
+      "id": "C034",
+      "reason": "hud.css is certainly edited by in-flight B09 (#31: Pos/Lap stamps, slide-in entry). Regrouping the BEST/NEW BEST chip rules now risks a cascade conflict. Do it after #31 lands."
+    },
+    {
+      "id": "C035",
+      "reason": "Real, but in-flight B08 (#30) rewrites the start screen and its CSS (screens.css, shared components), which would make these comments stale again or conflict. Fix them after #30 lands."
+    },
+    {
+      "id": "C043",
+      "reason": "Swapping the CarView buffers changes object identity for everything that reads r.curr/r.prev (render mocks in game tests, ui.sync, state()). It also edits game.ts, which in-flight B08 (#30) touches. Too risky to promise unchanged behaviour unattended tonight; re-check after #30."
+    }
+  ],
+  "auditNotes": [],
+  "refactor": [
+    {
+      "id": "C024",
+      "status": "done",
+      "summary": "In src/render/index.ts, removed the barrel re-exports that nothing imports: frameWidthFor, CameraRig, CarObject, DustPool, LIGHT_DIRECTION, TOON_STEPS and Materials, plus the whole outline.ts line (attachOutline, groundMesh, outlinedFlatMesh, solidMesh, RenderRole). Every name that tests, gates or harness use is still exported, including countdownOffsetEast. Changed the header comment so it says the extra exports are for tests and gates (it previously also said future features)."
+    },
+    {
+      "id": "C007",
+      "status": "done",
+      "summary": "Removed the `export` keyword from smoothNormals (geometry.ts), CREASE_ANGLE_DEG and attachOutline (outline.ts), and OUTLINE_PX_AT_844 and MaterialKind (materials/index.ts). Nothing else changed."
+    },
+    {
+      "id": "C042",
+      "status": "done",
+      "summary": "In src/sim/car.ts, groundUnderBody now fills module scratch arrays bodyTs/bodyHs, declared next to `ground` (cleared with length = 0, filled in the same push order). The heights are filled by a plain indexed loop that calls the same groundAt, so there is no ts.map array or closure. visualPose writes into a scratch `pose` object, and carView copies it into its return value straight away. The floats are computed in the same order and the y >= car.y fallback is the same. Net src/ growth from this item is about +12 lines, which the spec allows for a performance item. Scene hashes (P2) are identical before and after, and all 716 tests pass."
+    },
+    {
+      "id": "C011",
+      "status": "done",
+      "summary": "Changed the scene-graph comment in src/render/scene.ts to say 'body mesh, roof roundel + player ▼ marker'."
+    },
+    {
+      "id": "C030",
+      "status": "done",
+      "summary": "Changed the GRID_CURVED_FROM comment in src/sim/world.ts to '(races of five or more cars reach them)'."
+    },
+    {
+      "id": "C040",
+      "status": "done",
+      "summary": "Changed the comment in tick() in src/game.ts from 'the panel takes over the controls' to 'the results screen takes over the controls'."
+    }
+  ]
+}

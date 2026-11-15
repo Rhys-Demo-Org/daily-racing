@@ -9,7 +9,7 @@
 //   ├─ props    static: one 'prop-cell' toon mesh per CELL_SIZE world cell holding every prop and ramp
 //   │           in it, userData.props = [{ kind, x, z }] (kind is a PropKind or 'ramp')
 //   ├─ shadows  'car-shadow' × cars (ground meshes, no hull)
-//   ├─ cars     one Group per car (userData.kind = 'car'), body mesh + player ▼ marker
+//   ├─ cars     one Group per car (userData.kind = 'car'), body mesh, roof roundel + player ▼ marker
 //   └─ dust     pooled puffs
 // Static geometry is baked in world space, so static objects never update their matrices.
 import { Group, Matrix4, Scene, Vector2, type BufferGeometry, type Mesh, type PerspectiveCamera, type WebGLRenderer } from 'three';

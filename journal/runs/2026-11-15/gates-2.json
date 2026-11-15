@@ -1,0 +1,75 @@
+{
+  "branchSha": "46f3f34bf8b21ae201301c296cb1ec0243452a04",
+  "mainSha": "ed404983856305a450e1840c5790d224853decbe",
+  "startedAt": "2026-11-15T02:16:10Z",
+  "durationMs": 17926,
+  "pass": true,
+  "maintenance": true,
+  "gates": [
+    {
+      "id": "G1",
+      "name": "Build, types & unit tests",
+      "pass": true,
+      "durationMs": 17573,
+      "summary": "typecheck, build ok; 718/718 tests passed (main 716)",
+      "details": ""
+    },
+    {
+      "id": "G2",
+      "name": "Bot laps",
+      "pass": true,
+      "durationMs": 1697,
+      "summary": "bends 15.48 s (+0.0%), dust-bowl 17.70 s (+0.0%), hay-loop 53.61 s (new); worst step 0.406",
+      "details": ""
+    },
+    {
+      "id": "G3",
+      "name": "Physics replays",
+      "pass": true,
+      "durationMs": 1132,
+      "summary": "5 replays reproduce main's end states (exact)",
+      "details": ""
+    },
+    {
+      "id": "G8",
+      "name": "Protected files",
+      "pass": true,
+      "durationMs": 578,
+      "summary": "only allowed paths changed; manifest and tokens match",
+      "details": ""
+    },
+    {
+      "id": "P1",
+      "name": "Screens unchanged (DOM + styles)",
+      "pass": true,
+      "durationMs": 13086,
+      "summary": "22 stage snapshot(s) (DOM + computed styles) identical to main",
+      "details": ""
+    },
+    {
+      "id": "P2",
+      "name": "Scene geometry unchanged",
+      "pass": true,
+      "durationMs": 2416,
+      "summary": "geometry identical to main: 3 track scene(s) and 6 car(s), 427 objects",
+      "details": ""
+    },
+    {
+      "id": "M1",
+      "name": "Maintenance limits",
+      "pass": true,
+      "durationMs": 0,
+      "summary": "9 files, 134 lines, net src +16 (limits 40 / 1500 / ≤ 150)",
+      "details": "",
+      "limits": {
+        "pass": true,
+        "files": 9,
+        "lines": 134,
+        "srcAdded": 53,
+        "srcDeleted": 37,
+        "netSrc": 16,
+        "problems": []
+      }
+    }
+  ]
+}

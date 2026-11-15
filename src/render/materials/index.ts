@@ -17,7 +17,7 @@
 import { BackSide, FrontSide, GLSL3, RawShaderMaterial, Vector2, Vector3, type Material } from 'three';
 import { LADDER_INDEX, PALETTE_HEX, paletteIndex } from '@tokens';
 
-export type MaterialKind = 'toon' | 'flat' | 'hull' | 'crease';
+type MaterialKind = 'toon' | 'flat' | 'hull' | 'crease';
 
 /** Direction TO the light (UI_RULES §9): west −0.55, south −0.25, up 0.8. +x east, +y up, +z south. */
 export const LIGHT_DIRECTION: Readonly<Vector3> = new Vector3(-0.55, 0.8, -0.25).normalize();
@@ -33,7 +33,7 @@ export const TOON_STEPS = { base: 0.7, oneRung: -0.6 } as const;
 export const TOP_FACE_MIN_Y = 0.95;
 
 /** Outline width in pixels for an 844-px-wide drawing buffer; scales with buffer width (world-proportional). */
-export const OUTLINE_PX_AT_844 = 2.5;
+const OUTLINE_PX_AT_844 = 2.5;
 
 /**
  * CPU mirror of the toon vertex shader's colour pick (same constants), for tests and tooling:

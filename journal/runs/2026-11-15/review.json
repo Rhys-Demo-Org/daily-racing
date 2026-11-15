@@ -1,0 +1,69 @@
+{
+  "reviewers": {
+    "R1": "ok",
+    "R2": "ok",
+    "R3": "ok",
+    "R4": "ok",
+    "R5": "ok"
+  },
+  "findings": [
+    {
+      "id": "R3-1",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "src/render/materials/index.ts",
+      "line": 23,
+      "claim": "C024 removed six names from the render barrel, and that left them with no importer outside their own file. They still carry `export`: LIGHT_DIRECTION and TOON_STEPS (materials/index.ts:23,26), frameWidthFor (camera.ts:38) and RenderRole (outline.ts:21). This is the exact case C007 cleans up tonight for the other symbols, so the narrowing is half done.",
+      "evidence": "A repo-wide grep (excluding node_modules) for `\\b(frameWidthFor|LIGHT_DIRECTION|TOON_STEPS|RenderRole)\\b` finds only same-file uses: materials/index.ts:44,46,47,95,96,153 (LIGHT_DIRECTION/TOON_STEPS), camera.ts:47,53 (frameWidthFor) and outline.ts:87,92,103 (RenderRole). It finds no importer in src/, tests/, harness/, guardrails/ or spikes/. Before the diff, the barrel re-exported each of them (diff lines 37,40,41). After the diff nothing imports them, but `export const LIGHT_DIRECTION`, `export const TOON_STEPS`, `export function frameWidthFor` and `export type RenderRole` are still there.",
+      "suggestedFix": "Drop the `export` keyword from LIGHT_DIRECTION and TOON_STEPS (materials/index.ts:23,26), frameWidthFor (camera.ts:38) and RenderRole (outline.ts:21). It is keyword-only with no runtime effect, the same as C007. Or add them to the cleanup list for the next maintenance night."
+    },
+    {
+      "id": "R5-1",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/sim/car.ts",
+      "line": 190,
+      "claim": "The rewritten 'resting on a prop top or car roof' branch of visualPose has no gate or test that runs it. This is the not-airborne case where the hull height y < car.y, so pose.y = car.y and pose.pitch = 0. Tonight's C042 rewrote it from a ternary returning a fresh object into two separate ternary writes to the module scratch `pose`, so nothing pins the change.",
+      "evidence": "Changed lines 190-191: `pose.y = y >= car.y ? y : car.y;` / `pose.pitch = y >= car.y ? pitch : 0;` (was `return y >= car.y ? { y, pitch } : { y: car.y, pitch: 0 };`). This branch is only reached through carView/carViews while a non-airborne car sits on a prop or roof (updateVertical car.ts:596-619 sets car.y = restingTop). The only test that puts a car on a prop top is tests/sim/car.test.ts:307 'coming down onto a prop, lands on its top…', and it checks CarState via run()/stepCars, never carView. tests/sim/push-out.test.ts imports only stepCars. The carView/carViews callers in tests (ramp-pose, ramp-lip-roll, race, determinism, replay, countdown-*) drive on ground or ramps. G3 compares only the end-state views of 5 replays, and none of them ends on a prop (prop-collision stops at GO+300 after bleeding speed against the bale side). G2 compares lap times, which never read carView. P1/P2 pose no car on a prop. A slip such as swapping the arms of line 191 would pass every gate.",
+      "suggestedFix": "Add a new test file, e.g. tests/sim/car-pose-prop-top.test.ts, that reuses the car.test.ts:307 setup: a hay bale at (0,0) on stripTrack, a car moving east at x=-2, airborne=true, y=1.5. Step it with stepCars, and on each tick where `c.y === PROP_COLLIDER_TOP && !c.airborne`, assert `carView(c, track).y === PROP_COLLIDER_TOP` and `carView(c, track).pitch === 0`. Also assert this happened on at least one tick. carView is the public seam already exported from src/sim/car.ts."
+    }
+  ],
+  "rulings": [
+    {
+      "id": "R3-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Read /inputs/spec.md. It says 'Apply exactly these items from the cleanup list, nothing else.' C007 lists exactly smoothNormals, CREASE_ANGLE_DEG, attachOutline, OUTLINE_PX_AT_844 and MaterialKind. C024 only asks for the barrel re-exports to be removed.",
+      "reason": "This is out of scope. The locked spec limits tonight to the listed items, and C007's list does not include LIGHT_DIRECTION, TOON_STEPS, frameWidthFor or RenderRole. Removing those `export`s would be new cleanup work, not a fix to this diff. The reviewer itself suggests leaving it for a later maintenance night."
+    },
+    {
+      "id": "R5-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Read the C042 hunk at src/sim/car.ts:187-191. The old line `return y >= car.y ? {y,pitch} : {y:car.y,pitch:0}` becomes `pose.y = y >= car.y ? y : car.y; pose.pitch = y >= car.y ? pitch : 0;`. Both branches give the same values, and y, pitch and car.y are not changed between the two writes. carView reads pose.y and pose.pitch right after visualPose returns, so the result is the same as before.",
+      "reason": "The finding names no bug, only a coverage gap. The rewritten branch is equivalent to the old code. The suggested test would pass on this branch, so it cannot show a defect, and there is nothing to fix."
+    }
+  ],
+  "fixes": [
+    {
+      "id": "J1",
+      "status": "fixed",
+      "summary": "C042 in src/sim/car.ts: groundUnderBody no longer does `bodyTs.length = 0` / `bodyHs.length = 0` followed by `push`, which let V8 free and reallocate each array's backing store on every call. It now writes by index with a local count (`bodyTs[n++] = -half; = 0; = half;`, then `bodyTs[n++] = lip` / `foot` in the same order as before), fills `bodyHs[i]` for i < n with the same groundAt call, and stores the count in a new module scratch `let bodyN` next to bodyTs/bodyHs. visualPose loops `i < bodyN` / `j < bodyN` instead of using `.length` (in both the airborne branch and the hull search). The arrays keep their largest size, so in steady state no array is allocated. The same floats are computed in the same order, so replays and bot laps don't change. I updated the doc comments to match (only the first bodyN entries are current). New test tests/sim/car-pose-scratch.test.ts runs 6 bots on Dust Bowl (which has ramps) and wraps Array.prototype.push while carView is called for every car each tick. It expects 0 pushes: this failed with 4680 on the old length=0+push code and passes after the fix. A second check confirms that a car's view doesn't depend on which car was viewed before it, so stale scratch entries past bodyN are never read. pnpm typecheck and pnpm test (105 files, 718 tests) pass. I couldn't rerun the judge's allocation probe in this sandbox, so the per-frame byte drop is not yet measured.",
+      "tests": [
+        "tests/sim/car-pose-scratch.test.ts"
+      ],
+      "commit": "46f3f34bf8b21ae201301c296cb1ec0243452a04",
+      "kept": true
+    }
+  ],
+  "notes": [],
+  "checked": {
+    "R1": 7,
+    "R2": 12,
+    "R3": 8,
+    "R4": 7,
+    "R5": 10
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "backlogId": null,
+  "title": "Trim the render seam, allocation-free car pose, fix stale comments",
+  "summary": "Removes the render barrel's re-exports that nothing imports through it, and drops `export` from five render symbols that are only used inside their own files. Changes `groundUnderBody` and `visualPose` in src/sim/car.ts to write into module scratch instead of allocating arrays and objects for every car on every tick. Fixes three stale comments (scene graph, grid slots, finish panel). All of this is export-list, comment or allocation-only: the same floats are computed in the same order, no RNG or constants move, no CSS or DOM changes, and every name that tests, gates or harness/screens import is kept.",
+  "acceptanceCriteria": [],
+  "closestExisting": [],
+  "items": [
+    "C024",
+    "C007",
+    "C042",
+    "C011",
+    "C030",
+    "C040"
+  ],
+  "expectedFiles": [
+    "src/render/index.ts",
+    "src/render/geometry.ts",
+    "src/render/outline.ts",
+    "src/render/materials/index.ts",
+    "src/sim/car.ts",
+    "src/render/scene.ts",
+    "src/sim/world.ts",
+    "src/game.ts"
+  ],
+  "supersedes": [],
+  "playtest": {
+    "whatYoullSee": "Nothing should look or feel different. Tonight only trims unused exports, changes how the car's display height and tilt are computed internally (same numbers, fewer allocations), and fixes comments. Cars, ramps, jumps, HUD and menus should look and behave exactly as yesterday.",
+    "howToTest": [
+      "Race Dust Bowl and drive over the ramps: the car body tilts up the slope, flies, and lands level as before, with no jitter or snapping.",
+      "Race Hay Loop and take the back-straight ramp at full speed and at a crawl: the body rolls off the lip smoothly as before.",
+      "Start a six-car race: all six cars sit on the grid as before (the two rear slots follow the curve behind the line).",
+      "Bump a hay bale or tyre stack and nudge another car: cars still sit level on the ground with no sinking or floating.",
+      "Finish a race: the results screen appears and RETRY / NEXT RACE work as before."
+    ]
+  }
+}

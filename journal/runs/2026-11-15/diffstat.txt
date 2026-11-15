@@ -1,0 +1,9 @@
+1	1	src/game.ts
+1	1	src/render/geometry.ts
+5	6	src/render/index.ts
+2	2	src/render/materials/index.ts
+2	2	src/render/outline.ts
+1	1	src/render/scene.ts
+40	23	src/sim/car.ts
+1	1	src/sim/world.ts
+44	0	tests/sim/car-pose-scratch.test.ts

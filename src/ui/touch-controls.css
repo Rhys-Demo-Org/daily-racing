@@ -5,7 +5,7 @@
   pointer-events: none;
 }
 
-/* Slots hold the drawn shape and never move; the button inside sinks and pops. */
+/* Slots hold the drawn shape and only move in the race entry; the button inside sinks and pops. */
 .ui-touch__slot {
   position: absolute;
   bottom: var(--safe-bottom);
@@ -130,5 +130,29 @@
     color: var(--color-ink);
     box-shadow: none;
     transition: none;
+  }
+}
+
+/* Race entry (board 05 #9): after the HUD panels, the slots slide up from below the screen, 40ms
+   apart: steer left, steer right, BRAKE, GAS. Reduced motion: they cut in. */
+@media (prefers-reduced-motion: no-preference) {
+  .ui-touch.is-entering .ui-touch__slot {
+    animation: ui-touch-enter var(--duration-slide) var(--ease-snap) backwards;
+    animation-delay: calc(var(--duration-stagger) * 5);
+  }
+  .ui-touch.is-entering .ui-touch__slot--right {
+    animation-delay: calc(var(--duration-stagger) * 6);
+  }
+  .ui-touch.is-entering .ui-touch__slot--brake {
+    animation-delay: calc(var(--duration-stagger) * 7);
+  }
+  .ui-touch.is-entering .ui-touch__slot--gas {
+    animation-delay: calc(var(--duration-stagger) * 8);
+  }
+}
+/* Half the viewport clears every slot from the bottom edge. */
+@keyframes ui-touch-enter {
+  from {
+    transform: translateY(50vh);
   }
 }

@@ -134,13 +134,13 @@ export function forwardSpeed(car: CarState): number {
 /** Read-only view for render/UI. */
 export function carView(car: CarState, track: Track): CarView {
   const speed = forwardSpeed(car);
-  const { y, pitch } = visualPose(car, track, speed);
+  visualPose(car, track, speed);
   return {
     x: car.x,
-    y,
+    y: pose.y,
     z: car.z,
     heading: car.heading,
-    pitch,
+    pitch: pose.pitch,
     speed,
     slip: car.slip,
     surface: car.surface,
@@ -154,30 +154,32 @@ export function carView(car: CarState, track: Track): CarView {
  * hull: sample the nose, tail, centre and every ramp foot/lip in between, and take the hull edge
  * above the centre. Airborne, the nose follows the trajectory, clamped so neither end of the body
  * dips below flat ground, and the body is lifted clear of any ramp still under it (a car rolling
- * off a lip at walking pace drops its centre while its tail is still over the slope).
+ * off a lip at walking pace drops its centre while its tail is still over the slope). Writes `pose`.
  */
-function visualPose(car: CarState, track: Track, speed: number): { y: number; pitch: number } {
+function visualPose(car: CarState, track: Track, speed: number): void {
   if (car.airborne) {
     const limit = Math.atan2(Math.max(car.y, 0), HALF_LENGTH);
     const climb = speed >= 0 ? car.vy : -car.vy;
     const pitch = clamp(Math.atan2(climb, Math.abs(speed) + 1e-6), -limit, limit);
-    const { ts, hs } = groundUnderBody(car, track, HALF_LENGTH * Math.cos(pitch));
+    groundUnderBody(car, track, HALF_LENGTH * Math.cos(pitch));
     const slope = Math.tan(pitch);
     let y = car.y;
-    for (let i = 0; i < ts.length; i++) y = Math.max(y, (hs[i] as number) - (ts[i] as number) * slope);
-    return { y, pitch };
+    for (let i = 0; i < bodyN; i++) y = Math.max(y, (bodyHs[i] as number) - (bodyTs[i] as number) * slope);
+    pose.y = y;
+    pose.pitch = pitch;
+    return;
   }
-  const { ts, hs } = groundUnderBody(car, track, HALF_LENGTH);
+  groundUnderBody(car, track, HALF_LENGTH);
   let y = -Infinity;
   let pitch = 0;
-  for (let i = 0; i < ts.length; i++) {
-    const ti = ts[i] as number;
+  for (let i = 0; i < bodyN; i++) {
+    const ti = bodyTs[i] as number;
     if (ti > 0) continue;
-    for (let j = 0; j < ts.length; j++) {
-      const tj = ts[j] as number;
+    for (let j = 0; j < bodyN; j++) {
+      const tj = bodyTs[j] as number;
       if (tj < 0 || tj === ti) continue;
-      const k = ((hs[j] as number) - (hs[i] as number)) / (tj - ti);
-      const atCentre = (hs[i] as number) - k * ti;
+      const k = ((bodyHs[j] as number) - (bodyHs[i] as number)) / (tj - ti);
+      const atCentre = (bodyHs[i] as number) - k * ti;
       if (atCentre > y) {
         y = atCentre;
         pitch = Math.atan(k);
@@ -185,26 +187,35 @@ function visualPose(car: CarState, track: Track, speed: number): { y: number; pi
     }
   }
   // Resting on a prop top or car roof (above the ground under it): sit level at that height.
-  return y >= car.y ? { y, pitch } : { y: car.y, pitch: 0 };
+  pose.y = y >= car.y ? y : car.y;
+  pose.pitch = y >= car.y ? pitch : 0;
 }
 
-/** Where the ground under the body axis can bend, as offsets from the centre within ±half (the
- * ends, the centre, and every ramp foot and lip in between), and the ground height at each. */
-function groundUnderBody(car: CarState, track: Track, half: number): { ts: number[]; hs: number[] } {
+/** Fills the first `bodyN` entries of `bodyTs` with where the ground under the body axis can bend,
+ * as offsets from the centre within ±half (the ends, the centre, and every ramp foot and lip in
+ * between), and of `bodyHs` with the ground height at each. */
+function groundUnderBody(car: CarState, track: Track, half: number): void {
   const fx = Math.sin(car.heading);
   const fz = -Math.cos(car.heading);
-  const ts = [-half, 0, half];
+  let n = 0;
+  bodyTs[n++] = -half;
+  bodyTs[n++] = 0;
+  bodyTs[n++] = half;
   for (const r of track.ramps) {
     const rate = fx * r.fx + fz * r.fz; // ramp "along" coordinate per unit along the body
     if (Math.abs(rate) < 1e-9) continue;
     const along = (car.x - r.x) * r.fx + (car.z - r.z) * r.fz;
     // Lip sampled a hair on the slope side so it reads the lip's full height.
     const lip = (-1e-6 - along) / rate;
-    if (Math.abs(lip) < half) ts.push(lip);
+    if (Math.abs(lip) < half) bodyTs[n++] = lip;
     const foot = (-r.length - along) / rate;
-    if (Math.abs(foot) < half) ts.push(foot);
+    if (Math.abs(foot) < half) bodyTs[n++] = foot;
   }
-  return { ts, hs: ts.map((t) => groundAt(track, car.x + fx * t, car.z + fz * t, ground).h) };
+  for (let i = 0; i < n; i++) {
+    const t = bodyTs[i] as number;
+    bodyHs[i] = groundAt(track, car.x + fx * t, car.z + fz * t, ground).h;
+  }
+  bodyN = n;
 }
 
 /** Moves `v` toward 0 by at most `amount`, never crossing 0. */
@@ -323,6 +334,12 @@ function applyInput(car: CarState, input: CarInput): void {
 const nearby: number[][] = [];
 /** Scratch for groundAt on the hot path. */
 const ground: Ground = { h: 0, gx: 0, gz: 0, ramp: null };
+/** Scratch for groundUnderBody (offsets along the body, ground heights; only the first `bodyN` are
+ * current, so the arrays keep their size and don't reallocate) and visualPose. */
+const bodyTs: number[] = [];
+const bodyHs: number[] = [];
+let bodyN = 0;
+const pose = { y: 0, pitch: 0 };
 /** Per car (3 slots each): x and z at the start of the tick, and its travel this tick. Scratch,
  * for capping push-outs. */
 const start: number[] = [];

@@ -43,7 +43,7 @@ const GRID_COLUMN = 2;
 /** Max random grid jitter per seed: along the track and sideways. */
 const GRID_JITTER_ALONG = 0.6;
 const GRID_JITTER_SIDE = 0.4;
-/** Slots from this index on (only six-car races reach them) follow the centreline back, since the
+/** Slots from this index on (races of five or more cars reach them) follow the centreline back, since the
  * track may already curve that far behind the line, and sit in narrower columns, clear of the props. */
 const GRID_CURVED_FROM = 4;
 const GRID_CURVED_COLUMN = 1.5;

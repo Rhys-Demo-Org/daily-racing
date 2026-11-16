@@ -1,0 +1,65 @@
+{
+  "pass": false,
+  "reasons": [
+    "overall 5/10 is below 6",
+    "the blind judge said fail"
+  ],
+  "blind": {
+    "scores": {
+      "specMet": 5,
+      "styleMatch": 10,
+      "notBroken": 9,
+      "testsReal": 9,
+      "noSniffing": 10,
+      "scope": 8,
+      "noDuplication": 8
+    },
+    "overall": 5,
+    "verdict": "fail",
+    "failures": [
+      {
+        "axis": "specMet",
+        "file": "src/sim/car.ts",
+        "claim": "C042 isn't done: the probe shows groundUnderBody allocating more on every track, not less. The spec says a performance item counts as done only when the counts it names go down. `bodyTs.length = 0` / `bodyHs.length = 0` followed by `push` probably drops and rebuilds each array's backing store on every call (V8 frees it when length is set to 0), so the code still makes two array allocations per car per tick. Fix: keep the scratch arrays at full size and write by index with a separate count. For example, `let n = 0; bodyTs[n++] = -half; ...`, export or store the count (for example `bodyN`), and loop `i < bodyN` in visualPose instead of using `.length`. That gives a steady-state zero-allocation path that still does the same float operations in the same order.",
+        "evidence": "perf-main.json groundUnderBody (main:162): bends 1205, dust-bowl 1865, hay-loop 1322 B/frame. perf-branch.json groundUnderBody (main-Hn0PLaMR.js:157): bends 2146, dust-bowl 2936, hay-loop 2306 B/frame. Total sampledAllocBytesPerFrame rose on bends (36624→36965) and dust-bowl (52395→52784). The only real wins are visualPose (1173 gone) and native `map` (≈1.1 KB gone). Diff: car.ts `bodyTs.length = 0; bodyTs.push(-half, 0, half);` and `bodyHs.length = 0; ... bodyHs.push(...)`."
+      },
+      {
+        "axis": "scope",
+        "file": "src/sim/car.ts",
+        "claim": "Net src grew by 12 lines, which the spec allows only for a performance item. As measured, the item doesn't lower the allocation count it targets, so the growth isn't yet justified. Make the scratch truly allocation-free (see the specMet entry) so the growth buys the promised reduction.",
+        "evidence": "gates.md M1: net src +12; perf-branch.json groundUnderBody bytesPerFrame higher than main on all three tracks."
+      }
+    ],
+    "plantedInstructions": [],
+    "summary": "The five dead-code and comment items are done cleanly and match the spec. C024 cuts the render barrel down to the keep list and keeps countdownOffsetEast. C007 removes `export` from all five symbols, and none of them appear in inventory-branch.md. C011, C030 and C040 fix the three stale comments word for word. All gates pass: types and tests 716/716, exact bot laps and replays, P1 screens and P2 geometry identical, and M1 net src at +12. The screenshots look unchanged. The one performance item, C042, rewrites groundUnderBody and visualPose to use module scratch, and the maths is preserved (replays are bit-exact). But the perf probe shows the groundUnderBody allocation site going up on every track (1205→2146, 1865→2936, 1322→2306 B/frame), and total sampled allocations rose on two of three tracks. The cause is probably the `length = 0` + `push` reset, which reallocates the backing stores each call. The spec says a performance item is done only when its named counts drop, so C042 isn't done and the +12 src growth isn't earned yet. The fix is small: write by index into scratch arrays that stay full size, and keep a separate count."
+  },
+  "check": {
+    "claims": [
+      {
+        "claim": "Reviewers: R1 ok, R2 ok, R3 ok, R4 ok, R5 ok.",
+        "verdict": "unconfirmed",
+        "evidence": "This is a process claim about the reviewer runs, and the diff can't show it either way. Nothing in diff.patch contradicts it. All six cleanup items are applied as the spec describes, and gates.md shows every gate passing (716/716 tests, exact bot laps and replays, screens and geometry identical to main)."
+      },
+      {
+        "claim": "2 findings, 0 verified, 2 dropped.",
+        "verdict": "unconfirmed",
+        "evidence": "review.md doesn't list the two dropped findings, so they can't be checked against the diff. My own reading of diff.patch found no defect. The car.ts scratch rewrite pushes -half, 0, half, then lips and feet in the same order, and fills bodyHs with the same groundAt call. carView reads pose.y and pose.pitch straight after visualPose writes them, so the floats and their order match main. G3 replays are exact."
+      },
+      {
+        "claim": "0 fixes kept after the gates.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch changes only the 8 expected files, with exactly the edits that items C024, C007, C042, C011, C030 and C040 call for. There are no extra edits that look like review fixes. M1 reports 8 files and 86 lines, which matches."
+      },
+      {
+        "claim": "Dropped findings are left out here: the verifier could not reproduce them.",
+        "verdict": "unconfirmed",
+        "evidence": "The findings aren't shown, so whether the verifier reproduced them can't be checked from the inputs."
+      }
+    ],
+    "newRules": [],
+    "plantedInstructions": [],
+    "summary": "review.md is short and makes only process claims: five reviewers ok, and two findings that were both dropped as not reproducible, so no fixes were kept. One claim is backed by the diff. diff.patch holds only the spec's six cleanup items across the 8 expected files and no extra fix edits, so \"0 fixes kept\" holds. The other claims can't be checked from the inputs, but nothing in the diff contradicts them. My own pass over the diff found no defect. The allocation-free car pose keeps the same float order, and the barrel trim keeps countdownOffsetEast and every name that tests use. All gates pass with exact replays and identical screens and geometry. CLAUDE.md and other agent-loaded files are unchanged, so there are no new agent rules. No text in review.md, the spec, the diff, gates.md or existing-work.md is aimed at a judge or tries to steer the result."
+  },
+  "scan": [],
+  "newRules": []
+}

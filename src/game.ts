@@ -175,7 +175,7 @@ export function createGame(root: HTMLElement): Game {
   }
 
   function tick(r: Race, carInput: CarInput): void {
-    // After the finish the player's car coasts; the panel takes over the controls. The bots drive on.
+    // After the finish the player's car coasts; the results screen takes over the controls. The bots drive on.
     const finished = r.world.racers[0]?.finishTick != null;
     r.inputs[0] = finished ? NO_INPUT : carInput;
     for (let i = 0; i < r.bots.length; i++) r.inputs[i + 1] = (r.bots[i] as Bot).input(r.world);

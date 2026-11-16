@@ -1,6 +1,8 @@
 // Track geometry built from TrackData: validation, the dense centreline, arc-length sampling,
 // nearest-centreline queries, surface, ramp height and prop colliders.
 import type {
+  PickupData,
+  PickupInstance,
   PropInstance,
   PropKind,
   RampInstance,
@@ -230,6 +232,20 @@ export function validateTrack(data: unknown): TrackData {
     return { kind: kind(id, p, where), x: num(id, p, 'x', where), z: num(id, p, 'z', where) };
   });
 
+  let pickups: PickupData[] | undefined;
+  if (data['pickups'] !== undefined) {
+    const maxLateral = width / 2 - 1;
+    pickups = list(id, data, 'pickups').map((p, i) => {
+      const where = `pickups[${i}]`;
+      if (!isObject(p)) fail(id, `${where} must be an object`);
+      const at = num(id, p, 'at', where);
+      const lateral = num(id, p, 'lateral', where);
+      if (at < 0 || at >= 1) fail(id, `${where}.at must be in [0, 1)`);
+      if (Math.abs(lateral) > maxLateral) fail(id, `${where}.lateral must be within ±${maxLateral} (width / 2 − 1)`);
+      return { at, lateral };
+    });
+  }
+
   return {
     id: rawId,
     name,
@@ -239,6 +255,7 @@ export function validateTrack(data: unknown): TrackData {
     ramps,
     propRows,
     props,
+    ...(pickups && { pickups }),
   };
 }
 
@@ -359,6 +376,12 @@ export function buildTrack(data: TrackData): Track {
   }
   for (const p of data.props) props.push({ kind: p.kind, x: p.x, z: p.z, heading: 0 });
 
+  // Pickups have no collider: driving through one never changes a car.
+  const pickups: PickupInstance[] = (data.pickups ?? []).map((q) => {
+    const p = sampleAt(partial, q.at * length);
+    return { x: p.x + Math.cos(p.heading) * q.lateral, z: p.z + Math.sin(p.heading) * q.lateral };
+  });
+
   const colliders = props.map(colliderFor);
   const centre: [number, number][] = [];
   for (let i = 0; i < count; i++) centre.push([xs[i] as number, zs[i] as number]);
@@ -368,6 +391,7 @@ export function buildTrack(data: TrackData): Track {
     startHeading: headings[0] as number,
     ramps: layoutRamps,
     props: props.map((p) => ({ ...p })),
+    pickups,
   };
   return { ...partial, ramps, props, colliders, grid: buildGrid(colliders), layout };
 }

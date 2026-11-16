@@ -3,6 +3,7 @@
 //   wake() (race start / resume) → every control 'active'
 //   active, untouched for restAfterMs → 'resting' (hollow)
 //   press → 'pressed' (mustard, sunk); release → 'active' again for another restAfterMs
+//   wake('action') (the player picks up a power-up) → just the action control 'active'
 import { tokens } from '@tokens';
 import type { TouchControlId, TouchListener } from '../input/touch.ts';
 import { TOUCH_CONTROL_IDS } from '../input/touch.ts';
@@ -17,8 +18,8 @@ export interface TouchStateOptions {
 }
 
 export interface TouchStateMachine extends TouchListener {
-  /** Race start or resume: every control becomes active. */
-  wake(): void;
+  /** Race start or resume: every control becomes active (or only `id`, if given). */
+  wake(id?: TouchControlId): void;
   state(id: TouchControlId): TouchVisual;
   /** Ms until the next active → resting change, or null if nothing will change on its own. */
   nextChangeIn(): number | null;
@@ -30,8 +31,9 @@ export function createTouchStateMachine(opts: TouchStateOptions = {}): TouchStat
   const now = opts.now ?? (() => performance.now());
   const restAfter = opts.restAfterMs ?? tokens.touch.restAfterMs;
   // Controls start resting until the race wakes them.
-  const lastActive: Record<TouchControlId, number> = { left: -Infinity, right: -Infinity, gas: -Infinity, brake: -Infinity };
-  const pressed: Record<TouchControlId, boolean> = { left: false, right: false, gas: false, brake: false };
+  const lastActive: Record<TouchControlId, number> = { left: -Infinity, right: -Infinity, gas: -Infinity, brake: -Infinity, action: -Infinity };
+  const pressed: Record<TouchControlId, boolean> = { left: false, right: false, gas: false, brake: false, action: false };
+  const ids = [...TOUCH_CONTROL_IDS, 'action'] as const;
   const subs = new Set<() => void>();
   const notify = (): void => subs.forEach((fn) => fn());
 
@@ -41,9 +43,9 @@ export function createTouchStateMachine(opts: TouchStateOptions = {}): TouchStat
   };
 
   return {
-    wake() {
+    wake(only) {
       const t = now();
-      for (const id of TOUCH_CONTROL_IDS) lastActive[id] = t;
+      for (const id of only ? [only] : ids) lastActive[id] = t;
       notify();
     },
     press(id) {
@@ -60,7 +62,7 @@ export function createTouchStateMachine(opts: TouchStateOptions = {}): TouchStat
     state,
     nextChangeIn() {
       let next: number | null = null;
-      for (const id of TOUCH_CONTROL_IDS) {
+      for (const id of ids) {
         if (state(id) !== 'active') continue;
         const ms = lastActive[id] + restAfter - now();
         if (next === null || ms < next) next = ms;

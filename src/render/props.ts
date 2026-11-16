@@ -5,6 +5,7 @@
 //   tyre stack three ink tyres; upward bevels and the top are navy
 //   cone tree  two grass cones (shaded facets show deep-green) on a trunk that reads dark-dirt
 //   ramp       wedge from RampInstance: dark-dirt slope with rally-red/cream chevrons (geometry)
+//   pickup     lone mustard cube, clearly smaller than a bale (sides show dirt), on the dirt ribbon
 import type { PropKind, RampInstance } from '../sim/types.ts';
 import { HAY_BALE_LENGTH, HAY_BALE_WIDTH, TYRE_STACK_RADIUS } from '../sim/track.ts';
 import { MeshBuilder, type Vec3 } from './geometry.ts';
@@ -106,6 +107,15 @@ export function addRamp(b: MeshBuilder, r: Pick<RampInstance, 'length' | 'width'
   b.tri([hw, 0, 0], [hw, H, 0], [hw, 0, L], 'dark-dirt', [1, 0, 0]);
   return b.quad([-hw, 0, 0], [hw, 0, 0], [hw, 0, L], [-hw, 0, L], 'dark-dirt', [0, -1, 0]);
 }
+
+/** Side of a pickup cube in units (a hay bale is 1.2 × 1.2 × 2). */
+const PICKUP_SIZE = 1;
+
+/** A pickup box: its mesh and blob shadow, like a prop's. */
+export const PICKUP: { add(b: MeshBuilder): MeshBuilder; shadow: ShadowShape } = {
+  add: (b) => b.box([-PICKUP_SIZE / 2, 0, -PICKUP_SIZE / 2], [PICKUP_SIZE / 2, PICKUP_SIZE, PICKUP_SIZE / 2], 'mustard'),
+  shadow: { outline: chamferedRect(PICKUP_SIZE + 0.1, PICKUP_SIZE + 0.1, 0.1), height: PICKUP_SIZE },
+};
 
 // ---- Blob shadows -------------------------------------------------------------------------------
 

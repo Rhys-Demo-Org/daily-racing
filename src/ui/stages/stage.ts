@@ -93,6 +93,8 @@ export interface RaceStageOptions {
   at: number[];
   /** The track's stored best lap (ms, or null for none). Set it to keep best laps (in memory) so laps can set a new best. */
   storedBestMs?: number | null;
+  /** Set for a pickup track: whether each pickup box is present. */
+  pickups?: boolean[];
   /** Laps in the race (default: the track's). */
   laps?: number;
 }
@@ -116,13 +118,13 @@ export function raceStage(root: HTMLElement, o: RaceStageOptions): RaceUi {
 }
 
 /** A race sync: one frame's race state, as raceStage() takes it. */
-export type RaceSync = Pick<RaceStageOptions, 'phase' | 'countdown' | 'raceTick' | 'racers' | 'at'>;
+export type RaceSync = Pick<RaceStageOptions, 'phase' | 'countdown' | 'raceTick' | 'racers' | 'at' | 'pickups'>;
 
 /** Pushes one more frame (`o`) into a stage's race UI, e.g. a tick after raceStage() for an event. */
 export function syncStage(ui: RaceUi, o: RaceSync): RaceUi {
   const { centre } = stageTrack();
   ui.sync(
-    { phase: o.phase, countdown: o.countdown, raceTick: o.raceTick, racers: o.racers },
+    { phase: o.phase, countdown: o.countdown, raceTick: o.raceTick, racers: o.racers, ...(o.pickups && { pickups: o.pickups }) },
     o.at.map((a) => carOnTrack(centre, a)),
   );
   return ui;

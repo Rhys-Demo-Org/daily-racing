@@ -1,0 +1,273 @@
+{
+  "reviewers": {
+    "R1": "ok",
+    "R2": "ok",
+    "R3": "ok",
+    "R4": "ok",
+    "R5": "ok"
+  },
+  "findings": [
+    {
+      "id": "R2-1",
+      "reviewer": "R2",
+      "severity": "major",
+      "file": "src/input/keyboard.ts",
+      "line": 52,
+      "claim": "Space is now preventDefault-ed (keydown and keyup) on window for the whole page lifetime, including the start, pause and results screens. Those screens focus a native button and rely on Space/Enter to activate it, so Space no longer activates RACE, RESUME or NEXT RACE on any track.",
+      "evidence": "keyboard.ts:52-57 `if (k.code === ACTION_KEY) { k.preventDefault(); down.add(k.code); actionTapped = true; return; }` and :64 `if (down.delete(k.code)) k.preventDefault();`. game.ts:115 creates the Input once, on the default window target, with no mode/paused gating. dom.ts:75 `overlay.show()` focuses the main button (start RACE, pause RESUME, results NEXT RACE). A button's Space activation is the keydown/keyup default, which is cancelled. Sequence: createGame(root) -> menu shows, RACE focused -> press Space -> keydown bubbles to window, onDown calls preventDefault, keyup is prevented too (down.delete returns true) -> no click, race doesn't start. On main Space wasn't in KEY_MAP, so it worked. Enter still works, so only Space is dead. Repro in a happy-dom game test (tests/game/pause.test.ts setup): `const e = new KeyboardEvent('keydown',{code:'Space',bubbles:true,cancelable:true}); raceButton.dispatchEvent(e); expect(e.defaultPrevented).toBe(false)` fails (true).",
+      "suggestedFix": "In onDown, leave Space alone (no preventDefault, no latch) when it isn't already held and the target is an interactive element: `if (k.code === ACTION_KEY) { if (!down.has(k.code) && (k.target as Element | null)?.closest?.('button, a, input, select, textarea')) return; ... }`. Keep onUp as is, since it only prevents keyups whose keydown it handled; a Space held across the results overlay still can't click NEXT RACE. The AC7 tests dispatch on a bare EventTarget, so they still pass. Alternatively pass an `actionEnabled: () => mode === 'race' && !paused` option from game.ts."
+    },
+    {
+      "id": "R2-2",
+      "reviewer": "R2",
+      "severity": "minor",
+      "file": "src/game.ts",
+      "line": 171,
+      "claim": "A Space tap made while the race is paused stays latched and fires the boost on the first tick after resume. Only the pause branch of setPaused resets the input; the resume branch doesn't, and the Space listener is live while paused.",
+      "evidence": "game.ts:164-175: `if (paused) { stopLoop(); input.reset(); ui.pause(); } else { ui.resume(); startLoop(); }`. keyboard.ts:52-56 latches `actionTapped = true` on any Space keydown, paused or not. Sequence on Dust Bowl: drive through a box so racers[0].armed is true; Esc (pause, input.reset()); press and release Space on the pause card (e.g. trying to activate the focused RESUME; `down` is cleared on keyup but actionTapped stays true); Esc (resume); the next frame runs game.ts:230 `tick(r, input.read())`, which returns `action: true`, and stepWorld fires: racers[0].boostTicks becomes 90 and armed false on the first tick after resume. Without the Space press while paused, armed stays true. Reproducible with tests/game/pause.test.ts helpers (esc(), runFrames(), game.state().race.racers[0]).",
+      "suggestedFix": "Call `input.reset()` in the resume branch of setPaused before `startLoop()`, as the pause branch and startRace already do. This also clears latches from the pause."
+    },
+    {
+      "id": "R2-3",
+      "reviewer": "R2",
+      "severity": "minor",
+      "file": "src/sim/replay.ts",
+      "line": 98,
+      "claim": "decodeInputs defines `action` with Object.defineProperty as a non-enumerable property. Decoded frames therefore don't deep-equal the inputs that were encoded, and `action` is lost by spread, Object.keys, JSON.stringify and structuredClone. Any consumer that copies decoded frames silently drops every fired boost, and the replay diverges. This conflicts with AC6 ('encode->decode gives action: true back').",
+      "evidence": "replay.ts:96-98 `// Non-enumerable ... if ((flags & FLAG_ACTION) !== 0) Object.defineProperty(input, 'action', { value: true, writable: true, configurable: true });`. The comment says it exists so the old test replay.test.ts:63 (bit 2 set decodes to `{steer:0,throttle:true,brake:true}` under toEqual) keeps passing. Repro: `const frames=[[{steer:0,throttle:true,brake:false,action:true}]]; const d=decodeInputs(encodeInputs(frames,1),1,1); expect(d).toEqual(frames)` fails (3 enumerable keys vs 4); `{...d[0][0]}.action` is undefined; JSON.stringify(d) has no \"action\". Determinism trace: take pickup-replay.test.ts's recorded Dust Bowl run with one fired boost and step a world with `replayInputs(replay).map(f => f.map(i => ({...i})))`; boostTicks never reaches 90, so the final carViews differ from the live run, while runReplay matches.",
+      "suggestedFix": "Don't hide the flag in the decoded frame. The only way to satisfy both replay.test.ts:63 and AC6 is to keep `decodeInputs(text,ticks,carCount)` ignoring bit 2 by default and add an opt-in parameter that sets an ordinary enumerable `action: true`. Have replayInputs()/runReplay() use that opt-in, and cover it with a new test that spreads and deep-compares the frames."
+    },
+    {
+      "id": "R2-4",
+      "reviewer": "R2",
+      "severity": "minor",
+      "file": "src/ui/keycap-legend.ts",
+      "line": 64,
+      "claim": "setPowerUp(true) calls panel.insertBefore(powerUp, pause) unconditionally. race-ui.ts calls it on every sync, so on a pickup track the already-placed SPACE · POWER-UP item is removed and re-inserted every animation frame. This breaks the 'a frame where nothing changed touches no DOM' invariant that race-ui.ts documents and that tests/ui/race-ui.test.ts:63 enforces for non-pickup views.",
+      "evidence": "race-ui.ts:151 `legend.setPowerUp(view.pickups !== undefined);` runs inside sync(), which game.ts:193 calls from draw() once per frame. keycap-legend.ts:63-66 `setPowerUp(on) { if (on) panel.insertBefore(powerUp, pause); else powerUp.remove(); }` has no `if (on === current) return` guard, unlike the sibling setFirstLap (:58-60) and touch.setAction (`if (next === armed) return`). Per the DOM spec, inserting a node that is already a child first removes it, so each call is a childList removal plus addition (style/layout invalidation, MutationObserver records). Repro: copy race-ui.test.ts:63-72 with a view carrying `pickups:[true]` and `racers[0].armed=false`; sync twice with a MutationObserver on document.body; `takeRecords()` is non-empty where the non-pickup version gives 0. A spy on `Node.prototype.insertBefore` counts one call per sync.",
+      "suggestedFix": "Track the state and return early: `let powerUpOn = false; setPowerUp(on) { if (on === powerUpOn) return; powerUpOn = on; if (on) panel.insertBefore(powerUp, pause); else powerUp.remove(); }`."
+    },
+    {
+      "id": "R3-1",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "src/ui/stages/pickups.stage.ts",
+      "line": 11,
+      "claim": "The pickups stage copies `raceStage`'s view building to add `pickups`. It calls `raceStage`, which builds a RaceView and syncs once. Then it calls `stageTrack()` again, rebuilds the same cars with `carOnTrack` and syncs a second view that differs only by `pickups`. `RaceStageOptions` (src/ui/stages/stage.ts:86) has no `pickups` field, so the copy was needed.",
+      "evidence": "pickups.stage.ts:11-14:\n  const ui = raceStage(root, { phase: 'racing', countdown: 0, raceTick: 1460, racers, at: AT });\n  // raceStage's view has no pickups; sync once more as a pickup track would.\n  const { centre } = stageTrack();\n  ui.sync({ phase: 'racing', countdown: 0, raceTick: 1460, racers, pickups: [true, false, true] }, AT.map((a) => carOnTrack(centre, a)));\nThis repeats stage.ts:113-116:\n  ui.sync({ phase: o.phase, countdown: o.countdown, raceTick: o.raceTick, racers: o.racers }, o.at.map((a) => carOnTrack(track.centre, a)));\nThe first sync runs `legend.setPowerUp(false)` and the second runs `setPowerUp(true)`. The stage therefore renders through two syncs and an in-between state with no POWER-UP keycap, only because `raceStage` cannot pass `pickups`.",
+      "suggestedFix": "Add `pickups?: boolean[]` to `RaceStageOptions` and spread `...(o.pickups && { pickups: o.pickups })` into the view in `raceStage`'s sync. The stage then becomes `raceStage(root, { phase: 'racing', countdown: 0, raceTick: 1460, racers, at: AT, pickups: [true, false, true] })`. Drop its second sync and the `stageTrack`/`carOnTrack` imports."
+    },
+    {
+      "id": "R4-1",
+      "reviewer": "R4",
+      "severity": "minor",
+      "file": "src/ui/keycap-legend.ts",
+      "line": 64,
+      "claim": "On pickup tracks, setPowerUp(true) runs panel.insertBefore(powerUp, pause) on every frame, even when the node is already in place. So every race-UI sync on Dust Bowl removes and re-inserts a DOM node. That breaks race-ui.ts's documented contract that a frame where nothing changed touches no DOM.",
+      "evidence": "race-ui.ts:151 calls `legend.setPowerUp(view.pickups !== undefined);` unconditionally on every sync. keycap-legend.ts:63-65: `setPowerUp(on) { if (on) panel.insertBefore(powerUp, pause); else powerUp.remove(); }`. There is no early return when the state is unchanged. Under the DOM spec, insertBefore of a node that is already a child first removes it and then inserts it, which produces childList mutation records. Repro: copy tests/ui/race-ui.test.ts 'touches no DOM when a frame changes nothing' but use `const frame = view({ raceTick: 600, pickups: [true] })`. Call ui.sync(frame, cars) twice with a MutationObserver on document.body, then check `obs.takeRecords()`. It is non-empty, where the existing contract expects 0. This happens every rendered frame for the whole Dust Bowl race, including laps 2+ when the legend is hidden.",
+      "suggestedFix": "Keep the current state and return early, the same way touch-controls' setAction does: `let powerUpOn = false; … setPowerUp(on) { if (on === powerUpOn) return; powerUpOn = on; if (on) panel.insertBefore(powerUp, pause); else powerUp.remove(); }`."
+    },
+    {
+      "id": "R5-1",
+      "reviewer": "R5",
+      "severity": "major",
+      "file": "src/sim/world.ts",
+      "line": 152,
+      "claim": "AC2's 'AI racer views always show armed false' is never tested while the player is actually armed, so leaking the player's armed/boostTicks into every racer view survives all tests.",
+      "evidence": "Mutation: world.ts:152 `r.armed = i === 0 && p.armed;` → `r.armed = p.armed;` (and/or :153 `r.boostTicks = i === 0 ? p.boostTicks : 0;` → `r.boostTicks = p.boostTicks;`). The only test that checks AI racers' armed (pickups.test.ts 'AI cars that drive through boxes…') parks the player in the infield so p.armed is always false, and the line asserting `r.armed` false would hold under the mutation. The other multi-car tests either check only racers[0] (pickups.test.ts AC2 #1, carCount 2; pickup-replay.test.ts, carCount 3) or strip armed/boostTicks before comparing (pickups.test.ts AC3 `ra.racers.map(({ armed: _a, boostTicks: _b, ...r }) => r)`). boost.test.ts and pickups-scene.test.ts use carCount 1. No test fails under the mutation.",
+      "suggestedFix": "In a new test, run Dust Bowl with carCount ≥ 2 and the bot driving car 0 until racers[0].armed is true, then fire once. On every tick assert racers.slice(1) all have armed === false and boostTicks === 0, and check that at least one tick had racers[0].armed true and one had racers[0].boostTicks > 0."
+    },
+    {
+      "id": "R5-2",
+      "reviewer": "R5",
+      "severity": "major",
+      "file": "src/sim/track.ts",
+      "line": 382,
+      "claim": "The AC1 layout test accepts any point within |lateral|+1.5 of the centreline sample, so a layout that drops the lateral offset (all three boxes of a row stacked on the centreline) passes.",
+      "evidence": "Mutation: track.ts:382 `return { x: p.x + Math.cos(p.heading) * q.lateral, z: p.z + Math.sin(p.heading) * q.lateral };` → `return { x: p.x, z: p.z };`. pickups.test.ts only asserts `Math.hypot(p.x - cx, p.z - cz) < Math.abs(lateral) + 1.5`, and distance 0 satisfies it. The scene test compares meshes against trackLayout's own output, and the collect/respawn tests still find a box on the bot's line, so every test passes. In game, Dust Bowl's two rows of three ({-3.5, 0, 3.5}) collapse to one visible spot per row. Flipping the lateral sign (right ↔ left, against PickupData's documented 'positive = right of the driving direction') also survives.",
+      "suggestedFix": "In a new test, assert that each layout pickup is |lateral| ± 0.1 from its centreline point and on the documented side, e.g. with a validated copy of a track that has pickups {at:0.5, lateral:+3} and {at:0.5, lateral:-3}. Check the two points are about 6 apart and that the +3 one is to the right of the heading, using the sign of the cross product with the centreline direction."
+    },
+    {
+      "id": "R5-3",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/ui/touch-controls.css",
+      "line": 35,
+      "claim": "No test checks AC8's 'sitting above GAS'. Removing or breaking the action slot's position rule leaves every test passing.",
+      "evidence": "Mutation: delete the `.ui-touch__slot--action { right…; bottom…; width…; height… }` rule (touch-controls.css:35), or change `bottom` to `var(--safe-bottom)` so the button overlaps GAS. action-button.test.ts runs in happy-dom with getBoundingClientRect mocked to `new DOMRect(700, 200, 64, 64)` for every element, so it never measures where the slot really is. No browser test (harness/screens/browser.ts) renders the pickups stage. Grep of tests/ for 'ui-touch__slot' or 'Boost' finds only action-button.test.ts.",
+      "suggestedFix": "Add a browser test that uses harness/screens/browser.ts `renderStage` on the pickups 'armed' stage at 844×390. Assert that the Boost button's rect is horizontally centred over the Accelerate button's rect, that its bottom is above GAS's top, that the two rects don't intersect, and that its width is about the touch-action token."
+    },
+    {
+      "id": "R5-4",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/ui/touch-controls.ts",
+      "line": 41,
+      "claim": "The AC8 'lightning icon' assertion only checks that some SVG polygon exists, so swapping the bolt for any other icon passes.",
+      "evidence": "Mutation: touch-controls.ts:41 `icon('bolt', 'ui-tc__icon')` → `icon('play', 'ui-tc__icon')` (or 'pause'). action-button.test.ts asserts only `expect(b?.querySelector('svg polygon')).not.toBeNull()`, which every icon in icons.ts satisfies.",
+      "suggestedFix": "Assert the button's polygon `points` attribute equals the bolt's points from icons.ts ('14,2 4,14 11,14 9,22 20,9 13,9'), or compare its innerHTML with `icon('bolt', 'ui-tc__icon').outerHTML`."
+    }
+  ],
+  "rulings": [
+    {
+      "id": "R2-1",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R2-1.test.ts",
+      "trace": "Ran `pnpm vitest run --config vitest.config.ts tests/verify/R2-1.test.ts`. The test calls createGame(root), focuses the start screen's primary RACE button, and dispatches cancelable Space keydown and keyup events that bubble. It fails at `expect(down.defaultPrevented).toBe(false)` (received true): keyboard.ts:52-57 calls preventDefault on every Space keydown on window, and :64 does the same for the matching keyup. game.ts creates the input once with no mode or pause gating.",
+      "reason": "A browser activates a focused button on Space through the keydown/keyup default action. That default is now cancelled on every screen, so Space no longer presses RACE, RESUME or NEXT RACE. On main, Space was not handled at all."
+    },
+    {
+      "id": "R2-2",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R2-2.test.ts",
+      "trace": "Ran the test. It starts Dust Bowl (seed 1, PLAYER_CAR_COUNT) and plays bot inputs from a twin world until racers[0].armed is true. Then it sends Esc (paused true), Space keydown and keyup on window, and Esc again (paused false), then runs 3 frames. It fails at `expect(boostTicks).toBe(0)`, received 88. The tap latched actionTapped while paused (keyboard.ts:55), and setPaused's resume branch (game.ts:171-173) never calls input.reset(), so the first input.read() after resume carries action: true.",
+      "reason": "A Space press made on the pause screen fires the boost right after resume. Resetting the input on resume fixes it."
+    },
+    {
+      "id": "R2-3",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "grep for decodeInputs/replayInputs in src: the only consumers are replay.ts:134 (length validation) and runReplay at :147, which passes frames straight to stepWorld. stepWorld reads input.action, and the non-enumerable property returns true. pickup-replay.test.ts already proves runReplay matches the live run.",
+      "reason": "No code in the repo spreads, serialises or clones decoded frames, so the claimed divergence is hypothetical. The non-enumerable property meets AC6 while keeping the existing append-only test replay.test.ts:63 passing, and the proposed API change goes beyond the spec."
+    },
+    {
+      "id": "R2-4",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R2-4.test.ts",
+      "trace": "Ran the test: createRaceUi, reset, then sync the same pickup RaceView (pickups:[true], racers with armed:false and boostTicks:0) twice, with a MutationObserver on document.body during the second sync. Two mutation records come back, both targeting 'ui-panel ui-panel--navy ui-keys__panel'. They come from keycap-legend.ts:63-65, where setPowerUp(true) calls panel.insertBefore(powerUp, pause) unguarded on every sync (race-ui.ts:151).",
+      "reason": "On pickup tracks every frame removes and re-inserts the POWER-UP node, which breaks the 'unchanged frame touches no DOM' contract that race-ui.test.ts enforces for other tracks."
+    },
+    {
+      "id": "R3-1",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "pickups.stage.ts:11 calls raceStage(root,{...racers, at: AT}). raceStage (stage.ts:113-116) builds the view {phase,countdown,raceTick,racers}, computes cars with o.at.map(a => carOnTrack(track.centre,a)) and syncs. pickups.stage.ts:13-14 then calls stageTrack() again, rebuilds the same view literal with pickups added, recomputes the same cars with AT.map(a => carOnTrack(centre,a)) and syncs a second time. RaceStageOptions (stage.ts:86-97) has no pickups field, which is why the stage copies the code. The first sync runs legend.setPowerUp(false) and touch.setAction on the same racers, so the stage passes through a state with no POWER-UP keycap.",
+      "reason": "The stage re-implements raceStage's view and car building only to add `pickups`. An optional pickups option on RaceStageOptions does the same job without the copy or the double sync."
+    },
+    {
+      "id": "R4-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Same root cause and location as R2-4 (keycap-legend.ts setPowerUp re-inserting on every sync).",
+      "reason": "duplicate of R2-4"
+    },
+    {
+      "id": "R5-1",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "world.ts:152-153 sets r.armed = i===0 && p.armed and r.boostTicks = i===0 ? p.boostTicks : 0. Tests: pickups.test.ts:104-123 (the only one asserting armed false on AI racers) steers the player off into the infield and parks it (offTrack, then NO_INPUT), so p.armed stays false and `r.armed` would be false even after the mutation `r.armed = p.armed`. pickups.test.ts:79-101 (carCount 2) and pickup-replay.test.ts:37-56 (carCount 3) only read racers[0]. pickups.test.ts:164 strips armed and boostTicks before comparing. boost.test.ts:18 uses carCount 1. No test asserts AI racer views while the player is armed or boosting.",
+      "reason": "AC2's 'AI racer views always show armed false' is never checked in the one situation where it can fail, so leaking the player's state into AI views would pass every test."
+    },
+    {
+      "id": "R5-2",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "pickups.test.ts:66-69 only asserts Math.hypot(p.x-cx, p.z-cz) < |lateral|+1.5. If track.ts:382 returned {x:p.x, z:p.z} (lateral dropped), the distance would be about 0 < 3.5+1.5 and the test would pass. Flipping the sign of lateral gives the same distance and would pass too. No other test checks the lateral offset against an independent expectation: pickups-scene.test.ts compares meshes with trackLayout's own output.",
+      "reason": "AC1's 'one world {x,z} per pickup' is not pinned down. Collapsed or mirrored lateral offsets would pass every test."
+    },
+    {
+      "id": "R5-3",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "touch-controls.css:35-40 places .ui-touch__slot--action at right: safe-right + (touch-gas - touch-action)/2 and bottom: safe-bottom + touch-gas + space-s3, which is centred above GAS. action-button.test.ts proves the button exists inside .ui-touch and the stage renders it.",
+      "reason": "The layout is correct today. It is purely visual, the screenshots and the registered stage cover it, and CLAUDE.md asks visual features only for a test that proves the element exists. A coverage nicety, not a defect."
+    },
+    {
+      "id": "R5-4",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "action-button.test.ts AC8 asserts only `b?.querySelector('svg polygon')).not.toBeNull()`. icons.ts:7-19 draws every icon (play, pause, restart, arrows, home, keys) from polygons, so replacing icon('bolt',…) with icon('play',…) at touch-controls.ts:41 would still pass. Only 'bolt' has the points '14,2 4,14 11,14 9,22 20,9 13,9'.",
+      "reason": "AC8 explicitly requires the lightning icon, and the test that claims to check it accepts any icon."
+    }
+  ],
+  "fixes": [
+    {
+      "id": "R2-1",
+      "status": "fixed",
+      "summary": "Changed src/input/keyboard.ts onDown. A Space keydown whose target is inside a button, link or form field (new INTERACTIVE selector) is now left alone when Space isn't already held: no preventDefault and no action latch. The browser's own Space activation of the focused RACE, RESUME or NEXT RACE button works again. onUp is unchanged. It only prevents a keyup whose keydown was handled, so this ignored keydown leaves its keyup alone too. A Space held from the race into a newly shown overlay is still latched, so its keyup is still prevented and can't click NEXT RACE by accident. Space anywhere else (body/window, e.g. during a race) still calls preventDefault and fires the power-up as before, so the AC7 tests, replays and sim are unaffected. New test tests/input/space-on-button.test.ts covers two cases: (1) the verifier's game-level repro, Space keydown and keyup on the focused start-screen RACE button are not defaultPrevented; (2) createKeyboard(window) doesn't report actionPressed for Space on a button but still does, with preventDefault, for Space on body. Both failed before the fix and pass after it. pnpm typecheck is clean and pnpm test passes: 111 files, 745 tests.",
+      "tests": [
+        "tests/input/space-on-button.test.ts"
+      ],
+      "commit": "db7e9f8d81bfacd87f0dcd9541415253b32db67f",
+      "kept": true
+    },
+    {
+      "id": "R5-1",
+      "status": "fixed",
+      "summary": "This was a gap in the tests, not a bug in the game code: world.ts already gives only car 0 the armed/boostTicks values, but no test checked the AI racer views while the player was armed or boosting. So I changed no src code and added one new test, tests/sim/pickup-ai-views.test.ts. It runs Dust Bowl with 3 cars, all driven by their bots. Once the player has been armed for at least 30 ticks, it fires action once. On every tick it checks that racers.slice(1) all have armed === false and boostTicks === 0. It also checks that the boost was fired and that at least one tick had racers[0].armed true and one had racers[0].boostTicks > 0. Red/green: it passes on the current code. With world.ts:152 changed to `r.armed = p.armed` it fails ('tick 260: expected true to be false'). With :153 changed to `r.boostTicks = p.boostTicks` it fails ('tick 290: expected 90 to be +0'). I put world.ts back after each mutation and confirmed with diff that it is unchanged. pnpm typecheck passes and pnpm test passes (112 files, 746 tests).",
+      "tests": [
+        "tests/sim/pickup-ai-views.test.ts"
+      ],
+      "commit": "49c6844589141d60ec97371e7bfc507b0075b85a",
+      "kept": true
+    },
+    {
+      "id": "R5-2",
+      "status": "fixed",
+      "summary": "The finding is about weak tests, not a code bug. The lateral offset in `src/sim/track.ts` is already correct: (cos h, sin h)·lateral points right of the driving direction (sin h, −cos h), the same convention as propRows' 'right' side. So I changed nothing in `src/`.\n\nI added one new test file, `tests/sim/pickup-lateral.test.ts`, that pins the offset down using only the public sim API (`validateTrack`, `trackLayout`):\n- On validated copies of Dust Bowl and Bramble Bends, it adds pickups at at=0.5 with lateral +3 and −3, plus one with lateral 0. It checks:\n  - the two side boxes are 6 ± 0.05 apart;\n  - their midpoint is within 1.5 of the centreline;\n  - the +3 box is 3 from the midpoint, on the right of the centreline direction (taken from neighbouring centre samples, dot with (−dz, dx) > 2.9) and nearly perpendicular to it;\n  - the lateral-0 box sits on the centreline.\n- On Dust Bowl's own data, it checks that boxes in the same row are |Δlateral| apart (3.5 / 7).\n\nRed/green: the mutation that drops the lateral offset (`{x: p.x, z: p.z}`) fails all 3 tests. The one that flips its sign fails the 2 side-checking tests. With the real code all 3 pass. `pnpm typecheck` is clean and `pnpm test` passes: 113 files, 749 tests.",
+      "tests": [
+        "tests/sim/pickup-lateral.test.ts"
+      ],
+      "commit": "0cdf9bf8e9c7836033c67599b64518cca5b1b7ed",
+      "kept": true
+    },
+    {
+      "id": "R2-2",
+      "status": "fixed",
+      "summary": "In src/game.ts, the resume branch of setPaused now calls input.reset() before ui.resume() and startLoop(), as the pause branch already does. Before this, a Space keydown on the pause card set the keyboard's actionTapped latch. Resuming never cleared it, so the first input.read() after resume returned action: true and fired an armed player's boost. Resetting on resume clears every latch and key pressed while paused. The sim, physics and replays are unchanged. Added tests/game/pause-action-latch.test.ts, the verifier's test. It arms car 0 on Dust Bowl, then sends Esc, Space down/up and Esc, runs 3 frames and expects boostTicks 0 and armed still true. It failed before the fix (boostTicks 88) and passes after. pnpm typecheck passes, and pnpm test passes (114 files, 750 tests).",
+      "tests": [
+        "tests/game/pause-action-latch.test.ts"
+      ],
+      "commit": "6aabd927666e39954dee7ff688b1ef56e6bb5ec8",
+      "kept": true
+    },
+    {
+      "id": "R2-4",
+      "status": "fixed",
+      "summary": "Fixed. In src/ui/keycap-legend.ts, setPowerUp now tracks its state in a `powerUpOn` flag and returns early when the value hasn't changed. This is the same pattern setFirstLap already uses. Before the fix, race-ui's per-frame `legend.setPowerUp(view.pickups !== undefined)` ran `panel.insertBefore(powerUp, pause)` on every sync, which removed and re-inserted the SPACE · POWER-UP item every frame on pickup tracks. Now an unchanged frame touches no DOM. Visible behaviour is the same: the item is still inserted before PAUSE when pickups appear and removed when they don't. New test tests/ui/power-up-legend-idle.test.ts: (1) the verifier's MutationObserver test. It failed before the fix with two childList records on `ui-keys__panel` and passes after. (2) A check that the legend still reads STEER, GAS, BRAKE, POWER-UP, PAUSE after repeated pickup syncs and drops POWER-UP after a reset to a view without pickups. pnpm typecheck is clean and pnpm test passes (115 files, 752 tests).",
+      "tests": [
+        "tests/ui/power-up-legend-idle.test.ts"
+      ],
+      "commit": "5e5a5113626a12f02be548b0de6163f247b2c8df",
+      "kept": true
+    },
+    {
+      "id": "R3-1",
+      "status": "fixed",
+      "summary": "Added an optional `pickups?: boolean[]` to RaceStageOptions (src/ui/stages/stage.ts). raceStage spreads `...(o.pickups && { pickups: o.pickups })` into the RaceView it syncs, so views without the option are unchanged. src/ui/stages/pickups.stage.ts now makes one call, raceStage(root, { ..., at: AT, pickups: [true, false, true] }). It no longer calls stageTrack() a second time, rebuilds cars with carOnTrack, or syncs a second copied view, and the unused stageTrack/carOnTrack imports are gone. The stage now renders in one sync with no in-between state lacking the POWER-UP keycap, and its final screen is the same as before. New test tests/ui/race-stage-pickups.test.ts: on a desktop pointer, raceStage with `pickups` shows the legend STEER, GAS, BRAKE, POWER-UP, PAUSE, and without the option STEER, GAS, BRAKE, PAUSE. It failed before the fix (raceStage dropped pickups) and passes after. pnpm typecheck is clean and pnpm test passes (116 files, 753 tests).",
+      "tests": [
+        "tests/ui/race-stage-pickups.test.ts"
+      ],
+      "commit": "f2f3a3ca2e434464e1cc413ba3c57263b938e07d",
+      "kept": true
+    },
+    {
+      "id": "R5-4",
+      "status": "fixed",
+      "summary": "The finding is about how strong the test is, not about the code. touch-controls.ts already draws icon('bolt'), but the existing AC8 test only checks that the button has some `svg polygon`, and every icon has one. I left src/ unchanged and added tests/ui/action-button-icon.test.ts. It syncs a pickup RaceView into the race UI (unarmed, then armed), finds the button by its accessible name \"Boost\", and checks that its SVG polygons are exactly ['14,2 4,14 11,14 9,22 20,9 13,9'], the lightning bolt's points. Red/green: with the verifier's mutation applied (icon('bolt') → icon('play') at touch-controls.ts:41) the new test fails. After putting the line back it passes. pnpm typecheck passes, and pnpm test passes (117 files, 754 tests).",
+      "tests": [
+        "tests/ui/action-button-icon.test.ts"
+      ],
+      "commit": "f5a47fe75bce218701337a2a32c00e334226a4e6",
+      "kept": true
+    }
+  ],
+  "notes": [],
+  "checked": {
+    "R1": 11,
+    "R2": 10,
+    "R3": 11,
+    "R4": 8,
+    "R5": 10
+  }
+}

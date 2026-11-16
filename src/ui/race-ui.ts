@@ -1,5 +1,5 @@
-// The race screen's UI (HUD, countdown, touch controls, the desktop keycap legend, results and pause
-// screens), driven once per frame from sim views. One HudState is kept and updated in place, so a
+// The race screen's UI (HUD, countdown, touch controls with the Boost button on pickup tracks, the
+// desktop keycap legend, results and pause screens), driven once per frame from sim views. One HudState is kept and updated in place, so a
 // frame where nothing changed allocates nothing here and the HUD touches no DOM.
 import { tokens, type PaletteName } from '@tokens';
 import { TICK_HZ, type CarView, type RaceView } from '../sim/types.ts';
@@ -189,6 +189,9 @@ export function createRaceUi(root: HTMLElement, opts: RaceUiOptions): RaceUi {
       }
       hud.update(state);
       legend.setFirstLap(firstLap);
+      // Pickup tracks only: their views carry `armed` and `pickups`.
+      touch.setAction(me?.armed ?? null);
+      legend.setPowerUp(view.pickups !== undefined);
       hud.newBest(newBestPhase(view.raceTick));
       hud.events(eventMotion(posEvents, posTick, view.raceTick), eventMotion(lapEvents, lapTick, view.raceTick));
 

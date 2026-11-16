@@ -36,6 +36,13 @@ export const SURFACES: Readonly<Record<Surface, SurfaceTuning>> = {
   grass: { topSpeed: 15, accel: 20, grip: 14, coastDecel: 8, coastDrag: 0.25 },
 };
 
+/** Engine top speed while boosting (a fired pickup, pickups.ts), on any surface. */
+export const BOOST_TOP_SPEED = 32;
+const BOOSTED: Readonly<Record<Surface, SurfaceTuning>> = {
+  dirt: { ...SURFACES.dirt, topSpeed: BOOST_TOP_SPEED },
+  grass: { ...SURFACES.grass, topSpeed: BOOST_TOP_SPEED },
+};
+
 export const CAR_TUNING = {
   /** Braking deceleration, units/s². */
   brake: 40,
@@ -261,15 +268,15 @@ function longitudinal(vf: number, input: CarInput, s: SurfaceTuning): number {
 /**
  * Advances every car by one tick (mutating them): inputs change each car's velocity, then all cars
  * move together so they collide with props and with each other, then heights and track positions
- * update.
+ * update. Car `boosted` (if any; −1 = none) drives with BOOST_TOP_SPEED this tick.
  */
-export function stepCars(cars: readonly CarState[], inputs: readonly CarInput[], track: Track): void {
+export function stepCars(cars: readonly CarState[], inputs: readonly CarInput[], track: Track, boosted = -1): void {
   let steps = 1;
   for (let k = 0; k < cars.length; k++) {
     const car = cars[k] as CarState;
     start[k * 3] = car.x;
     start[k * 3 + 1] = car.z;
-    applyInput(car, inputs[k] as CarInput);
+    applyInput(car, inputs[k] as CarInput, k === boosted);
     const travel = Math.hypot(car.vx, car.vz) * DT;
     start[k * 3 + 2] = travel;
     steps = Math.max(steps, Math.ceil(travel / CAR_TUNING.maxSubstep));
@@ -287,10 +294,10 @@ export function stepCars(cars: readonly CarState[], inputs: readonly CarInput[],
 
 /** Engine, brakes, steering and grip for one tick. In the air, steering and throttle do nothing and
  * the car follows a ballistic arc until it lands. */
-function applyInput(car: CarState, input: CarInput): void {
+function applyInput(car: CarState, input: CarInput, boosted: boolean): void {
   const T = CAR_TUNING;
   if (!car.airborne) {
-    const surf = SURFACES[car.surface];
+    const surf = (boosted ? BOOSTED : SURFACES)[car.surface];
     let fx = Math.sin(car.heading);
     let fz = -Math.cos(car.heading);
     const vf0 = car.vx * fx + car.vz * fz;

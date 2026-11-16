@@ -1,7 +1,8 @@
 // Keycap legend (UI_RULES §5, desktop mockup): bottom-left navy panel with the keyboard controls,
-// shown on desktop during the player's first lap only. There is no power-up binding yet, so no
-// SPACE key. Once lap 1 is done it slides down off the bottom-left edge. Arrows are SVG icons on the
-// keycaps (glyph arrows are not in the font subset).
+// shown on desktop during the player's first lap only. On pickup tracks it also lists SPACE ·
+// POWER-UP (a mustard keycap, before PAUSE); elsewhere there is no power-up, so no SPACE key. Once
+// lap 1 is done it slides down off the bottom-left edge. Arrows are SVG icons on the keycaps (glyph
+// arrows are not in the font subset).
 import './components.css';
 import './keycap-legend.css';
 import { h } from './dom.ts';
@@ -12,9 +13,11 @@ export interface KeycapLegend {
   readonly element: HTMLElement;
   /** Whether the player is on the first lap; the legend shows only then, and only on desktop. */
   setFirstLap(firstLap: boolean): void;
+  /** Whether the track has pickups: lists SPACE · POWER-UP. */
+  setPowerUp(on: boolean): void;
 }
 
-const key = (glyph: Node | string, primary = false): HTMLElement => h('span', `ui-panel ui-panel--cream ui-keycap${primary ? ' ui-keycap--primary' : ''}`, [glyph]);
+const key = (glyph: Node | string, variant = ''): HTMLElement => h('span', `ui-panel ui-panel--cream ui-keycap${variant && ` ui-keycap--${variant}`}`, [glyph]);
 
 const item = (keys: HTMLElement[], label: string): HTMLElement => h('div', 'ui-keys__item', [...keys, h('span', 'ui-label ui-keys__label', [label])]);
 
@@ -24,17 +27,20 @@ export function createKeycapLegend(root: HTMLElement): KeycapLegend {
     'ui-panel ui-panel--navy ui-keys__panel',
     [
       item([key(icon('key-left')), key(icon('key-right'))], 'STEER'),
-      item([key(icon('key-up'), true)], 'GAS'),
+      item([key(icon('key-up'), 'primary')], 'GAS'),
       item([key(icon('key-down'))], 'BRAKE'),
       item([key('ESC')], 'PAUSE'),
     ],
     { role: 'group', 'aria-label': 'Keyboard controls' },
   );
+  const pause = panel.lastElementChild as HTMLElement;
+  const powerUp = item([key('SPACE', 'pickup')], 'POWER-UP');
   const element = h('div', 'ui-layer ui-keys', [panel], { hidden: '' });
   root.append(element);
 
   let desktop = false;
   let firstLap = false;
+  let powerUpOn = false;
   // Off desktop the legend cuts; after lap 1 it slides out (keycap-legend.css), so `is-out` and
   // aria-hidden flip at once while the panel animates.
   const update = (): void => {
@@ -54,6 +60,12 @@ export function createKeycapLegend(root: HTMLElement): KeycapLegend {
       if (on === firstLap) return;
       firstLap = on;
       update();
+    },
+    setPowerUp(on) {
+      if (on === powerUpOn) return;
+      powerUpOn = on;
+      if (on) panel.insertBefore(powerUp, pause);
+      else powerUp.remove();
     },
   };
 }

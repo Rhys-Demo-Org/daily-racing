@@ -8,7 +8,8 @@
 //   │           blob shadows (ground meshes, no hull)
 //   ├─ props    static: one 'prop-cell' toon mesh per CELL_SIZE world cell holding every prop and ramp
 //   │           in it, userData.props = [{ kind, x, z }] (kind is a PropKind or 'ramp')
-//   ├─ shadows  'car-shadow' × cars (ground meshes, no hull)
+//   ├─ pickups  one 'pickup' toon mesh per layout pickup, in order; hidden while it is taken
+//   ├─ shadows  'car-shadow' × cars, then 'pickup-shadow' × pickups (ground meshes, no hull)
 //   ├─ cars     one Group per car (userData.kind = 'car'), body mesh, roof roundel + player ▼ marker
 //   └─ dust     pooled puffs
 // Static geometry is baked in world space, so static objects never update their matrices.
@@ -20,7 +21,7 @@ import { createDust } from './dust.ts';
 import { MeshBuilder } from './geometry.ts';
 import { createMaterials } from './materials/index.ts';
 import { groundMesh, mergePlaced, solidMesh } from './outline.ts';
-import { addRamp, chamferedRect, placeShadow, PROPS, rampShadow, SHADOW_OFFSET_PER_HEIGHT, type ShadowShape } from './props.ts';
+import { addRamp, chamferedRect, PICKUP, placeShadow, PROPS, rampShadow, SHADOW_OFFSET_PER_HEIGHT, type ShadowShape } from './props.ts';
 import { pixelRatio } from './renderer.ts';
 import { buildGroundChunks, LAYER } from './track.ts';
 
@@ -35,9 +36,10 @@ export interface RaceScene {
    * `clearHalfWidthPx` (while the countdown is on screen: its half width in CSS px, else 0) frames
    * the player west of the screen centre, clear of the centred roundel (countdownOffsetEast), scaled
    * by `framing` (1 → 0 as it glides out, countdownFraming); the follow smoothing eases between
-   * framings, and snapCamera() jumps to the latest one.
+   * framings, and snapCamera() jumps to the latest one. `pickups` (RaceView.pickups) shows each
+   * pickup box and its shadow while its entry is true; without it they stay as they are.
    */
-  update(cars: readonly CarView[], dtSeconds: number, clearHalfWidthPx?: number, framing?: number): void;
+  update(cars: readonly CarView[], dtSeconds: number, clearHalfWidthPx?: number, framing?: number, pickups?: readonly boolean[]): void;
   /** Jumps the camera to the player with no smoothing (race start, after a reset). */
   snapCamera(): void;
   /** Forgets the previous race (camera velocity, framing, dust) so a reused scene starts like a new one. */
@@ -82,6 +84,7 @@ export function createRaceScene(layout: TrackLayout, liveries: readonly CarLiver
   };
   const track = group('track');
   const props = group('props');
+  const pickups = group('pickups');
   const shadows = group('shadows');
   const carsGroup = group('cars');
 
@@ -125,6 +128,19 @@ export function createRaceScene(layout: TrackLayout, liveries: readonly CarLiver
   shadows.add(...carShadows);
   carsGroup.add(...cars.map((c) => c.root));
 
+  // Pickups toggle visibility, so each is its own mesh (sharing one geometry) with its own shadow.
+  const pickupGeo = PICKUP.add(new MeshBuilder()).build();
+  const pickupShadowGeo = new MeshBuilder().ground(placeShadow(PICKUP.shadow, 0, 0, 0), 0, 'ink').build();
+  const pickupShadows = layout.pickups.map((p) => {
+    const box = solidMesh(pickupGeo, mats, 'pickup');
+    box.position.set(p.x, LAYER.ground, p.z);
+    pickups.add(box);
+    const shadow = groundMesh(pickupShadowGeo, mats, 'pickup-shadow', LAYER.shadow);
+    shadow.position.set(p.x, LAYER.shadow, p.z);
+    shadows.add(shadow);
+    return shadow;
+  });
+
   const dust = createDust(mats, 1);
   scene.add(dust.mesh);
 
@@ -153,7 +169,13 @@ export function createRaceScene(layout: TrackLayout, liveries: readonly CarLiver
     scene,
     camera: rig.camera,
     cars,
-    update(views, dt, clearHalfWidthPx = 0, framing = 1) {
+    update(views, dt, clearHalfWidthPx = 0, framing = 1, present) {
+      if (present) {
+        pickups.children.forEach((box, i) => {
+          box.visible = present[i] !== false;
+          (pickupShadows[i] as Mesh).visible = box.visible;
+        });
+      }
       for (let i = 0; i < cars.length; i++) {
         const v = views[i];
         const s = carShadows[i] as Mesh;

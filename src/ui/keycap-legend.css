@@ -26,6 +26,13 @@
   gap: var(--space-s2);
 }
 
+/* SPACE · POWER-UP (pickup tracks): mustard = pickups, ink text; wider like a space bar. */
+.ui-keycap--pickup {
+  padding: 0 var(--space-s4);
+  background: var(--color-mustard);
+  color: var(--color-ink);
+}
+
 .ui-keys__label {
   margin-left: var(--space-s1);
   font-size: var(--type-label-size-desktop);

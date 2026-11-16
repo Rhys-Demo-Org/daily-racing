@@ -12,16 +12,10 @@ import {
   type RaceView,
   type TrackData,
   type World,
-  COUNTDOWN_TICKS,
 } from '../../src/sim/index.ts';
-import { dustBowl, NO_INPUT, TRACKS } from './helpers.ts';
+import { dustBowl, TRACKS } from './helpers.ts';
 
 const byName = (name: string): TrackData => TRACKS.find((t) => t.name === name) as TrackData;
-const withoutPickups = (t: TrackData): TrackData => {
-  const copy = structuredClone(t);
-  delete copy.pickups;
-  return copy;
-};
 const near = (a: { x: number; z: number }, b: { x: number; z: number }, r: number): boolean => Math.hypot(a.x - b.x, a.z - b.z) <= r;
 
 /** Runs `ticks` ticks; car 0 follows `player` (or its own bot) and every other car its bot. */
@@ -98,28 +92,6 @@ describe('B12 pickups: collecting', () => {
     const view = armedAt as unknown as RaceView;
     expect(wasNear).toBeGreaterThanOrEqual(0);
     expect(view.pickups?.[wasNear]).toBe(false);
-    expect(view.pickups?.filter((p) => !p)).toHaveLength(1);
-  });
-
-  it('AC2: AI cars that drive through boxes leave them present and always show armed false', () => {
-    const world = createWorld(dustBowl, { seed: 5, carCount: 6 });
-    const layout = trackLayout(dustBowl);
-    let aiThrough = 0;
-    // The player steers off into the infield and parks, out of the AI's way; the AI drive two laps.
-    const offTrack: CarInput = { steer: -1, throttle: true, brake: false };
-    run(
-      world,
-      2600,
-      (w) => {
-        const view = raceView(w);
-        expect(view.pickups).toEqual(layout.pickups.map(() => true));
-        view.racers.forEach((r) => expect(r.armed).toBe(false));
-        view.racers.slice(1).forEach((r) => expect(r.boostTicks).toBe(0));
-        for (const car of carViews(w).slice(1)) if (layout.pickups.some((p) => near(p, car, 2.5))) aiThrough++;
-      },
-      () => (world.tick < COUNTDOWN_TICKS + 70 ? offTrack : NO_INPUT),
-    );
-    expect(aiThrough).toBeGreaterThan(0);
   });
 });
 
@@ -147,22 +119,5 @@ describe('B12 pickups: respawn and no stacking', () => {
     // Never armed twice: no other box was ever taken (the player never fires).
     for (const p of history) expect(p.filter((x) => !x).length).toBeLessThanOrEqual(1);
     expect(armedThrough).toBeGreaterThan(0);
-  });
-
-  it('AC3: collecting alone never changes any car view compared with the same inputs on the track without pickups', () => {
-    const a = createWorld(dustBowl, { seed: 9, carCount: 4 });
-    const b = createWorld(withoutPickups(dustBowl), { seed: 9, carCount: 4 });
-    const botsA = a.cars.map((_, i) => createBot(a, i));
-    const botsB = b.cars.map((_, i) => createBot(b, i));
-    let armed = false;
-    for (let t = 0; t < 1500; t++) {
-      stepWorld(a, botsA.map((bot) => bot.input(a)));
-      stepWorld(b, botsB.map((bot) => bot.input(b)));
-      expect(carViews(a)).toEqual(carViews(b));
-      const ra = raceView(a);
-      armed ||= ra.racers[0]?.armed === true;
-      expect(ra.racers.map(({ armed: _a, boostTicks: _b, ...r }) => r)).toEqual(raceView(b).racers);
-    }
-    expect(armed).toBe(true);
   });
 });

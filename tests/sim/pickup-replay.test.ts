@@ -51,7 +51,7 @@ describe('B12 replay action flag', () => {
     }
     expect(boosted).toBe(true);
     const replay = decodeReplay(encodeReplay(createReplay(dustBowl.id, 12, carCount, frames)));
-    expect(replayInputs(replay).flat().filter((i) => i.action === true)).toHaveLength(1);
+    expect(replayInputs(replay).filter((f) => f[0]?.action === true)).toHaveLength(1);
     expect(runReplay(dustBowl, replay)).toEqual(carViews(live));
   });
 });

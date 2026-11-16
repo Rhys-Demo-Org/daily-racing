@@ -95,6 +95,8 @@ export interface RaceStageOptions {
   storedBestMs?: number | null;
   /** Set for a pickup track: whether each pickup box is present. */
   pickups?: boolean[];
+  /** Laps in the race (default: the track's). */
+  laps?: number;
 }
 
 /** The race screen's UI (HUD, countdown, touch controls, results, pause) in one fixed race state. */
@@ -111,10 +113,19 @@ export function raceStage(root: HTMLElement, o: RaceStageOptions): RaceUi {
     ...(stored && { bestLaps: memoryBestLaps(stored) }),
   });
   const numbers = o.racers.map((_, i) => (i === 0 ? 1 : 3 + i * 4));
-  ui.reset(track.laps, track.outline, carColours(o.racers.length), { ...(stored && { trackId: track.id }), trackName: track.name, carNumbers: numbers });
+  ui.reset(o.laps ?? track.laps, track.outline, carColours(o.racers.length), { ...(stored && { trackId: track.id }), trackName: track.name, carNumbers: numbers });
+  return syncStage(ui, o);
+}
+
+/** A race sync: one frame's race state, as raceStage() takes it. */
+export type RaceSync = Pick<RaceStageOptions, 'phase' | 'countdown' | 'raceTick' | 'racers' | 'at' | 'pickups'>;
+
+/** Pushes one more frame (`o`) into a stage's race UI, e.g. a tick after raceStage() for an event. */
+export function syncStage(ui: RaceUi, o: RaceSync): RaceUi {
+  const { centre } = stageTrack();
   ui.sync(
     { phase: o.phase, countdown: o.countdown, raceTick: o.raceTick, racers: o.racers, ...(o.pickups && { pickups: o.pickups }) },
-    o.at.map((a) => carOnTrack(track.centre, a)),
+    o.at.map((a) => carOnTrack(centre, a)),
   );
   return ui;
 }

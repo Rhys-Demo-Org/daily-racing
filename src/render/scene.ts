@@ -10,7 +10,7 @@
 //   │           in it, userData.props = [{ kind, x, z }] (kind is a PropKind or 'ramp')
 //   ├─ pickups  one 'pickup' toon mesh per layout pickup, in order; hidden while it is taken
 //   ├─ shadows  'car-shadow' × cars, then 'pickup-shadow' × pickups (ground meshes, no hull)
-//   ├─ cars     one Group per car (userData.kind = 'car'), body mesh + player ▼ marker
+//   ├─ cars     one Group per car (userData.kind = 'car'), body mesh, roof roundel + player ▼ marker
 //   └─ dust     pooled puffs
 // Static geometry is baked in world space, so static objects never update their matrices.
 import { Group, Matrix4, Scene, Vector2, type BufferGeometry, type Mesh, type PerspectiveCamera, type WebGLRenderer } from 'three';

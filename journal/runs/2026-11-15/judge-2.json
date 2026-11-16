@@ -1,0 +1,107 @@
+{
+  "pass": true,
+  "reasons": [],
+  "blind": {
+    "scores": {
+      "specMet": 9,
+      "styleMatch": 10,
+      "notBroken": 10,
+      "testsReal": 7,
+      "noSniffing": 10,
+      "scope": 10,
+      "noDuplication": 10
+    },
+    "overall": 9,
+    "verdict": "pass",
+    "failures": [
+      {
+        "axis": "testsReal",
+        "file": "tests/sim/car-pose-scratch.test.ts",
+        "claim": "The first test checks that allocation-free means 'no Array.prototype.push calls during carView', which is how the code is written, not what it does. A rewrite that allocates new arrays without push (a literal or map, like the old `ts.map`) would still pass. The second test (order independence across cars) is the meaningful one. Consider dropping the push monkeypatch, or replacing it with an equality check that compares carView output against known poses on a ramp frame.",
+        "evidence": "tests/sim/car-pose-scratch.test.ts:20-33 replaces Array.prototype.push and asserts `pushes` is 0. Main's `ts.map(...)` and object literals would not have been caught by this either."
+      },
+      {
+        "axis": "specMet",
+        "file": "src/sim/car.ts",
+        "claim": "The perf item's counts mostly went down, but groundUnderBody is still an allocation site on dust-bowl at about the same level. That is probably the inlined groundAt and not the removed arrays, but it is worth confirming that nothing in groundUnderBody still allocates.",
+        "evidence": "perf-main.json dust-bowl groundUnderBody 1865 B/frame vs perf-branch.json 1842. Hay-loop dropped 1322→852, bends dropped out of the top sites, visualPose (1173) and native `map` are gone, and total sampled allocs went down on all three tracks (36624→35495, 52395→49889, 31270→29242)."
+      }
+    ],
+    "plantedInstructions": [],
+    "summary": "All six chosen items are applied as the spec describes. C024: the render barrel no longer re-exports frameWidthFor, CameraRig, CarObject, DustPool, LIGHT_DIRECTION, TOON_STEPS or Materials, line 9 is deleted, countdownOffsetEast and the keep-list names stay, and the header comment is updated. C007: export is dropped from smoothNormals, CREASE_ANGLE_DEG, attachOutline, OUTLINE_PX_AT_844 and MaterialKind, and the branch inventory confirms they are gone. C042: groundUnderBody/visualPose now write into module scratch (bodyTs/bodyHs/bodyN, pose), with the same float operations in the same order. Bot laps and replays are exact, and sampled allocations dropped on every track, though a groundUnderBody site stays near main's level on dust-bowl. C011, C030 and C040 are comment-only fixes. All gates are green (P1/P2 identical, net src +16 is allowed for the perf item), there are no clones and no sniffing. The one new test file has a weak push-monkeypatch assertion next to a meaningful order-independence check."
+  },
+  "check": {
+    "claims": [
+      {
+        "claim": "C042 in src/sim/car.ts: groundUnderBody now writes by index with a local count (bodyTs[n++] = -half / 0 / half, then lip / foot in the same order), fills bodyHs[i] for i < n with the same groundAt call, and stores the count in a new module scratch `let bodyN` next to bodyTs/bodyHs.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch lines 187-212: n counter, bodyTs[n++] writes in the same order, a loop filling bodyHs[i] via groundAt(track, ..., ground).h, then bodyN = n. Module scratch bodyTs, bodyHs and `let bodyN = 0` added at lines 222-224."
+      },
+      {
+        "claim": "The old code did `bodyTs.length = 0` / `bodyHs.length = 0` followed by `push`, which let V8 free and reallocate the backing store on every call.",
+        "verdict": "unconfirmed",
+        "evidence": "The diff against main doesn't show this code. On main, groundUnderBody built a fresh `const ts = [-half, 0, half]` with ts.push and returned `hs: ts.map(...)` (lines 190-211). A length=0+push version would only have existed in an intermediate branch commit, which the diff can't show. Either way, the final code no longer allocates these arrays."
+      },
+      {
+        "claim": "visualPose loops `i < bodyN` / `j < bodyN` instead of `.length`, in both the airborne branch and the hull search.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch line 146 (airborne loop uses bodyN) and lines 157-163 (nested hull-search loops use bodyN)."
+      },
+      {
+        "claim": "The arrays keep their largest size, so in steady state no array is allocated.",
+        "verdict": "confirmed",
+        "evidence": "bodyTs/bodyHs are module-level and only written by index; there's no reset or literal in groundUnderBody. visualPose also writes a module `pose` object now instead of returning a new {y, pitch} (lines 147-148, 177-178, 225). The review doesn't mention this pose change."
+      },
+      {
+        "claim": "The same floats are computed in the same order, so replays and bot laps don't change.",
+        "verdict": "confirmed",
+        "evidence": "The ts order and the heights from groundAt are unchanged (diff lines 192-210). gates.md: G2 bot laps +0.0% on bends and dust-bowl; G3 5 replays reproduce main's end states exactly."
+      },
+      {
+        "claim": "Doc comments were updated to match (only the first bodyN entries are current).",
+        "verdict": "confirmed",
+        "evidence": "diff.patch lines 184-186 (groundUnderBody doc) and 220-221 (scratch comment: 'only the first `bodyN` are current'); visualPose doc adds 'Writes `pose`.'"
+      },
+      {
+        "claim": "New test tests/sim/car-pose-scratch.test.ts runs 6 bots on Dust Bowl and wraps Array.prototype.push while carView is called for every car each tick, expecting 0 pushes.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch lines 257-282: createWorld(dustBowl, { carCount: 6 }), 600 ticks after the countdown, Array.prototype.push wrapped around carView for each car, expect(pushes).toBe(0)."
+      },
+      {
+        "claim": "The test failed with 4680 pushes on the old length=0+push code and passes after the fix.",
+        "verdict": "unconfirmed",
+        "evidence": "There's no run output for the old code in the inputs. gates.md only shows that all tests pass on the branch."
+      },
+      {
+        "claim": "A second check confirms a car's view doesn't depend on which car was viewed before it, so stale scratch entries past bodyN are never read.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch lines 284-290 compare views computed in forward and in reverse order with toEqual."
+      },
+      {
+        "claim": "pnpm typecheck and pnpm test (105 files, 718 tests) pass.",
+        "verdict": "confirmed",
+        "evidence": "gates.md G1: typecheck and build ok, 718/718 tests passed (main 716, which matches the 2 added tests). The file count isn't shown."
+      },
+      {
+        "claim": "The judge's allocation probe couldn't be rerun, so the per-frame byte drop is not yet measured.",
+        "verdict": "unconfirmed",
+        "evidence": "This is a statement that something wasn't done. No measurement appears in the inputs."
+      },
+      {
+        "claim": "Kept: the gates pass with it.",
+        "verdict": "confirmed",
+        "evidence": "gates.md: Gates PASS for all of G1, G2, G3, G8, P1, P2 and M1."
+      },
+      {
+        "claim": "Reviewers R1–R5 ok; 2 findings, 0 verified, 2 dropped.",
+        "verdict": "unconfirmed",
+        "evidence": "Reviewer outputs aren't among the inputs."
+      }
+    ],
+    "newRules": [],
+    "plantedInstructions": [],
+    "summary": "The diff confirms what review.md says about the C042 fix in src/sim/car.ts. groundUnderBody now writes by index into the module scratch arrays bodyTs/bodyHs, keeps a count in bodyN, and computes the same values in the same order. visualPose loops to bodyN, and the new push-counting and order-independence tests are in the diff. Gates confirm determinism (G2 +0.0%, G3 exact) and the 718/718 test count. One claim can't be checked: the review describes the old code as `length = 0` + push, but main actually built a fresh `[-half, 0, half]` literal and called `ts.map`. That version probably existed only in an intermediate commit. The '4680 pushes' failure count and the unmeasured byte drop can't be checked either. The review also leaves out the new module `pose` object, which replaces visualPose's returned {y, pitch}, and the diff's other maintenance edits (dropped barrel exports, comment fixes in game.ts, scene.ts and world.ts). Those are omissions, not contradictions. CLAUDE.md and the other files agents load have no new or changed rules, and no input has text addressed to a judge, reviewer or AI that tries to steer the result."
+  },
+  "scan": [],
+  "newRules": []
+}

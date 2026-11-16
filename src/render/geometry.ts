@@ -159,7 +159,7 @@ export function paletteAttribute(indices: Uint8Array): BufferAttribute {
  * Per-position average of the distinct face normals touching it (positions merged at 1e-3).
  * Vertices at or after `solidCount` (decals) just keep their face normal.
  */
-export function smoothNormals(geo: BufferGeometry, solidCount: number): Float32Array {
+function smoothNormals(geo: BufferGeometry, solidCount: number): Float32Array {
   const pos = geo.getAttribute('position');
   const nrm = geo.getAttribute('normal');
   const out = new Float32Array(pos.count * 3);

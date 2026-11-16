@@ -16,7 +16,7 @@ import type { Materials } from './materials/index.ts';
 import { LAYER } from './track.ts';
 
 /** Faces meeting at more than this angle (degrees) get a crease line. */
-export const CREASE_ANGLE_DEG = 25;
+const CREASE_ANGLE_DEG = 25;
 
 export type RenderRole = 'toon' | 'flat' | 'ground' | 'hull' | 'crease';
 
@@ -81,7 +81,7 @@ export function mergePlaced(parts: readonly { geo: BufferGeometry; matrix: Matri
 }
 
 /** Adds an ink hull (and, unless `crease` is false, crease lines) as children of `mesh`. */
-export function attachOutline(mesh: Mesh, mats: Materials, opts: { crease?: boolean } = {}): Mesh {
+function attachOutline(mesh: Mesh, mats: Materials, opts: { crease?: boolean } = {}): Mesh {
   const g = outlineGeometries(mesh.geometry);
   const hull = new Mesh(g.hull, mats.hull);
   hull.userData.render = 'hull' satisfies RenderRole;

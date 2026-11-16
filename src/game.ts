@@ -14,6 +14,7 @@ import {
   createWorld,
   raceView,
   stepWorld,
+  trackLayout,
   type Bot,
   type CarInput,
   type CarView,
@@ -23,6 +24,7 @@ import {
 } from './sim/index.ts';
 import { COUNTDOWN_HALF_WIDTH, countdownFraming } from './ui/countdown.ts';
 import { createRaceUi } from './ui/race-ui.ts';
+import { playScreenChange } from './ui/screen-change.ts';
 import { createStartScreen } from './ui/start-screen.ts';
 
 /** At most this many sim ticks per animation frame; after a long stall the game slows instead of freezing. */
@@ -104,13 +106,24 @@ export function createGame(root: HTMLElement): Game {
   const renderer = createRenderer(canvas);
   // RESTART RACE (pause) and RETRY (results) are one action: a fresh race on the same track.
   const restart = (): void => game.startRace({ trackId: race?.track.id ?? menuTrack.id, carCount: PLAYER_CAR_COUNT });
+  /**
+   * A race entered from a menu button: the state changes at once under the chequer band. The band
+   * plays after the synchronous start, so its removal timer doesn't run during the scene build.
+   */
+  const enterRace = (trackId: string): void => {
+    game.startRace({ trackId, carCount: PLAYER_CAR_COUNT });
+    playScreenChange(root, 'chequer');
+  };
   const ui = createRaceUi(raceLayer, {
-    onRaceAgain: restart,
-    onNextRace: () => game.startRace({ trackId: nextTrackId(race?.track.id ?? menuTrack.id), carCount: PLAYER_CAR_COUNT }),
+    onRaceAgain: () => enterRace(race?.track.id ?? menuTrack.id),
+    onNextRace: () => enterRace(nextTrackId(race?.track.id ?? menuTrack.id)),
     onPause: () => setPaused(!paused),
     onResume: () => setPaused(false),
     onRestart: restart,
-    onQuit: () => game.showMenu(),
+    onQuit: () => {
+      playScreenChange(root, 'stripes');
+      game.showMenu();
+    },
   });
   const input = createInput({
     // Nothing on the race screen can be pressed through the pause overlay.
@@ -134,8 +147,8 @@ export function createGame(root: HTMLElement): Game {
   let scene: RaceScene | null = null;
 
   const startScreen = createStartScreen(menuLayer, {
-    onRace: () => game.startRace({ trackId: menuTrack.id, carCount: PLAYER_CAR_COUNT }),
-    subtitle: `${menuTrack.name} · ${menuTrack.laps} laps`,
+    onRace: () => enterRace(startScreen.selected() ?? menuTrack.id),
+    tracks: TRACKS.map((t) => ({ id: t.id, name: t.name, outline: trackLayout(t).centre.filter((_, i) => i % MINIMAP_STRIDE === 0) })),
   });
 
   function sceneFor(world: World, drivers: readonly Driver[]): RaceScene {
@@ -176,7 +189,7 @@ export function createGame(root: HTMLElement): Game {
   }
 
   function tick(r: Race, carInput: CarInput): void {
-    // After the finish the player's car coasts; the panel takes over the controls. The bots drive on.
+    // After the finish the player's car coasts; the results screen takes over the controls. The bots drive on.
     const finished = r.world.racers[0]?.finishTick != null;
     r.inputs[0] = finished ? NO_INPUT : carInput;
     for (let i = 0; i < r.bots.length; i++) r.inputs[i + 1] = (r.bots[i] as Bot).input(r.world);
@@ -291,6 +304,7 @@ export function createGame(root: HTMLElement): Game {
     showMenu() {
       setPaused(false);
       setMode('menu');
+      startScreen.select(menuTrack.id);
       startScreen.show();
     },
     state() {

@@ -93,6 +93,8 @@ export interface RaceStageOptions {
   at: number[];
   /** The track's stored best lap (ms, or null for none). Set it to keep best laps (in memory) so laps can set a new best. */
   storedBestMs?: number | null;
+  /** Set for a pickup track: whether each pickup box is present. */
+  pickups?: boolean[];
 }
 
 /** The race screen's UI (HUD, countdown, touch controls, results, pause) in one fixed race state. */
@@ -111,7 +113,7 @@ export function raceStage(root: HTMLElement, o: RaceStageOptions): RaceUi {
   const numbers = o.racers.map((_, i) => (i === 0 ? 1 : 3 + i * 4));
   ui.reset(track.laps, track.outline, carColours(o.racers.length), { ...(stored && { trackId: track.id }), trackName: track.name, carNumbers: numbers });
   ui.sync(
-    { phase: o.phase, countdown: o.countdown, raceTick: o.raceTick, racers: o.racers },
+    { phase: o.phase, countdown: o.countdown, raceTick: o.raceTick, racers: o.racers, ...(o.pickups && { pickups: o.pickups }) },
     o.at.map((a) => carOnTrack(track.centre, a)),
   );
   return ui;

@@ -25,6 +25,21 @@ export interface TrackData {
   propRows: PropRowData[];
   /** Individually placed props (scenery). */
   props: PropPointData[];
+  /** Power-up boxes the player can drive through to arm a boost. Optional: most tracks have none. */
+  pickups?: PickupData[];
+}
+
+export interface PickupData {
+  /** Position along the lap, as a fraction 0..1 of lap length. */
+  at: number;
+  /** Signed distance from the centreline in units; positive = right of the driving direction. */
+  lateral: number;
+}
+
+/** A placed pickup box, in world space. */
+export interface PickupInstance {
+  x: number;
+  z: number;
 }
 
 export interface RampData {
@@ -73,6 +88,8 @@ export interface CarInput {
   throttle: boolean;
   /** Brake, then reverse once stopped. */
   brake: boolean;
+  /** Fire the armed power-up (pickup tracks only). Present only when pressed. */
+  action?: boolean;
 }
 
 export type Surface = 'dirt' | 'grass';
@@ -110,6 +127,10 @@ export interface RacerView {
   finishTick: number | null;
   /** 1-based race position. */
   position: number;
+  /** Pickup tracks only: holding a power-up (always false for AI cars). */
+  armed?: boolean;
+  /** Pickup tracks only: ticks of boost left (0 when not boosting). */
+  boostTicks?: number;
 }
 
 export interface RaceView {
@@ -119,6 +140,8 @@ export interface RaceView {
   /** Ticks since GO (0 during the countdown). */
   raceTick: number;
   racers: RacerView[];
+  /** Pickup tracks only: one entry per layout pickup, true while the box is there to collect. */
+  pickups?: boolean[];
 }
 
 export const TICK_HZ = 60;
@@ -136,6 +159,8 @@ export interface TrackLayout {
   startHeading: number;
   ramps: RampInstance[];
   props: PropInstance[];
+  /** One per TrackData pickup, in the same order (empty without any). */
+  pickups: PickupInstance[];
 }
 
 export interface RampInstance {

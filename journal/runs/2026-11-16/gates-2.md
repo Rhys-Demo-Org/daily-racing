@@ -1,0 +1,10 @@
+# Gates: PASS
+
+Branch `db7e9f8d81bf` vs main `ed4049838563`, 18.0 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 17.6 s | typecheck, build ok; 745/745 tests passed (main 716) |
+| G2 Bot laps | pass | 1.6 s | bends 15.48 s (+0.0%), dust-bowl 17.70 s (+0.0%), hay-loop 53.61 s (new); worst step 0.406 |
+| G3 Physics replays | pass | 1.1 s | 5 replays reproduce main's end states (±0.000001) |
+| G8 Protected files | pass | 0.7 s | only allowed paths changed; manifest and tokens match |

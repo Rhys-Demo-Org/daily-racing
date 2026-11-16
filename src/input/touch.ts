@@ -4,9 +4,12 @@
 // different controls at once (steer + gas), and releasing one never releases another.
 import { tokens } from '@tokens';
 
-export type TouchControlId = 'left' | 'right' | 'gas' | 'brake';
+/** The driving controls, always on screen. */
+export type DriveControlId = 'left' | 'right' | 'gas' | 'brake';
+/** Plus the action (power-up) button, shown only on pickup tracks. */
+export type TouchControlId = DriveControlId | 'action';
 
-export const TOUCH_CONTROL_IDS: readonly TouchControlId[] = ['left', 'right', 'gas', 'brake'];
+export const TOUCH_CONTROL_IDS: readonly DriveControlId[] = ['left', 'right', 'gas', 'brake'];
 
 /** A control's drawn shape in client (viewport) pixels. */
 export type TouchZone =
@@ -19,7 +22,7 @@ export interface TouchListener {
   release(id: TouchControlId): void;
 }
 
-export type TouchState = Record<TouchControlId, boolean>;
+export type TouchState = Record<DriveControlId, boolean>;
 
 /** Distance from a point to a zone's drawn shape (0 inside). */
 function distance(z: TouchZone, x: number, y: number): number {
@@ -51,6 +54,8 @@ export interface TouchInputOptions {
 
 export interface TouchInput {
   state(): TouchState;
+  /** The action control is held, or was pressed since the last call (so a tap between reads counts). */
+  actionPressed(): boolean;
   /** Releases every held control (e.g. on window blur). */
   reset(): void;
   destroy(): void;
@@ -58,10 +63,12 @@ export interface TouchInput {
 
 export function createTouchInput(target: EventTarget, opts: TouchInputOptions): TouchInput {
   const held = new Map<number, TouchControlId>();
-  const counts: Record<TouchControlId, number> = { left: 0, right: 0, gas: 0, brake: 0 };
+  const counts: Record<TouchControlId, number> = { left: 0, right: 0, gas: 0, brake: 0, action: 0 };
+  let actionTapped = false;
 
   const grab = (id: TouchControlId): void => {
     counts[id]++;
+    if (id === 'action') actionTapped = true;
     if (counts[id] === 1) opts.listener?.press(id);
   };
   const drop = (id: TouchControlId): void => {
@@ -107,10 +114,16 @@ export function createTouchInput(target: EventTarget, opts: TouchInputOptions): 
   const reset = (): void => {
     for (const id of held.values()) drop(id);
     held.clear();
+    actionTapped = false;
   };
 
   return {
     state: () => ({ left: counts.left > 0, right: counts.right > 0, gas: counts.gas > 0, brake: counts.brake > 0 }),
+    actionPressed() {
+      const on = actionTapped || counts.action > 0;
+      actionTapped = false;
+      return on;
+    },
     reset,
     destroy() {
       reset();

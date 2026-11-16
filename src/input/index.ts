@@ -1,4 +1,5 @@
 // Combined player input: keyboard + on-screen touch controls + gamepad → one CarInput per sim step.
+// `action` (power-up) comes from Space or the action touch control and is present only when pressed.
 // Depends on the sim only for the CarInput type.
 import type { CarInput } from '../sim/types.ts';
 import { clampSteer, createConfirmEdge, readGamepads } from './gamepad.ts';
@@ -54,7 +55,11 @@ export function createInput(opts: InputOptions = {}): Input {
       const left = k.left || t.left;
       const right = k.right || t.right;
       const steer = clampSteer((right ? 1 : 0) - (left ? 1 : 0) + p.steer);
-      return { steer, throttle: k.gas || t.gas || p.gas, brake: k.brake || t.brake || p.brake };
+      const input: CarInput = { steer, throttle: k.gas || t.gas || p.gas, brake: k.brake || t.brake || p.brake };
+      // Both latches are read every time, so a tap is never carried into a later read.
+      const keyAction = keyboard.actionPressed();
+      if (touch.actionPressed() || keyAction) input.action = true;
+      return input;
     },
     confirmPressed: () => confirm.poll(),
     reset,

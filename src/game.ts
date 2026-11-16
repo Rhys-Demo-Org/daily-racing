@@ -169,6 +169,7 @@ export function createGame(root: HTMLElement): Game {
       input.reset();
       ui.pause();
     } else {
+      input.reset(); // drop anything pressed on the pause card, e.g. a Space tap latching the power-up
       ui.resume();
       startLoop();
     }
@@ -188,7 +189,7 @@ export function createGame(root: HTMLElement): Game {
     const view = raceView(r.world);
     interpolate(r.drawn, r.prev, r.curr, t);
     // The countdown sits in the screen centre; frame the player clear of it until GO! has gone, then glide back.
-    r.scene.update(r.drawn, dt, COUNTDOWN_HALF_WIDTH, countdownFraming(view));
+    r.scene.update(r.drawn, dt, COUNTDOWN_HALF_WIDTH, countdownFraming(view), view.pickups);
     r.scene.render();
     ui.sync(view, r.curr);
   }

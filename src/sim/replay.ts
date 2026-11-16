@@ -3,7 +3,8 @@
 // A replay records every stepWorld call from world creation, countdown included. For each tick and
 // each car (car-major within a tick) it stores two bytes:
 //   byte 0: steer as int8 two's complement, round(steer * 127), range −127..127
-//   byte 1: flags; bit0 throttle, bit1 brake, bit2 reserved for a future action button (0 today)
+//   byte 1: flags; bit0 throttle, bit1 brake, bit2 action (fire the power-up; only
+//           pickup tracks read it, so it is 0 in every recording made before pickups)
 // The bytes are base64-encoded (standard alphabet, with padding) inside a JSON envelope:
 //   { "version": 1, "track": "<track id>", "seed": n, "carCount": n, "ticks": n, "inputs": "<base64>" }
 import type { CarInput, CarView, TrackData } from './types.ts';
@@ -22,6 +23,7 @@ export interface Replay {
 
 const FLAG_THROTTLE = 1;
 const FLAG_BRAKE = 2;
+const FLAG_ACTION = 4;
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 /** Standard base64 with padding. Implemented here so it works the same in browsers and Node. */
@@ -70,7 +72,7 @@ export function encodeInputs(frames: readonly (readonly CarInput[])[], carCount:
       const at = (t * carCount + c) * 2;
       if (input === undefined) continue;
       bytes[at] = steerToInt8(input.steer) & 255;
-      bytes[at + 1] = (input.throttle ? FLAG_THROTTLE : 0) | (input.brake ? FLAG_BRAKE : 0);
+      bytes[at + 1] = (input.throttle ? FLAG_THROTTLE : 0) | (input.brake ? FLAG_BRAKE : 0) | (input.action ? FLAG_ACTION : 0);
     }
   });
   return bytesToBase64(bytes);
@@ -90,7 +92,11 @@ export function decodeInputs(text: string, ticks: number, carCount: number): Car
       const raw = bytes[at] as number;
       const flags = bytes[at + 1] as number;
       const steer = (raw > 127 ? raw - 256 : raw) / 127;
-      frame.push({ steer, throttle: (flags & FLAG_THROTTLE) !== 0, brake: (flags & FLAG_BRAKE) !== 0 });
+      const input: CarInput = { steer, throttle: (flags & FLAG_THROTTLE) !== 0, brake: (flags & FLAG_BRAKE) !== 0 };
+      // Non-enumerable, so frames still deep-equal what pre-pickup decoders gave (bit 2 used to be
+      // ignored) while `input.action` reads true and stepWorld fires.
+      if ((flags & FLAG_ACTION) !== 0) Object.defineProperty(input, 'action', { value: true, writable: true, configurable: true });
+      frame.push(input);
     }
     frames.push(frame);
   }

@@ -31,6 +31,13 @@
   width: var(--touch-brake);
   height: var(--touch-brake);
 }
+/* Action (pickup tracks only): centred over GAS, 12px above it. */
+.ui-touch__slot--action {
+  right: calc(var(--safe-right) + (var(--touch-gas) - var(--touch-action)) / 2);
+  bottom: calc(var(--safe-bottom) + var(--touch-gas) + var(--space-s3));
+  width: var(--touch-action);
+  height: var(--touch-action);
+}
 
 .ui-tc {
   display: flex;
@@ -81,6 +88,17 @@
 .ui-tc--brake {
   background: var(--color-navy);
 }
+/* Action: dirt roundel with a dark-dirt bolt until a pickup arms it (S1–S2), then mustard with an
+   ink bolt (mustard = pickups). Resting and pressed are shared with the other controls. */
+.ui-tc--action {
+  border-radius: var(--radius-round);
+  background: var(--color-dirt);
+  color: var(--color-dark-dirt);
+}
+.ui-tc--action.is-armed {
+  background: var(--color-mustard);
+  color: var(--color-ink);
+}
 
 /* Pressed: mustard, sink 3px onto a 1px shadow (60ms). */
 .ui-tc.is-pressed {
@@ -105,8 +123,10 @@
   transition: none;
 }
 
-/* Wake: fill cuts in at 0.9 and settles to 1 as the shadow grows 0 → 4px (120ms, stamp). */
-.ui-tc.is-waking {
+/* Wake: fill cuts in at 0.9 and settles to 1 as the shadow grows 0 → 4px (120ms, stamp). A pickup
+   pops the action button the same way. */
+.ui-tc.is-waking,
+.ui-tc.is-popping {
   animation: ui-tc-wake var(--duration-release) var(--ease-stamp);
 }
 @keyframes ui-tc-wake {
@@ -122,7 +142,8 @@
 
 /* Reduced motion: keep the press sink, cut the wake pop, and rest at once (retracting = resting). */
 @media (prefers-reduced-motion: reduce) {
-  .ui-tc.is-waking {
+  .ui-tc.is-waking,
+  .ui-tc.is-popping {
     animation: none;
   }
   .ui-tc.is-retracting {

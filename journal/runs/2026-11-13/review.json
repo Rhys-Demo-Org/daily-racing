@@ -1,0 +1,225 @@
+{
+  "reviewers": {
+    "R1": "ok",
+    "R2": "ok",
+    "R3": "ok",
+    "R4": "ok",
+    "R5": "ok"
+  },
+  "findings": [
+    {
+      "id": "R2-1",
+      "reviewer": "R2",
+      "severity": "major",
+      "file": "src/game.ts",
+      "line": 111,
+      "claim": "enterRace arms the 330 ms overlay-removal timer (via playScreenChange) before the synchronous game.startRace(). startRace builds the world and the Three.js scene and renders the first frame (shader compile), and the CSS sweep cannot start until that work ends. On a slow phone the chequer band is therefore cut short, or removed before it is ever painted (first RACE of a session, NEXT RACE onto another track).",
+      "evidence": "src/game.ts:110-113:\n  const enterRace = (trackId: string): void => {\n    playScreenChange(root, 'chequer');   // screen-change.ts:53 arms setTimeout(() => element.remove(), 330)\n    game.startRace({ trackId, carCount: PLAYER_CAR_COUNT });\n  };\nstartRace (game.ts:271-299) is synchronous: createWorld, sceneFor() -> createRaceScene (all track-chunk and prop-cell meshes with hull/crease, new materials; old scene disposed when track or car count changed), scene.resize, ui.reset, draw(race,1,0) -> scene.render() (the first WebGL draw of the session when RACE is pressed from the menu). The CSS wipe (animation: ui-screen-sweep var(--duration-wipe)) only starts at the first frame rendered after the click handler returns.\nTrace: t=0 tap RACE -> timer due at t=330; startRace blocks D ms; first paint of the overlay (animation t=0) at >=D; element.remove() fires at max(330, D). D=200 ms: band on screen for 130 of its 250 ms sweep and removed while the navy cover still hides the screen (it clears the right edge about 155-165 ms in), so the race pops in mid-sweep. D>=330 ms: removed before it is painted (or one navy frame). RETRY on the same track only calls scene.reset() and is cheap.\nRepro (Vitest, fake timers): mock createRaceScene as () => { vi.advanceTimersByTime(300); return {update(){},render(){},reset(){},resize(){},dispose(){}}; }, click RACE, then vi.advanceTimersByTime(30): [data-screen-change=\"chequer\"] is already gone, 30 ms after the race became visible. Expected: still on show for at least 250 ms after startRace returns.",
+      "suggestedFix": "In enterRace call game.startRace({ trackId, carCount: PLAYER_CAR_COUNT }) first and playScreenChange(root, 'chequer') after it. Both land in the same painted frame, and the 330 ms timer then starts after the synchronous start work. AC8's expectSweep still passes."
+    },
+    {
+      "id": "R2-2",
+      "reviewer": "R2",
+      "severity": "minor",
+      "file": "src/ui/start-screen.ts",
+      "line": 56,
+      "claim": "The track radiogroup's keydown handler moves the selection and calls preventDefault() for every ArrowLeft/Right/Up/Down, including with Alt, Ctrl or Meta held. src/input/keyboard.ts:41 deliberately ignores those events so browser shortcuts (Alt+Left, Cmd+Left = Back; Cmd+Up/Down = scroll) keep working; here they are swallowed and change the track instead.",
+      "evidence": "src/ui/start-screen.ts:56-62: group.addEventListener('keydown', (e) => { const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]; ... if (step === undefined || i < 0) return; e.preventDefault(); ... pick(next.id, true); }) has no modifier check. Repro: focus the first card, dispatch new KeyboardEvent('keydown', { key: 'ArrowLeft', altKey: true, bubbles: true, cancelable: true }) on it. Result: the selection wraps to the last card and the event is defaultPrevented, so the browser's Alt+Left Back never runs. Expected: ignored, as in keyboard.ts:41 `if (k.ctrlKey || k.metaKey || k.altKey) return;` (covered by tests/input/keyboard.test.ts:45).",
+      "suggestedFix": "At the top of the keydown handler add `if (e.altKey || e.ctrlKey || e.metaKey) return;`, the same guard as src/input/keyboard.ts:41."
+    },
+    {
+      "id": "R2-3",
+      "reviewer": "R2",
+      "severity": "minor",
+      "file": "src/ui/stages/screen-change.stage.ts",
+      "line": 10,
+      "claim": "The screen-change--stripes stage builds the real start screen without a bestLaps store, so its cards read the browser's real localStorage. A Stage must be deterministic (stage.ts:11), and start.stage.ts and raceStage (which only passes a trackId together with an in-memory store) avoid real storage.",
+      "evidence": "screen-change.stage.ts:10: createStartScreen(menuLayer(root), { onRace: () => {}, tracks: stageTrackCards() }).show(); -> start-screen.ts:32 `opts.bestLaps ?? localBestLaps`, and refreshBests() (called in show()) reads racer.bestLap.<id>. Repro (happy-dom): localStorage.setItem('racer.bestLap.bends', '40370'), render STAGES 'screen-change--stripes': the first card reads 'BEST 0:40.37' instead of 'BEST –:––.––', so the same stage renders differently depending on browser storage. The 1440x900 screenshot of this stage shows dashes only because harness/screens/capture.ts renders every stage before it plays any race in the same browser context (races write bests via race-ui). Opening the stage page in a profile with saved bests shows other content.",
+      "suggestedFix": "Pass `bestLaps: memoryBestLaps()` (or the `bests()` store used in start.stage.ts) in the stripes stage's createStartScreen options."
+    },
+    {
+      "id": "R3-1",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "src/ui/title.css",
+      "line": 93,
+      "claim": "The new `.ui-start__label` rule copies the existing `.ui-pause__title` rule in screens.css line for line. clones.md flags it (screens.css:83 = title.css:93).",
+      "evidence": "title.css:93-100 `.ui-start__label { margin: 0; font-family: var(--type-title-font); font-size: var(--type-title-size); font-weight: var(--type-title-weight); font-style: var(--type-title-style); line-height: 1; text-transform: uppercase; }` and screens.css:82-90 `.ui-pause__title { margin: 0; font-family: var(--type-title-font); font-size: var(--type-title-size); font-weight: var(--type-title-weight); font-style: var(--type-title-style); line-height: 1; text-transform: uppercase; }` have the same declarations. Changing the title type style now means editing two places.",
+      "suggestedFix": "Delete the `.ui-start__label` block from title.css and add its selector to the existing rule in screens.css, which start-screen.ts already imports: `.ui-pause__title, .ui-start__label { … }`. Or move the block into components.css as one shared `.ui-title` class and use that class on both headings."
+    },
+    {
+      "id": "R3-2",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "src/ui/stages/start.stage.ts",
+      "line": 14,
+      "claim": "`stageTrackCards()` copies the game's TrackCardView mapping from game.ts:148 and hard-codes `8` where game.ts uses the `MINIMAP_STRIDE` constant. If the stride changes, the stage screenshots stop matching what the game shows, even though the doc comment says it builds the cards \"as the game passes it\".",
+      "evidence": "start.stage.ts:15 `TRACKS.map((t) => ({ id: t.id, name: t.name, outline: trackLayout(t).centre.filter((_, i) => i % 8 === 0) }))` and game.ts:148 `tracks: TRACKS.map((t) => ({ id: t.id, name: t.name, outline: trackLayout(t).centre.filter((_, i) => i % MINIMAP_STRIDE === 0) }))` are the same expression. `MINIMAP_STRIDE` is declared at game.ts:33 (`const MINIMAP_STRIDE = 8;`) and is not exported.",
+      "suggestedFix": "Add one exported helper, e.g. `trackCardViews(): TrackCardView[]`, to a module that both game.ts and the stages can import (for example src/content/tracks.ts, or a small src/ui helper that takes the centrelines), and give it the stride constant. Call it from game.ts:148 and from start.stage.ts, and delete the local copy."
+    },
+    {
+      "id": "R4-1",
+      "reviewer": "R4",
+      "severity": "minor",
+      "file": "src/ui/title.css",
+      "line": 611,
+      "claim": "Track cards have no pressed state. Board 05 #7 (Cards & menus) says 'Select: press-sink, then fill cuts to mustard and it settles at rest', and UI_RULES §10 requires a pressed state for every new element. The card's hover lift also isn't inside `@media (hover: hover)` the way `.ui-button`'s is, so on touch screens a tapped card stays lifted with the 6px shadow.",
+      "evidence": "title.css only has `.ui-track-card:focus-visible, .ui-track-card:hover { transform: translate(var(--ui-card-lift), var(--ui-card-lift)); box-shadow: var(--shadow-overlay); }`. There is no `.ui-track-card:active` rule (grep for `ui-track-card:active` finds nothing). Compare components.css:133, `.ui-button:active { transform: translate(var(--ui-sink-button), var(--ui-sink-button)); box-shadow: var(--ui-shadow-pressed); }`, and components.css:143, which puts the hover lift under `@media (hover: hover)`. Repro: on a touch device, tap the Hay Loop card on the S6 menu. It never sinks toward its shadow. It turns mustard and then stays raised 2px with a 6px shadow, because :hover sticks after a tap, while the other cards sit at 4px.",
+      "suggestedFix": "Add `.ui-track-card:active { transform: translate(var(--ui-sink-button), var(--ui-sink-button)); box-shadow: var(--ui-shadow-pressed); transition-duration: var(--duration-press); }`. Move the `:hover` half of the lift rule into `@media (hover: hover) { .ui-track-card:hover:not(:active) { … } }`, as `.ui-button` does. Keep `:focus-visible` as it is."
+    },
+    {
+      "id": "R4-2",
+      "reviewer": "R4",
+      "severity": "minor",
+      "file": "src/ui/title.css",
+      "line": 480,
+      "claim": "The new S6 menu has no desktop sizing. UI_RULES §5 says 'Desktop: same layout at ×1.45, 32px margins, 4px outlines', but at 1440×900 the heading, cards, SELECT TRACK label, RACE button and outlines stay at mobile token sizes and the 48px safe margins.",
+      "evidence": "In screenshot 1440x900/stage/start--menu.png the heading renders at --type-display-size (56px, not --type-display-size-desktop 96px). The three cards stay 144px wide in a 960px dirt panel, leaving more than half of it empty. RACE is the mobile size with a 3px outline, and the padding uses --safe-left/--safe-right instead of --desktop-margin. title.css has no desktop rules at all. The HUD handles this with `watchDesktop((desktop) => element.classList.toggle('is-desktop', desktop))` (src/ui/hud.ts:95) plus `.ui-hud.is-desktop …` rules in hud.css:133-183, which use --desktop-scale, --desktop-margin, --desktop-outline and the *-size-desktop type tokens. The results screen was already unscaled before this build, but S6 is new here.",
+      "suggestedFix": "In createStartScreen, toggle `is-desktop` on the overlay element with the existing `watchDesktop`, as hud.ts does. In title.css add `.ui-start.is-desktop` rules: --type-display-size-desktop on the h1, --type-title-size-desktop on the label and RACE, --type-button-size-desktop on card names, --type-label-size-desktop on BEST, card width × var(--desktop-scale), --desktop-outline borders, and --desktop-margin padding."
+    },
+    {
+      "id": "R5-1",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/game.ts",
+      "line": 303,
+      "claim": "No test covers the line in showMenu() that re-selects the last raced track, `startScreen.select(menuTrack.id)`. The only test of selection after QUIT TO MENU (AC4) picks Hay Loop by clicking its card and races Hay Loop. The card is already selected, so the line changes nothing in that test, and deleting it passes every test.",
+      "evidence": "Mutation: delete `startScreen.select(menuTrack.id);` at src/game.ts:303. tests/game/track-select-race.test.ts AC4 clicks the Hay Loop card, presses RACE, then quits. The start screen keeps `selected === 'hay-loop'` in its own closure, so `card(root, hay)?.getAttribute('aria-checked')` is still 'true' and the test passes. The line only matters when the raced track differs from the selected card. Example: select Hay Loop, press RACE, finish, press NEXT RACE (onNextRace runs enterRace(nextTrackId('hay-loop'))), then pause and QUIT TO MENU. With the line, the menu selects the track just raced. Without it, Hay Loop stays selected. No test plays NEXT RACE then quits, or calls game.startRace({trackId}) and then game.showMenu() while checking which card is aria-checked.",
+      "suggestedFix": "Add a test in a new file under tests/game/. Call game.startRace({ trackId: 'hay-loop' }) directly while the first card is selected, or play to results and press NEXT RACE. Then call game.showMenu(), or press QUIT TO MENU, and assert that the card of game.state().trackId is the only one with aria-checked=\"true\"."
+    }
+  ],
+  "rulings": [
+    {
+      "id": "R2-1",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R2-1.test.ts",
+      "trace": "Ran `pnpm vitest run --config vitest.config.ts tests/verify/R2-1.test.ts`. I mocked createRaceScene so it advances fake timers by 300 ms, which stands in for a slow scene build. Then I clicked RACE on the menu (mode becomes 'race') and advanced 250 ms. Result: `expected null not to be null`, so [data-screen-change=\"chequer\"] was already gone. game.ts:110-113 arms the 330 ms timer in playScreenChange (screen-change.ts:53) before the synchronous startRace. The CSS sweep can only start painting after startRace returns.",
+      "reason": "The removal timer starts before the blocking race start, so slow start work shortens the visible chequer sweep or removes it entirely. Calling playScreenChange after startRace fixes it, and AC8 still holds."
+    },
+    {
+      "id": "R2-2",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R2-2.test.ts",
+      "trace": "Ran the test. It renders createStartScreen with three cards, then dispatches ArrowLeft with altKey, ctrlKey or metaKey on the first card. The first case fails with `expected true to be false` on e.defaultPrevented. start-screen.ts:56-62 has no modifier guard, while keyboard.ts:41 returns early on ctrl, meta or alt.",
+      "reason": "Arrow keys with Alt, Ctrl or Meta are swallowed (preventDefault) and change the track, which blocks browser shortcuts such as Alt+Left for Back. The game's own keyboard input deliberately leaves these alone."
+    },
+    {
+      "id": "R2-3",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R2-3.test.ts",
+      "trace": "Ran the test. It renders the screen-change--stripes stage with localStorage cleared, then again with racer.bestLap.<first track>=40370. The text differs: Received 'Bramble BendsBEST 0:40.37' where 'BEST –:––.––' was expected. screen-change.stage.ts:10 passes no bestLaps, so start-screen.ts falls back to localBestLaps.",
+      "reason": "stage.ts says a stage must be deterministic, but this stage's output depends on real browser storage. start.stage.ts avoids that by passing memoryBestLaps."
+    },
+    {
+      "id": "R3-1",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "The new rule at src/ui/title.css:93-101, `.ui-start__label { margin:0; font-family:var(--type-title-font); font-size:var(--type-title-size); font-weight:var(--type-title-weight); font-style:var(--type-title-style); line-height:1; text-transform:uppercase; }`, has exactly the same declarations as the existing `.ui-pause__title` at src/ui/screens.css:82-90. start-screen.ts already imports screens.css (line 5), so the existing rule could cover the new heading as well.",
+      "reason": "The new CSS block copies an existing rule line for line, and that rule does the same job (title type style). A shared selector would remove the copy."
+    },
+    {
+      "id": "R3-2",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Compared start.stage.ts:12 with game.ts:148. Both are new in this diff, so there is no existing helper being re-implemented. The stage fixtures already hard-code the stride in the same way (stage.ts:72 `outline: centre.filter((_, i) => i % 8 === 0)`, pre-existing).",
+      "reason": "This is a one-line fixture expression, not a copy of an existing helper. Stages build their own fixed data by convention, and stage.ts already hard-codes the stride 8. Dropped as a style preference."
+    },
+    {
+      "id": "R4-1",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "UI_RULES.md:109 (§10) requires every new element to define a pressed state, and :105 says 'Pressed = sink onto a 1px shadow'. In src/ui/title.css the track card has only default, :focus-visible and :hover/:focus-visible lift rules (lines 112-138). There is no `.ui-track-card:active` anywhere in src/ui. The :hover lift (line 136) is also outside `@media (hover: hover)`, unlike `.ui-button` (components.css:143-144), so on touch screens the lift sticks after a tap.",
+      "reason": "The new track card element has no pressed state, which UI_RULES §10 requires, and its hover lift is not limited to hover-capable devices the way the existing button component is."
+    },
+    {
+      "id": "R4-2",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "UI_RULES.md:57 (§5): 'Desktop: same layout at ×1.45, 32px margins, 4px outlines.' Screenshot 1440x900/stage/start--menu.png shows the new S6 screen at mobile sizes: the heading is about 56px (mobile display size), the cards are about 144px wide in a 960px panel, the RACE button is mobile size and the brand margin is 48px. src/ui/title.css has no desktop rules and createStartScreen never calls watchDesktop (src/ui/layout.ts:20), while the HUD does (hud.ts:95, hud.css .is-desktop rules).",
+      "reason": "The newly built S6 screen ignores the explicit desktop scaling rule in UI_RULES §5. The 1440×900 screenshot shows it at phone sizes with most of the panel empty."
+    },
+    {
+      "id": "R5-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Read game.ts:300-305. showMenu calls startScreen.select(menuTrack.id), and the behaviour is correct on this branch. A test of it would pass now, so no failing test can be written.",
+      "reason": "This is a test-coverage gap, not a defect. The code behaves correctly and there is nothing to fix in the branch."
+    }
+  ],
+  "fixes": [
+    {
+      "id": "R2-1",
+      "status": "fixed",
+      "summary": "In src/game.ts enterRace, swapped the order of the two calls. It now runs game.startRace({ trackId, carCount: PLAYER_CAR_COUNT }) first and playScreenChange(root, 'chequer') second, and the doc comment says why. The overlay's 330 ms removal timer used to start before the synchronous world and scene build, so a slow build could cut the chequer sweep short or remove it before it was ever painted. Now the timer only starts once startRace returns, which gives the band its full wipe. The state still changes at once and the overlay lands in the same painted frame, so AC8 behaviour is unchanged. RETRY, NEXT RACE and RACE all go through enterRace, and direct startRace calls still get no overlay. New test tests/game/chequer-after-slow-start.test.ts is the verifier's repro: a mocked createRaceScene advances fake timers by 300 ms, then the test clicks RACE, advances 250 ms and expects the chequer element to still be there. It failed before the fix and passes after. pnpm typecheck is clean and pnpm test passes (109 files, 733 tests).",
+      "tests": [
+        "tests/game/chequer-after-slow-start.test.ts"
+      ],
+      "commit": "5f25ddf198077392bb0d8dee204b86a02074b9d8",
+      "kept": true
+    },
+    {
+      "id": "R2-2",
+      "status": "fixed",
+      "summary": "The track radiogroup's keydown handler in src/ui/start-screen.ts now starts with `if (e.altKey || e.ctrlKey || e.metaKey) return;`, the same guard src/input/keyboard.ts uses. Arrow keys pressed with Alt, Ctrl or Meta are browser shortcuts (Alt+Left for Back, Cmd+Up/Down to scroll), so they no longer change the track and preventDefault is no longer called on them. Plain arrow keys still move the selection. I added tests/ui/track-select-modifier-keys.test.ts: the verifier's test plus a check that a plain ArrowRight still selects the next card and is prevented. It failed before the fix and passes after it. pnpm typecheck is clean and pnpm test passes (110 files, 734 tests).",
+      "tests": [
+        "tests/ui/track-select-modifier-keys.test.ts"
+      ],
+      "commit": "b4e54ef35205d64912a274381c3a0e23767ad8a9",
+      "kept": true
+    },
+    {
+      "id": "R2-3",
+      "status": "fixed",
+      "summary": "The finding was real. In src/ui/stages/screen-change.stage.ts, the stripes stage now passes `bestLaps: memoryBestLaps()` (an empty in-memory store) to createStartScreen, so it no longer falls back to the real localStorage. Every card now reads \"BEST –:––.––\" whatever is in browser storage. That matches what the screenshot already showed, so the rendered output and the baselines stay the same. Before the fix, the new test failed: Bramble Bends read \"BEST 0:40.37\" once racer.bestLap.bends was set. After the fix it passes. pnpm typecheck is clean, and pnpm test passes: 111 files, 735 tests.",
+      "tests": [
+        "tests/ui/screen-change-stage-bests.test.ts"
+      ],
+      "commit": "4f6607b549f8fbdee4dd003a47913879399a7168",
+      "kept": true
+    },
+    {
+      "id": "R3-1",
+      "status": "fixed",
+      "summary": "I removed the duplicated `.ui-start__label` block from src/ui/title.css and added its selector to the existing title-type rule in src/ui/screens.css, which is now `.ui-pause__title, .ui-start__label { … }`. The title type style is now defined in one place. start-screen.ts already imports screens.css, and no other rule targets `.ui-start__label`, so the SELECT TRACK heading gets exactly the same declarations as before and its behaviour and look are unchanged. Because this is a duplication finding, I added no new test. pnpm typecheck passes, and pnpm test passes: 111 files, 735 tests.",
+      "tests": [],
+      "commit": "2441d8687c4c388b5c9ec40f66c148a7de518930",
+      "kept": true
+    },
+    {
+      "id": "R4-1",
+      "status": "fixed",
+      "summary": "I changed only src/ui/title.css. The track card now has a pressed state that copies .ui-button's. `.ui-track-card:active` moves the card by var(--ui-sink-button), sets box-shadow to var(--ui-shadow-pressed) and uses var(--duration-press). That is the UI_RULES §10 rule \"Pressed = sink onto a 1px shadow\" and the press-sink in board 05 #7. I split the old `:focus-visible, :hover` lift rule. `:focus-visible` keeps the 2px lift and 6px shadow as before. The hover lift now sits in `@media (hover: hover) { .ui-track-card:hover:not(:active) }`, as .ui-button's does, so a tapped card on a touch screen no longer stays raised. I also updated the comment above the rule. Every value is an existing token or variable, with no literals. The new test, tests/ui/track-card-press.test.ts, builds the harness, opens the real start--menu stage in Chromium and finds the card by its radio role and track name. At 1440×900 it holds the mouse down on the card and expects a positive translate and a smaller shadow than at rest. At 844×390 with touch it taps the card, waits until :active has cleared while :hover is still stuck, and expects the card to be back at rest. Without the fix both tests failed, with the card at -2px and a 6px shadow. With the fix both pass. `pnpm typecheck` is clean and `pnpm test` passed: 112 files, 737 tests. The resting menu screenshot is unchanged.",
+      "tests": [
+        "tests/ui/track-card-press.test.ts"
+      ],
+      "commit": "fc86829f54464b13443a7045e1251b4387637dd8",
+      "kept": true
+    },
+    {
+      "id": "R4-2",
+      "status": "fixed",
+      "summary": "The S6 menu now uses the desktop layout from UI_RULES §5, the same way the HUD does. In src/ui/start-screen.ts, createStartScreen calls the existing watchDesktop from layout.ts and toggles `is-desktop` on the start overlay element. src/ui/title.css gets new `.ui-start.is-desktop` rules, all from tokens:\n- --type-display-size-desktop on the h1 (96px)\n- --type-title-size-desktop on SELECT TRACK and RACE (48px)\n- --type-button-size-desktop on card names and --type-label-size-desktop on BEST\n- --desktop-outline (4px) on the cards, card plates, RACE and the brand panel's divider\n- --desktop-margin (32px) padding on both panels instead of the 48px safe insets\n- --desktop-scale applied to card width, gaps, plate padding, the stripes, the title car, and RACE's height, padding and icon\n\nThe phone view is unchanged: the 844×390 screenshot matches the one before the fix. At 1440×900 the screenshot now shows the scaled layout. The new test, tests/ui/desktop-start-screen.test.ts, renders the start--menu stage in Chromium through harness/screens/browser.ts, as desktop-hud.test.ts does. It checks that the phone keeps 56/32/32/22px type and 3px outlines, and that desktop gets 96/48/48/28px type, 4px outlines, cards more than 1.4× wider, and 32px margins. It failed before the fix (the heading was 56px, not 96px) and passes after. pnpm typecheck passes and pnpm test passes (113 files, 738 tests).",
+      "tests": [
+        "tests/ui/desktop-start-screen.test.ts"
+      ],
+      "commit": "7b5ffb6514ae77e8e619d236c68b22c6c2e951ff",
+      "kept": true
+    }
+  ],
+  "notes": [],
+  "checked": {
+    "R1": 9,
+    "R2": 20,
+    "R3": 9,
+    "R4": 11,
+    "R5": 8
+  }
+}

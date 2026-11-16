@@ -1,4 +1,4 @@
-/* Start screen, finish panel and the shared full-screen menu ground. Tokens only. */
+/* Finish panel, pause card, the triple stripe and the shared full-screen menu ground. Tokens only. */
 
 .ui-screen {
   display: flex;
@@ -6,32 +6,13 @@
   justify-content: center;
 }
 
-/* Full-screen menus (start, results) on a solid navy ground. */
-.ui-start,
+/* Full-screen menus (results) on a solid navy ground. The start screen (S6) is in title.css. */
 .ui-results {
   flex-direction: column;
   gap: var(--space-s5);
   padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
   background: var(--color-navy);
   color: var(--color-cream);
-}
-.ui-start__brand {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-s3);
-}
-.ui-start__title {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.ui-start__title-top {
-  color: var(--color-mustard);
-}
-.ui-start__subtitle {
-  margin: 0;
-  color: var(--color-mustard);
 }
 
 /* Triple stripe: red, mustard, cream at 4:2:1 (board header / screen-change pattern). */
@@ -98,7 +79,8 @@
   background: var(--color-navy);
   color: var(--color-cream);
 }
-.ui-pause__title {
+.ui-pause__title,
+.ui-start__label {
   margin: 0;
   font-family: var(--type-title-font);
   font-size: var(--type-title-size);

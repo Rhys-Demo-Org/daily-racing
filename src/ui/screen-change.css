@@ -1,0 +1,97 @@
+/* Screen change (UI_RULES §7, board 05 #8). Tokens only. Bands skewed −24° sweep left→right in
+   250ms (sweep easing), 40ms apart; the trailing band drags a navy cover that hides the new screen
+   until the band has passed, so the new screen cuts in under it. */
+
+.ui-screen-change {
+  --ui-sc-skew: -24deg;
+  /* Far enough to carry the trailing band and its skew past the right edge. */
+  --ui-sc-travel: calc(100vw + var(--space-s7) * 14);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ui-screen-change__band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border: solid var(--color-ink);
+  border-width: 0 var(--outline-large);
+  animation: ui-screen-sweep var(--duration-wipe) var(--ease-sweep) both;
+}
+
+/* Triple stripe at 4:2:1, cream leading. */
+.ui-screen-change__band--cream {
+  right: 100%;
+  width: var(--space-s7);
+  background: var(--color-cream);
+}
+.ui-screen-change__band--mustard {
+  right: calc(100% + var(--space-s7) * 2);
+  width: calc(var(--space-s7) * 2);
+  background: var(--color-mustard);
+  animation-delay: var(--duration-stagger);
+}
+.ui-screen-change__band--red {
+  right: calc(100% + var(--space-s7) * 5);
+  width: calc(var(--space-s7) * 4);
+  background: var(--color-rally-red);
+  animation-delay: calc(var(--duration-stagger) * 2);
+}
+
+/* Chequer band (entering a race). */
+.ui-screen-change__band--chequer {
+  right: calc(100% + var(--space-s7) * 5);
+  width: calc(var(--space-s7) * 2);
+}
+.ui-screen-change__chequer {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ui-screen-change__square--light {
+  fill: var(--color-cream);
+}
+.ui-screen-change__square--dark {
+  fill: var(--color-ink);
+}
+
+/* The cover rides just behind the trailing band's ink edge and runs off past the screen. */
+.ui-screen-change__band--red::after,
+.ui-screen-change__band--chequer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(100% + var(--outline-large));
+  width: calc(var(--ui-sc-travel) * 2);
+  background: var(--color-navy);
+}
+
+@keyframes ui-screen-sweep {
+  from {
+    transform: translateX(0) skewX(var(--ui-sc-skew));
+  }
+  to {
+    transform: translateX(var(--ui-sc-travel)) skewX(var(--ui-sc-skew));
+  }
+}
+
+/* Held mid-sweep (screen stages): each band where it is ~150ms in, leading bands further on. */
+.ui-screen-change.is-held .ui-screen-change__band {
+  --ui-sc-at: 0.45;
+  animation: none;
+  transform: translateX(calc(var(--ui-sc-travel) * var(--ui-sc-at))) skewX(var(--ui-sc-skew));
+}
+.ui-screen-change.is-held .ui-screen-change__band--mustard {
+  --ui-sc-at: 0.5;
+}
+.ui-screen-change.is-held .ui-screen-change__band--cream {
+  --ui-sc-at: 0.55;
+}
+
+/* Reduced motion: the game never adds the overlay; if one is on show, it cuts. */
+@media (prefers-reduced-motion: reduce) {
+  .ui-screen-change {
+    display: none;
+  }
+}

@@ -1,0 +1,244 @@
+/* Start screen (S6): navy title panel on the left, dirt track-select ground on the right.
+   Tokens only. */
+
+.ui-start {
+  align-items: stretch;
+  justify-content: flex-start;
+  background: var(--color-dirt);
+  color: var(--color-ink);
+}
+
+/* Title panel: heading, the triple stripe stacked and skewed, the #1 car at the foot. */
+.ui-start__brand {
+  display: flex;
+  flex: 0 0 calc(100% / 3);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-s4);
+  padding: var(--space-s6) var(--space-s5) var(--safe-bottom) var(--safe-left);
+  border-right: var(--outline-large) solid var(--color-ink);
+  background: var(--color-navy);
+  color: var(--color-cream);
+}
+.ui-start__title {
+  display: flex;
+  flex-direction: column;
+}
+.ui-start__title-top {
+  color: var(--color-mustard);
+}
+.ui-start__subtitle {
+  margin: 0;
+  color: var(--color-mustard);
+}
+.ui-start__stripes {
+  flex-direction: column;
+  gap: var(--space-s2);
+}
+.ui-start__stripes .ui-stripe,
+.ui-start__stripes .ui-stripe:last-child {
+  width: calc(var(--space-s7) * 4);
+  height: var(--space-s3);
+  border: var(--outline-small) solid var(--color-ink);
+  transform: skewX(-24deg);
+}
+.ui-start__stripes .ui-stripe--mustard {
+  margin-left: var(--space-s3);
+}
+.ui-start__stripes .ui-stripe--cream {
+  margin-left: var(--space-s5);
+}
+.ui-title-car {
+  align-self: center;
+  width: calc(var(--space-s7) * 3);
+  margin-top: auto;
+}
+.ui-title-car__shadow,
+.ui-title-car__wheel {
+  fill: var(--color-ink);
+}
+.ui-title-car__body,
+.ui-title-car__cabin,
+.ui-title-car__roundel {
+  stroke: var(--color-ink);
+  stroke-width: var(--outline-default);
+}
+.ui-title-car__body {
+  fill: var(--color-rally-red);
+}
+.ui-title-car__stripe,
+.ui-title-car__roundel {
+  fill: var(--color-cream);
+}
+.ui-title-car__cabin {
+  fill: var(--color-navy);
+}
+.ui-title-car__number {
+  fill: var(--color-ink);
+  font-family: var(--type-hud-l-font);
+  font-size: var(--type-label-size-desktop);
+  font-weight: var(--type-hud-l-weight);
+}
+
+/* Track select: SELECT TRACK, the card row, RACE at the bottom right. */
+.ui-start__select {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-s4);
+  min-width: 0;
+  padding: var(--space-s5) var(--safe-right) var(--safe-bottom) var(--space-s5);
+}
+.ui-start__cards {
+  display: flex;
+  gap: var(--space-s4);
+}
+.ui-start__race {
+  align-self: flex-end;
+  margin-top: auto;
+}
+
+/* Track card: a light panel over 120px (4px outline, 4px shadow), dirt thumbnail over a cream
+   name plate; selected = mustard plate. Hover (real hover only) or focus lifts it 2px, shadow 4→6;
+   pressed sinks it onto a 1px shadow, like .ui-button. */
+.ui-track-card {
+  --ui-card-lift: calc(var(--ui-hairline) * -2);
+  display: flex;
+  flex: 0 1 calc(var(--space-s7) * 3);
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: var(--outline-large) solid var(--color-ink);
+  border-radius: var(--radius-rect);
+  box-shadow: var(--shadow-button);
+  background: var(--color-dirt);
+  cursor: pointer;
+  transition:
+    transform var(--duration-release) var(--ease-snap),
+    box-shadow var(--duration-release) var(--ease-snap);
+}
+.ui-track-card:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+.ui-track-card[aria-checked='true']:focus-visible {
+  outline-color: var(--color-cream);
+}
+.ui-track-card:focus-visible {
+  transform: translate(var(--ui-card-lift), var(--ui-card-lift));
+  box-shadow: var(--shadow-overlay);
+}
+@media (hover: hover) {
+  .ui-track-card:hover:not(:active) {
+    transform: translate(var(--ui-card-lift), var(--ui-card-lift));
+    box-shadow: var(--shadow-overlay);
+  }
+}
+.ui-track-card:active {
+  transform: translate(var(--ui-sink-button), var(--ui-sink-button));
+  box-shadow: var(--ui-shadow-pressed);
+  transition-duration: var(--duration-press);
+}
+.ui-track-card__thumb {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.ui-track-card__edge,
+.ui-track-card__road {
+  fill: none;
+  stroke-linejoin: round;
+}
+.ui-track-card__road {
+  stroke: var(--color-cream);
+  stroke-width: calc(var(--outline-small) * 3);
+}
+.ui-track-card__edge {
+  stroke: var(--color-ink);
+  stroke-width: calc(var(--outline-small) * 3 + var(--outline-large));
+}
+.ui-track-card__plate {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-s1);
+  padding: var(--space-s2) var(--space-s3);
+  border-top: var(--outline-default) solid var(--color-ink);
+  background: var(--color-cream);
+}
+.ui-track-card[aria-checked='true'] .ui-track-card__plate {
+  background: var(--color-mustard);
+}
+.ui-track-card__name {
+  font-family: var(--type-title-font);
+  font-size: var(--type-button-size);
+  font-weight: var(--type-title-weight);
+  font-style: var(--type-title-style);
+  line-height: 1;
+  text-transform: uppercase;
+}
+.ui-track-card__best {
+  font-variant-numeric: var(--font-numeric);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-track-card:focus-visible,
+  .ui-track-card:hover {
+    transform: none;
+    box-shadow: var(--shadow-button);
+  }
+}
+
+/* Desktop (UI_RULES §5): same layout at ×1.45, 32px margins, 4px outlines, desktop type sizes.
+   Toggled live by layout.ts. */
+.ui-start.is-desktop .ui-start__brand {
+  gap: calc(var(--space-s4) * var(--desktop-scale));
+  padding: var(--desktop-margin);
+  border-right-width: var(--desktop-outline);
+}
+.ui-start.is-desktop .ui-start__title {
+  font-size: var(--type-display-size-desktop);
+}
+.ui-start.is-desktop .ui-start__stripes .ui-stripe {
+  width: calc(var(--space-s7) * 4 * var(--desktop-scale));
+  height: calc(var(--space-s3) * var(--desktop-scale));
+}
+.ui-start.is-desktop .ui-title-car {
+  width: calc(var(--space-s7) * 3 * var(--desktop-scale));
+}
+.ui-start.is-desktop .ui-start__select {
+  gap: calc(var(--space-s4) * var(--desktop-scale));
+  padding: var(--desktop-margin);
+}
+.ui-start.is-desktop .ui-start__label {
+  font-size: var(--type-title-size-desktop);
+}
+.ui-start.is-desktop .ui-start__cards {
+  gap: calc(var(--space-s4) * var(--desktop-scale));
+}
+.ui-start.is-desktop .ui-track-card {
+  flex-basis: calc(var(--space-s7) * 3 * var(--desktop-scale));
+  border-width: var(--desktop-outline);
+}
+.ui-start.is-desktop .ui-track-card__plate {
+  padding: calc(var(--space-s2) * var(--desktop-scale)) calc(var(--space-s3) * var(--desktop-scale));
+  border-top-width: var(--desktop-outline);
+}
+.ui-start.is-desktop .ui-track-card__name {
+  font-size: var(--type-button-size-desktop);
+}
+.ui-start.is-desktop .ui-track-card__best {
+  font-size: var(--type-label-size-desktop);
+}
+.ui-start.is-desktop .ui-start__race {
+  min-height: calc((var(--space-s7) + var(--space-s3)) * var(--desktop-scale));
+  padding: 0 calc(var(--space-s5) * var(--desktop-scale));
+  border-width: var(--desktop-outline);
+  font-size: var(--type-title-size-desktop);
+}
+.ui-start.is-desktop .ui-start__race .ui-icon {
+  width: calc(var(--space-s5) * var(--desktop-scale));
+  height: calc(var(--space-s5) * var(--desktop-scale));
+}

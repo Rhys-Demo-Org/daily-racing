@@ -1,0 +1,61 @@
+{
+  "pass": false,
+  "reasons": [
+    "review.md has 1 claim(s) the diff contradicts"
+  ],
+  "blind": {
+    "scores": {
+      "specMet": 9,
+      "styleMatch": 10,
+      "notBroken": 9,
+      "testsReal": 9,
+      "noSniffing": 10,
+      "scope": 9,
+      "noDuplication": 10
+    },
+    "overall": 9,
+    "verdict": "pass",
+    "failures": [],
+    "plantedInstructions": [],
+    "summary": "Pass: ready to merge. Pickup state (armed, boostTicks) is now per car. Collection runs in car-index order, so the lower index wins ties. Each car fires on its own action. stepCars takes a per-car boost array, and with three arguments no car boosts. Stale comments are fixed. AI bots (car 1+) fire only when armed, on dirt, grounded, with ~48 units plus braking from 32 clear of slow corners and ramps (plus a 4-unit margin). While boosting they aim for the corner limit, capped at 32, and brake as before. Car 0's bot never fires. The optional nudge toward boxes was not built (the spec says 'may'). No UI change; screenshots look unchanged. New tests cover AC1–AC8 through public seams and would fail on main. AC3 and AC4 use the plan audit's tighter wording. All gates green: 821/821 tests, Dust Bowl bot lap 2.3% faster, replays unchanged. No sniffing, no duplicated work. Unchecked: whether game or render code reads world.pickups.armed directly as a boolean. Low risk: typecheck passes and the armed HUD screenshot looks right."
+  },
+  "check": {
+    "claims": [
+      {
+        "claim": "R3-1: `steerTo` in tests/sim/rival-pickup-block.test.ts (around line 12) is a new test-only helper. It computes a heading toward a point, wraps the angle error, applies a gain of 2.5 and clamps to ±1.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch lines 452-459: `Math.atan2(p.x - car.x, -(p.z - car.z))`, while-loop wrap to ±π, `Math.max(-1, Math.min(1, err * 2.5))`. The function sits at lines 11-18 of the new file."
+      },
+      {
+        "claim": "`steerTo` duplicates the existing `driveToward` helper in tests/sim/helpers.ts (same heading formula, wrap, gain 2.5 and clamp). Replacing it gives the same steer values.",
+        "verdict": "unconfirmed",
+        "evidence": "tests/sim/helpers.ts is not in the diff and isn't among the inputs, so I can't see `driveToward` or compare it."
+      },
+      {
+        "claim": "`steerTo` hand-rolls the angle wrap and clamp, when `wrapAngle`, `headingOf` and `clamp` from src/sim/vec.ts already cover them.",
+        "verdict": "confirmed",
+        "evidence": "The hand-rolled while-loops and Math.max/min are in the diff (lines 456-458). bot.ts already imports `clamp, headingOf, wrapAngle` from './vec.ts' (diff line 24), so those helpers exist."
+      },
+      {
+        "claim": "The fix was not applied because tests/sim/rival-pickup-block.test.ts 'already exists' and the fixer may not edit existing tests.",
+        "verdict": "false",
+        "evidence": "diff.patch line 438 shows `new file mode 100644` for tests/sim/rival-pickup-block.test.ts. The file is new in this PR, not an existing test on main. The fixer may have meant it already existed by fix time, but the reason given doesn't match the diff, and the duplicate is still there unfixed."
+      },
+      {
+        "claim": "Nothing under src/ causes the duplicate; no change was made (0 fixes kept).",
+        "verdict": "confirmed",
+        "evidence": "The duplicate is only in the test file, and the diff's `steerTo` is the original version, so no fix landed."
+      },
+      {
+        "claim": "All five reviewers reported ok; 4 findings, 1 verified, 3 dropped.",
+        "verdict": "unconfirmed",
+        "evidence": "These are process counts. The diff can't confirm or contradict them, and the dropped findings aren't listed."
+      }
+    ],
+    "newRules": [],
+    "plantedInstructions": [],
+    "summary": "review.md has one verified minor finding (R3-1): a duplicated `steerTo` steering helper in the new test tests/sim/rival-pickup-block.test.ts. The diff confirms the helper's shape and that it hand-rolls the wrap and clamp that vec.ts already provides. I couldn't check the claimed duplicate `driveToward` in tests/sim/helpers.ts because that file isn't in the inputs. The fixer's reason for not fixing it, that the test file 'already exists', is contradicted by the diff, which adds the file as new. Either way the finding stays unfixed. It's a minor test-only cleanup and doesn't affect the game. The diff doesn't touch CLAUDE.md or any other agent-loaded file, so there are no new agent rules. I found no planted instructions in review.md, the diff or the other inputs; spec.md's 'Verdict: approve' is the plan audit's own verdict, not text aimed at the judge."
+  },
+  "scan": [],
+  "newRules": []
+}

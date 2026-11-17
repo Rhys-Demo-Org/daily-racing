@@ -1,0 +1,40 @@
+{
+  "verdict": "approve",
+  "summary": "The draft covers B13's scope and done_when with no scope drift, no new visuals, no overlap with open PRs and no retired modules. Its criteria are observable through RaceView, carViews, createBot and runReplay. createBot is the exported sim API the backlog item itself names, so the harness lint is advisory only. The remaining issues are minor builder notes: fragile wording in AC3 and AC4, a longer list of Dust Bowl tests to keep green, and bot speed targets while boosting.",
+  "findings": [
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "AC3 says car 0's armed and boostTicks match the race without car 1's action on every tick. Once car 1 has fired it is unarmed, so it can take a later box that car 0 would have taken (in the run without the action, car 1 stays armed and leaves boxes). A boosted car 1 can also bump car 0. Either way the comparison can fail for reasons unrelated to 'firing boosts only that car'.",
+      "suggestedFix": "Compare car 0 over the 90-tick boost window only. Alternatively, choose a seed or scenario where car 0 is clear of car 1 and of any box during the window. Keep the core assertion: on the fire tick, car 1 shows boostTicks 90 and armed false, and car 0's boostTicks stays 0."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "In AC4, 'Car 0 is held unarmed' is vague: on its way to the target box, car 0 could drive through another present box and become armed, which would make the check meaningless.",
+      "suggestedFix": "Before the check, assert that car 0 is unarmed on every tick it is within 2.5 units of the absent box. Steer car 0 so it reaches that box without passing within 2.5 units of any present box, or pick a seed where its path avoids them."
+    },
+    {
+      "check": "other",
+      "severity": "minor",
+      "claim": "The draft's list of existing tests that must still pass leaves out several that run multi-car Dust Bowl races, where bots now take boxes: sim tests bot (two-bot laps must stay above 0.9 × length/25), replay, race and determinism; push-out and car-contact (both call stepCars with three arguments); and game tests results-drivers, pause-results, best-lap-*, new-best-chip, screen-change and six-car-race.",
+      "suggestedFix": "The builder should run the full suite and treat every Dust Bowl test as a regression check. Bot changes must not push a two-bot Dust Bowl lap below 0.9 × ideal, and car 0 (pickups.test AC2 and pause-action-latch) must still be first to its first box."
+    },
+    {
+      "check": "other",
+      "severity": "minor",
+      "claim": "Today a bot's target speed is capped at pace × the dirt top speed of 25, and it only presses the throttle when below target. A boosting bot would therefore never go above 25, and AC2 and AC7 could not pass.",
+      "suggestedFix": "While a bot's car has boostTicks > 0, raise its target to min(corner limit, BOOST_TOP_SPEED) and keep the same braking check against the corner limit."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "Half of AC8 (no armed or boostTicks keys on Bramble Bends and Hay Loop) already passes on main. Only the Dust Bowl action half is new tonight. That is acceptable, because the combined test still fails on main.",
+      "suggestedFix": "Keep AC8 as one test, so it fails on main through its Dust Bowl action assertion."
+    }
+  ],
+  "overlapAssessment": null,
+  "waitsOn": null,
+  "designRequest": null,
+  "backlogChangeRequests": []
+}

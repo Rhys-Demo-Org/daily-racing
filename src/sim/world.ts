@@ -35,7 +35,7 @@ export interface World {
   tick: number;
   cars: CarState[];
   racers: RacerState[];
-  /** Pickup tracks only: the boxes and the player's power-up (see pickups.ts). */
+  /** Pickup tracks only: the boxes and every car's power-up and boost (see pickups.ts). */
   pickups?: PickupState;
 }
 
@@ -88,7 +88,7 @@ export function createWorld(trackData: TrackData, options: WorldOptions): World 
     cars.push(car);
     racers.push(createRacer(car.pos.s, track.length));
   }
-  const pickups = createPickups(track.layout.pickups);
+  const pickups = createPickups(track.layout.pickups, options.carCount);
   return { track, seed: options.seed, rng, tick: 0, cars, racers, ...(pickups && { pickups }) };
 }
 
@@ -100,8 +100,8 @@ export function steerToInt8(steer: number): number {
 }
 
 /** Advances the world by exactly one tick. `inputs[i]` drives car i (missing = no input). During
- * the countdown inputs are ignored and nothing moves. Only car 0's `action` is read, and only on
- * pickup tracks. */
+ * the countdown inputs are ignored and nothing moves. Each car's `action` fires its own power-up,
+ * on pickup tracks only. */
 export function stepWorld(world: World, inputs: readonly CarInput[]): void {
   if (world.tick < COUNTDOWN_TICKS) {
     world.tick++;
@@ -115,11 +115,11 @@ export function stepWorld(world: World, inputs: readonly CarInput[]): void {
     c.brake = input?.brake === true;
   }
   const pickups = world.pickups;
-  const boosting = pickups !== undefined && beginPickupTick(pickups, inputs[0]?.action === true);
-  stepCars(world.cars, clean, world.track, boosting ? 0 : -1);
   if (pickups) {
-    const player = world.cars[0] as CarState;
-    collectPickups(pickups, world.track.layout.pickups, player.x, player.z);
+    stepCars(world.cars, clean, world.track, beginPickupTick(pickups, inputs));
+    collectPickups(pickups, world.track.layout.pickups, world.cars);
+  } else {
+    stepCars(world.cars, clean, world.track);
   }
   world.tick++;
   const raceTick = world.tick - COUNTDOWN_TICKS;
@@ -149,8 +149,8 @@ export function raceView(world: World): RaceView {
   if (p) {
     view.pickups = p.respawn.map((ticks) => ticks === 0);
     view.racers.forEach((r, i) => {
-      r.armed = i === 0 && p.armed;
-      r.boostTicks = i === 0 ? p.boostTicks : 0;
+      r.armed = p.armed[i] as boolean;
+      r.boostTicks = p.boostTicks[i] as number;
     });
   }
   return view;

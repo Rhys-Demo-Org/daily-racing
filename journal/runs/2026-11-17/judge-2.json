@@ -1,0 +1,64 @@
+{
+  "pass": true,
+  "reasons": [],
+  "blind": {
+    "scores": {
+      "specMet": 9,
+      "styleMatch": 10,
+      "notBroken": 9,
+      "testsReal": 9,
+      "noSniffing": 10,
+      "scope": 9,
+      "noDuplication": 10
+    },
+    "overall": 9,
+    "verdict": "pass",
+    "failures": [],
+    "plantedInstructions": [],
+    "summary": "Ready to merge. B13 is a sim-only change. PickupState holds armed, boostTicks and a scratch boosting flag per car. collectPickups gives a tied box to the lower car index, beginPickupTick boosts only the car that fired, and stepCars takes a per-car boolean array (three arguments still means no boost). raceView reports each car's own values.\n\ncreateBot fires only for cars 1+, when armed, on dirt, grounded, with a clear stretch ahead: 48 units of boost plus braking from 32 plus a margin, with no slow corner and no ramp. While boosting, a bot aims for the corner limit capped at 32 and brakes as before. The spec's optional nudge toward boxes wasn't built, which the spec allows.\n\nThe stale comments in types.ts, pickups.ts and world.ts are fixed. Tests cover AC1–AC8 through the public sim API and follow the plan audit's notes: AC3 compares car 0 only over the boost window, AC4 checks car 0 never nears a present box, and AC8 fails on main through its Dust Bowl check.\n\nAll gates are green: 821/821 tests, the Dust Bowl bot lap is 2.3% faster, and replays match main. There are no UI changes, and the Dust Bowl race and results screenshots look normal."
+  },
+  "check": {
+    "claims": [
+      {
+        "claim": "R3-1: the new test tests/sim/rival-pickup-block.test.ts had a private `steerTo` helper that duplicated `driveToward` from tests/sim/helpers.ts (same heading, wrap, gain 2.5, clamp).",
+        "verdict": "unconfirmed",
+        "evidence": "The final diff has no `steerTo` (grep finds only `steerToInt8` in world.ts), so the original helper can't be seen. helpers.ts isn't in the inputs, so the claim about what driveToward contains can't be checked."
+      },
+      {
+        "claim": "The test file is new in this PR, not an existing test on main, so the first reason for not fixing it was wrong.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch:437-440 shows `new file mode 100644` and `--- /dev/null` for tests/sim/rival-pickup-block.test.ts."
+      },
+      {
+        "claim": "Fixed in 2787116a6407: `steerTo` deleted; car 0's approach now uses `driveToward(world, box.x, box.z).steer`, imported from ./helpers.ts.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch:447 has `import { driveToward, dustBowl } from './helpers.ts';` and line 472 has `steer: driveToward(world, box.x, box.z).steer`. gates.md says the branch is `2787116a6407`."
+      },
+      {
+        "claim": "The fix only touches that new test file.",
+        "verdict": "unconfirmed",
+        "evidence": "The diff is cumulative, so the fix commit can't be isolated. Nothing else in the diff refers to steerTo/driveToward. The CarView/PickupInstance type imports were kept, but they are still used (lines 466-467), so keeping them is correct."
+      },
+      {
+        "claim": "Behaviour is unchanged: the AC4 test still passes, typecheck is clean, and the gates pass with the fix.",
+        "verdict": "confirmed",
+        "evidence": "gates.md: G1 typecheck and build ok, 821/821 tests passed on branch 2787116a6407. Overall PASS."
+      },
+      {
+        "claim": "`pnpm test` passed 134/142 files; 8 browser/UI files failed under full-suite load and pass when rerun on their own (timing flakes).",
+        "verdict": "unconfirmed",
+        "evidence": "Those local run results aren't in the inputs. gates.md G1 reports 821/821 tests passing, which fits the flake explanation but doesn't show those reruns."
+      },
+      {
+        "claim": "4 findings, 1 verified, 3 dropped; the dropped findings could not be reproduced.",
+        "verdict": "unconfirmed",
+        "evidence": "The dropped findings aren't listed in review.md, so there is nothing to check them against."
+      }
+    ],
+    "newRules": [],
+    "plantedInstructions": [],
+    "summary": "review.md has one verified minor finding (R3-1): a duplicated test steering helper. The diff shows the fix the judge round claims: rival-pickup-block.test.ts is a new file, and it imports and uses `driveToward` from ./helpers.ts, with no `steerTo` left. Typecheck clean and gates passing are confirmed by gates.md (821/821 on branch 2787116a6407). The local flaky-file counts and the dropped findings can't be checked from the inputs. The diff doesn't change CLAUDE.md or any other agent-instruction file. No text in review.md or the diff tries to steer the judge."
+  },
+  "scan": [],
+  "newRules": []
+}

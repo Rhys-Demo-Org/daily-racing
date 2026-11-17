@@ -6,12 +6,18 @@
 // pace factor; brakes at twice the planned cornering grip leave room to slow down in time. If it
 // stops moving (nose in the props, wedged against a car) it reverses with opposite lock for a
 // moment, then carries on.
+// On pickup tracks an AI bot (car 1 on) fires its power-up once it holds one and the track ahead is
+// clear for a whole boost plus braking from BOOST_TOP_SPEED: no tight corner and no ramp. While boosting
+// it aims for the corner limit up to BOOST_TOP_SPEED and brakes for corners exactly as otherwise. The
+// bot for car 0 never fires.
 // It only emits the same CarInput a player does: it never moves a car itself, and replays record
 // its inputs like any other driver's. Its variation comes from an RNG seeded by the world seed and
 // car index, so bots differ but every run is reproducible.
 import type { CarInput } from './types.ts';
 import type { CarState } from './car.ts';
-import { CAR_LENGTH, SURFACES, forwardSpeed } from './car.ts';
+import { BOOST_TOP_SPEED, CAR_LENGTH, CAR_TUNING, SURFACES, forwardSpeed } from './car.ts';
+import { BOOST_TICKS } from './pickups.ts';
+import { TICK_HZ } from './types.ts';
 import { COUNTDOWN_TICKS, lapGap } from './race.ts';
 import { createRng, nextRange } from './rng.ts';
 import { clamp, headingOf, wrapAngle } from './vec.ts';
@@ -46,7 +52,15 @@ export const BOT_TUNING = {
   stuckSpeed: 1,
   stuckTicks: 45,
   reverseTicks: 60,
+  /** Margin (units) added to the clear track a boost needs: its distance at BOOST_TOP_SPEED plus
+   * braking from BOOST_TOP_SPEED. */
+  fireMargin: 4,
 } as const;
+
+/** Track a bot needs clear of tight corners and ramps ahead before it fires: ~48 units of boost plus
+ * braking distance from BOOST_TOP_SPEED (to a standstill, so to any corner speed). */
+const FIRE_CLEAR =
+  (BOOST_TOP_SPEED * BOOST_TICKS) / TICK_HZ + BOOST_TOP_SPEED ** 2 / (2 * CAR_TUNING.brake) + BOT_TUNING.fireMargin;
 
 export interface Bot {
   /** This bot's input for the next tick. Call exactly once per tick, before stepWorld. */
@@ -70,12 +84,15 @@ export function createBot(world: World, carIndex: number): Bot {
   // Target speed at each centreline sample: what the corner allows on our line (v² = a / curvature;
   // offset by o, a curve of curvature k has curvature k / (1 − k·o)).
   const target = new Float64Array(n);
+  /** What the corner allows (pace applied) without the dirt top speed cap: the boosting target. */
+  const limit = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     const h0 = track.headings[(i + n - B.curveSpan) % n] as number;
     const h1 = track.headings[(i + B.curveSpan) % n] as number;
     const k = wrapAngle(h1 - h0) / (2 * B.curveSpan * track.spacing);
     const curvature = Math.abs(k) / Math.max(0.1, 1 - k * offset);
-    target[i] = pace * Math.min(SURFACES.dirt.topSpeed, Math.sqrt(B.planLateral / Math.max(curvature, 1e-9)));
+    limit[i] = pace * Math.sqrt(B.planLateral / Math.max(curvature, 1e-9));
+    target[i] = Math.min(pace * SURFACES.dirt.topSpeed, limit[i] as number);
   }
   // No passing on a ramp's approach, so the car leaves the lip on its own line, pointing down the
   // track (validateTrack keeps every full-speed jump inside the run-out after the lip).
@@ -84,6 +101,24 @@ export function createBot(world: World, carIndex: number): Bot {
     const lip = Math.floor(r.at * n);
     for (let d = 0; d <= (r.length + B.rampApproach) / track.spacing; d++) noPass[(lip - d + n) % n] = 1;
   });
+  // Where firing is safe: FIRE_CLEAR ahead has no ramp up-slope and no corner the bot slows for.
+  const fireOk = new Uint8Array(n);
+  if (carIndex > 0 && world.pickups) {
+    const blocked = new Uint8Array(n);
+    for (let i = 0; i < n; i++) blocked[i] = (target[i] as number) < pace * SURFACES.dirt.topSpeed ? 1 : 0;
+    track.data.ramps.forEach((r) => {
+      const lip = Math.floor(r.at * n);
+      for (let d = 0; d <= r.length / track.spacing + 1; d++) blocked[(lip - d + n) % n] = 1;
+    });
+    const span = Math.ceil(FIRE_CLEAR / track.spacing);
+    // Blocked samples within `span` ahead, as a sliding window around the closed lap.
+    let count = 0;
+    for (let d = 0; d <= span; d++) count += blocked[d % n] as number;
+    for (let i = 0; i < n; i++) {
+      fireOk[i] = count === 0 ? 1 : 0;
+      count += (blocked[(i + span + 1) % n] as number) - (blocked[i] as number);
+    }
+  }
 
   let slowTicks = 0;
   let reverseTicks = 0;
@@ -128,8 +163,12 @@ export function createBot(world: World, carIndex: number): Bot {
         slowTicks = 0;
         reverseTicks = B.reverseTicks;
       }
-      const want = target[car.pos.seg] as number;
-      return { steer, throttle: speed < want, brake: speed > want + B.brakeMargin };
+      const p = w.pickups;
+      const boosting = carIndex > 0 && p !== undefined && (p.boostTicks[carIndex] as number) > 0;
+      const want = boosting ? Math.min(limit[car.pos.seg] as number, BOOST_TOP_SPEED) : (target[car.pos.seg] as number);
+      const input: CarInput = { steer, throttle: speed < want, brake: speed > want + B.brakeMargin };
+      if (p?.armed[carIndex] === true && fireOk[car.pos.seg] === 1 && car.surface === 'dirt' && !car.airborne) input.action = true;
+      return input;
     },
   };
 }

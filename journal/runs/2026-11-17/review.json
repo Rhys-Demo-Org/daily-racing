@@ -1,0 +1,111 @@
+{
+  "reviewers": {
+    "R1": "ok",
+    "R2": "ok",
+    "R3": "ok",
+    "R4": "ok",
+    "R5": "ok"
+  },
+  "findings": [
+    {
+      "id": "R3-1",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "tests/sim/rival-pickup-block.test.ts",
+      "line": 12,
+      "claim": "The new `steerTo` helper rebuilds what `driveToward` in tests/sim/helpers.ts already does: a heading toward a point, a wrapped angle error, a gain of 2.5 and a clamp to ±1. It also hand-rolls the angle wrap and clamp, when `wrapAngle`, `headingOf` and `clamp` from src/sim/vec.ts already cover them.",
+      "evidence": "New code (rival-pickup-block.test.ts:12-18):\n```\nfunction steerTo(car: CarView, p: PickupInstance): number {\n  const want = Math.atan2(p.x - car.x, -(p.z - car.z));\n  let err = want - car.heading;\n  while (err > Math.PI) err -= 2 * Math.PI;\n  while (err < -Math.PI) err += 2 * Math.PI;\n  return Math.max(-1, Math.min(1, err * 2.5));\n}\n```\nExisting helper (tests/sim/helpers.ts:163-168):\n```\nexport function driveToward(world: World, x: number, z: number, carIndex = 0): CarInput {\n  ...\n  const desired = headingOf(x - car.x, z - car.z);   // = Math.atan2(dx, -dz)\n  return { steer: clamp(wrapAngle(desired - car.heading) * 2.5, -1, 1), throttle: true, brake: false };\n}\n```\nThe heading formula, wrap, gain and clamp are the same. The only differences are that driveToward reads `world.cars[0]` instead of a CarView (same x, z and heading) and wraps to (−π, π] instead of [−π, π]. That makes no difference to the steer value except at exactly ±π, where both clamp to ±1 anyway. The `drive` callback already gets `world`, so it can call driveToward directly.",
+      "suggestedFix": "Delete `steerTo` and import `driveToward` from './helpers.ts'. In `drive`, replace `steer: steerTo(me, box)` with `steer: driveToward(world, box.x, box.z).steer`."
+    },
+    {
+      "id": "R5-1",
+      "reviewer": "R5",
+      "severity": "major",
+      "file": "tests/sim/rival-boost.test.ts",
+      "line": 357,
+      "claim": "AC3's test only compares car 0's pickup bookkeeping (armed, boostTicks), not its motion. So it does not check the summary's core rule that firing boosts only that car. If the boost reached every car's engine, the test would still pass.",
+      "evidence": "Mutation src/car.ts:118 (`applyInput(car, inputs[k] as CarInput, boosted[k] === true)`) → `applyInput(car, inputs[k] as CarInput, boosted.some(Boolean))`. Every car then drives with BOOSTED tuning (topSpeed 32) while any car boosts. Engine accel tapers by `u = v / s.topSpeed` (car.ts:258), so car 0 accelerates harder and a human player holding throttle would pass 25. In the test, lines 357-362 compare only `{armed, boostTicks}` of racers[0], and pickups.ts writes those per car regardless of the engine. AC2 (lines 317-339) checks speed only for the firing AI car. Existing boost.test.ts uses carCount 1 for its boost run (line 18), and car-contact/push-out call stepCars with no 4th argument. No test compares another car's speed or position during a rival's boost, so the mutation survives.",
+      "suggestedFix": "In AC3, over ticks 0..fireAt+90, also assert that car 0's CarView (x, z, speed) in `fired` equals the one in `base`. Car 1 is behind car 0 or far from it during that window, so they should match; otherwise pick a seed where they are clear of each other. Alternatively, add a two-car stepCars unit test with `boosted = [false, true]` and full throttle at speed 25: car 0 must stay ≤ 25 while car 1 exceeds 25."
+    },
+    {
+      "id": "R5-2",
+      "reviewer": "R5",
+      "severity": "major",
+      "file": "src/sim/bot.ts",
+      "line": 68,
+      "claim": "No test checks where a bot fires. Its ramp and corner clearance (fireOk), and its dirt and grounded conditions, can be removed without any new test failing. On Dust Bowl the boxes at 0.04 sit about 0.05 of a lap before the ramp at 0.09, so this is exactly the case the rule exists for.",
+      "evidence": "Mutation 1: delete bot.ts lines 68-71 (the `track.data.ramps.forEach(... blocked[...] = 1)` loop). A bot that takes a box at at=0.04 then fires right away and hits the ramp lip at 0.09 at up to 32. Mutation 2: on line 94, drop `&& car.surface === 'dirt' && !car.airborne`. The new tests only check that fires exist (aiFires), that boostTicks counts 90→0, and that speed is ≤ 32 and at some point > 25 (rival-boost.test.ts:317-334). AC7 only checks finishing within 16200 ticks. No test asserts that, at a fire tick, the car is grounded, on dirt, and has no ramp lip or sub-top-speed corner within FIRE_CLEAR ahead. Both mutations keep speed ≤ 32 (the engine cap) and still produce fires, so they survive.",
+      "suggestedFix": "Add a test (e.g. tests/sim/rival-fire-spot.test.ts) that runs race(dustBowl, seed, …) for a few seeds. For each aiFires tick, assert the car is not airborne and is on dirt. Using trackLayout(dustBowl) ramps and the car's track position, also assert that no ramp lip lies within ~48 + 32²/(2·brake) units ahead of the car's s."
+    },
+    {
+      "id": "R5-3",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/sim/pickups.ts",
+      "line": 210,
+      "claim": "The tie rule (when cars reach a box on the same tick, the lower car index takes it) is in the spec summary but no test covers it. Reversing the order in which cars collect would not fail any test.",
+      "evidence": "Mutation: pickups.ts:210 `for (let k = 0; k < cars.length; k++)` → `for (let k = cars.length - 1; k >= 0; k--)`. The new tests check that an AI car takes some box (AC1), that armed cars leave boxes (AC5) and the 300-tick respawn (AC4). None places two unarmed cars within PICKUP_RADIUS of the same present box on the same tick and checks which one arms. pickups.test.ts AC2 (carCount 2) only checks that car 0 arms when it is first to a box, not on a tie.",
+      "suggestedFix": "Add a unit test on collectPickups: createPickups(boxes, 2), two cars both at boxes[0]'s (x, z). Assert armed is [true, false] and respawn[0] is 300. Also test the reverse case, where car 0 is already armed, giving [true, true] with the box taken by car 1."
+    }
+  ],
+  "rulings": [
+    {
+      "id": "R3-1",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "tests/sim/rival-pickup-block.test.ts:12-18 steerTo(car, p) = clamp(wrap(atan2(p.x-car.x, -(p.z-car.z)) - car.heading) * 2.5, -1, 1), using hand-rolled while-loop wrap and Math.max/min clamp. tests/sim/helpers.ts:163-168 driveToward(world, x, z, carIndex=0) returns steer = clamp(wrapAngle(headingOf(x-car.x, z-car.z) - car.heading) * 2.5, -1, 1). src/sim/vec.ts:19-21 headingOf(dx,dz) = Math.atan2(dx,-dz), the same formula. vec.ts:10 wrapAngle wraps to (-π, π], vec.ts:5 clamp. The CarView that steerTo reads comes from carViews(world)[0] -> carView (src/sim/car.ts:142-155), which copies x: car.x, z: car.z and heading: car.heading straight from world.cars[0]. So it reads the same inputs driveToward reads. Wrap conventions differ only at exactly ±π, where 2.5·π gets clamped to ±1 either way. The `drive` callback already gets `world`, and the file already imports from './helpers.ts' (dustBowl). steerTo duplicates driveToward(world, box.x, box.z).steer.",
+      "reason": "The new test-only steerTo duplicates the existing driveToward helper in tests/sim/helpers.ts (same heading formula, wrap, gain 2.5 and clamp) and hand-rolls helpers from vec.ts. Replacing it gives the same steer values."
+    },
+    {
+      "id": "R5-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Probe (since deleted): two-car Dust Bowl world, both cars at 25 u/s on full throttle, 30 ticks of stepCars(cars, inputs, track, [false, true]). Speeds were [25, 29.10]: car 0 stays at 25 and only car 1 is boosted. src/sim/car.ts:279 passes boosted[k] === true per car. AC3 in spec.md compares exactly car 0's armed and boostTicks, and the test does that.",
+      "reason": "The code is correct (boost is per car), so a test of it would pass on this branch and can't fail. AC3's test matches the spec's own wording. This is a coverage or mutation-testing suggestion, not a defect."
+    },
+    {
+      "id": "R5-2",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Probe (since deleted): six-car Dust Bowl bot races on seeds 1,2,3,4,5,7,11,13 (up to 16500 ticks), hooked at every AI input with action while armed (96 fires). At each fire tick I checked world.cars[i]: airborne false, surface 'dirt', and the distance ahead along the lap to every ramp lip was ≥ 64.8 (FIRE_CLEAR = 32·90/60 + 32²/80 + 4). Violations: 0. Minimum lip distance ahead: 78.9.",
+      "reason": "Bots fire only in valid spots (grounded, on dirt, clear of ramps), so a fire-spot test passes on this branch. The finding is a missing-coverage or mutation suggestion, not a reproducible defect."
+    },
+    {
+      "id": "R5-3",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Probe (since deleted): createPickups(dustBowl boxes, 2), both cars at boxes[0], collectPickups gives armed [true, false] and respawn[0] 300. src/sim/pickups.ts collectPickups loops k = 0..n-1 and skips armed cars, so the lower index wins ties.",
+      "reason": "The tie rule is implemented correctly, so the suggested test passes on this branch. The finding is a coverage gap, not a defect."
+    }
+  ],
+  "fixes": [
+    {
+      "id": "R3-1",
+      "status": "not-fixed",
+      "summary": "The finding is real. `steerTo` in tests/sim/rival-pickup-block.test.ts:12-18 duplicates `driveToward` from tests/sim/helpers.ts. It uses the same heading formula, wrap, gain of 2.5 and clamp, and only the wrap differs, at exactly ±π. But the only way to remove the duplicate is to edit tests/sim/rival-pickup-block.test.ts, and that test file already exists. My rules allow only src/** (not src/driver/**) and new files under tests/**, and forbid editing any existing test. Nothing under src/ causes the duplicate, so I couldn't fix it within the allowed files. I changed nothing. The cleanup is safe: delete `steerTo` and the now-unused `CarView`/`PickupInstance` type imports, import `driveToward` from './helpers.ts', and use `driveToward(world, box.x, box.z).steer`. Whoever is allowed to edit tests should apply it.",
+      "tests": [],
+      "commit": null,
+      "kept": null
+    },
+    {
+      "id": "J1",
+      "status": "fixed",
+      "summary": "The leftover duplicate was the private `steerTo` helper in tests/sim/rival-pickup-block.test.ts. It re-implemented the existing `driveToward` in tests/sim/helpers.ts: heading toward a point (atan2(dx, -dz) = headingOf), wrap the error into ±π, multiply by 2.5 and clamp to [-1, 1]. That file is new in this PR, not an existing test on main, so the earlier reason for not fixing it was wrong. I deleted `steerTo` and car 0's approach now uses `driveToward(world, box.x, box.z).steer`, imported from ./helpers.ts. The diff only touches that new test file. Behaviour is unchanged: the AC4 test still passes, `pnpm typecheck` is clean, and `pnpm test` passes 134/142 files. The 8 files that failed were browser/UI and one game test (best-lap-persistence, countdown-clear-browser, desktop-hud-scale, desktop-start-screen, hud-motion-reduced, keycap-legend-resize, keycap-legend-slide, track-card-press). None touch this code, and all 8 pass when rerun on their own, so they look like timing flakes under full-suite load. This is a duplication fix, so there is no new red/green test.",
+      "tests": [],
+      "commit": "2787116a64075287211ef195f371368f925a65bb",
+      "kept": true
+    }
+  ],
+  "notes": [],
+  "checked": {
+    "R1": 1,
+    "R2": 17,
+    "R3": 9,
+    "R4": 7,
+    "R5": 8
+  }
+}

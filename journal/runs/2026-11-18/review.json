@@ -1,0 +1,151 @@
+{
+  "reviewers": {
+    "R1": "ok",
+    "R2": "ok",
+    "R3": "ok",
+    "R4": "ok",
+    "R5": "ok"
+  },
+  "findings": [
+    {
+      "id": "R2-1",
+      "reviewer": "R2",
+      "severity": "minor",
+      "file": "src/ui/start-screen.ts",
+      "line": 101,
+      "claim": "show() and select() re-read each card's lock but never move the selection off a card that has just become locked. `pick()` returns early for a locked id without touching `selected`, so the menu can end up with a card that is both aria-disabled and aria-checked, and RACE starts that locked track. This breaks the invariant that a locked card is never checked.",
+      "evidence": "Code: pick() `if (cards.find((c) => c.id === id)?.locked !== false) return;` leaves `selected` unchanged; show() is `refresh(); screen.show();`; select() is `card.setLocked(locked(trackId)); pick(trackId, false);`. Trace: 1) storage holds racer.finished.hay-loop, so createGame shows Pine Ridge unlocked. 2) Click Pine Ridge: selected='forest-ridge', aria-checked='true'. 3) RACE, then PAUSE. 4) Remove racer.finished.hay-loop (cleared in another tab or devtools; the design re-reads on every show for exactly this). 5) QUIT TO MENU runs game.showMenu(): select('forest-ridge') does setLocked(true) and pick() returns; show() refreshes. Now the Pine Ridge radio has aria-disabled='true' and aria-checked='true', startScreen.selected()==='forest-ridge', and clicking RACE calls enterRace('forest-ridge'), so game.state().trackId==='forest-ridge' on a locked track. Expected: Pine Ridge unchecked and a still-unlocked card selected. The `tracks` option doc (line 21, 'the first is selected') is also stale: the code now selects the first unlocked card.",
+      "suggestedFix": "In show(), after refresh(), re-validate the selection: `if (cards.find((c) => c.id === selected)?.locked) { const first = cards.find((c) => !c.locked); if (first) pick(first.id, false); }`. Do this in show(), not inside refresh(), because refresh() is first called before `let selected` is initialised (TDZ). Update the `tracks` doc to say 'first unlocked'."
+    },
+    {
+      "id": "R3-1",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "src/content/tracks.ts",
+      "line": 34,
+      "claim": "The new exports `finishedKey` and `hasFinished` are not imported anywhere. Only tracks.ts uses them, as the key builder for `hasFinished`/`saveFinished` and as the default reader for `isTrackLocked`. That adds two public helpers to the content module's surface that nothing outside it uses.",
+      "evidence": "Grep `finishedKey|hasFinished` over /work (excluding node_modules) finds them only in src/content/tracks.ts:34, 42, 44, 53 and 60. game.ts imports only `isTrackLocked`, `nextTrackId` and `saveFinished`, start.stage.ts imports only `TRACKS`, `TRACK_LOCKS` and `isTrackLocked`, and the new tests write the literal key 'racer.finished.hay-loop' instead of calling `finishedKey`.",
+      "suggestedFix": "Remove the `export` keyword from `finishedKey` and `hasFinished` in src/content/tracks.ts so they stay module-private. No other code changes."
+    },
+    {
+      "id": "R4-1",
+      "reviewer": "R4",
+      "severity": "minor",
+      "file": "src/ui/title.css",
+      "line": 95,
+      "claim": "With four cards on the 844×390 phone, the track names no longer fit on one line. Two-word names break mid-name ('DUST / BOWL', 'BRAMBLE / BENDS'), while 'PINE RIDGE' and 'HAY LOOP' stay on one line. So the plates in the row have uneven name blocks, unlike S6, where every name is one line above its BEST line.",
+      "evidence": "Screenshot /inputs/screenshots/844x390/stage/start--menu.png next to guardrails/design/mockups/S6-title-track-select.png. In the mockup, DUST BOWL, HAY LOOP and PINE RIDGE are each one line. In the screenshot, the second card reads 'DUST' / 'BOWL' on two lines and the first reads 'BRAMBLE' / 'BENDS'. Cards 3 and 4 are one line. The same holds in start--menu-unlocked.png. The arithmetic for 844 wide: .ui-start__select is about 844 − 281 (brand, 1/3) − 24 (s5 left padding) − 48 (safe-right) ≈ 491px. Four cards and three s2 gaps leave each card about 117px (the screenshot measures about 114px: 316→430). The plate's content box is about 117 − 8 (4px borders) − 16 (s2 padding) ≈ 93px, too narrow for 'DUST BOWL' at --type-button-size 22px italic 900. .ui-track-card__name has no nowrap, so the name wraps. AC10 checks only scrollWidth ≤ clientWidth, so the wrap passes the test but differs from the mockup.",
+      "suggestedFix": "Keep each name on one line as in S6: give the phone `.ui-track-card__name` `white-space: nowrap`, as `.ui-track-card__best` already has. Then free the width so the AC10 clip test still passes, for example by narrowing `.ui-start__select`'s left padding from var(--space-s5) to var(--space-s4) or letting the brand panel shrink. If the row can't fit one-line names at 844, write a design request instead of shipping wrapped names."
+    },
+    {
+      "id": "R5-1",
+      "reviewer": "R5",
+      "severity": "major",
+      "file": "src/game.ts",
+      "line": 199,
+      "claim": "No test checks that only car 0's finish saves racer.finished.<id>. If the save fired on any racer's finish, a bot crossing the line on Hay Loop would unlock Pine Ridge, and every test would still pass. The spec says \"A player finish saves the key\", and AC6 says \"When car 0 finishes\".",
+      "evidence": "Mutation: change line 199 `if (!finished && r.world.racers[0]?.finishTick != null) saveFinished(r.track.id);` to `if (r.world.racers.some((x) => x.finishTick != null)) saveFinished(r.track.id);`. Every test that touches the key calls `finishRace` (tests/game/pine-ridge-helpers.ts:800). It plays `twinPlayerInputs` until car 0 finishes and then asserts car 0 finished, so the key is set under both the real code and the mutant. The Dust Bowl case (pine-ridge-unlock.test.ts:942) saves 'dust-bowl' under both. No test runs a Hay Loop race where a bot finishes and the player doesn't and then checks that localStorage has no racer.finished.hay-loop.",
+      "suggestedFix": "Add a test in a new file, e.g. tests/game/pine-ridge-player-only.test.ts. Use setup(), then `game.startRace({ trackId: 'hay-loop', seed: 3, carCount: 2 })`. Play NO_INPUT-equivalent inputs (e.g. `game.play(Array(10800).fill({steer:0,throttle:0,...}))`) until `state().race.racers[1].finishTick` is set, with racers[0].finishTick still null. Then assert `localStorage.getItem('racer.finished.hay-loop')` is null and the Pine Ridge card is still aria-disabled after game.showMenu()."
+    },
+    {
+      "id": "R5-2",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/ui/start-screen.ts",
+      "line": 362,
+      "claim": "No test covers select() re-reading the lock. That is the path where the menu comes back after a race on a track that unlocked after the menu last showed. If the re-read were removed, quitting to the menu after racing Pine Ridge would leave it unselected, and RACE would start a different track. The tests would still pass.",
+      "evidence": "Mutation: delete line 362 `if (card) card.setLocked(locked(trackId));`. Sequence: new game with empty storage, so the Pine Ridge card has locked=true from the constructor's refresh(). Call finishRace(game,'hay-loop'), which saves the key, then game.startRace({trackId:'forest-ridge'}), or reach it via NEXT RACE from Dust Bowl, with no menu show in between. Then game.showMenu() (game.ts:310) calls startScreen.select('forest-ridge') before show(). Under the mutant, pick() sees the stale `locked === true` and returns, so the checked radio stays Bramble Bends, and RACE starts 'bends' instead of 'forest-ridge'. AC7's test (pine-ridge-unlock.test.ts:950) goes NEXT RACE from hay-loop, which wraps to 'bends', and picks Pine Ridge by click after show(). It never runs select() on the just-unlocked id, so the mutant survives.",
+      "suggestedFix": "Add a test, e.g. in a new tests/game/pine-ridge-menu-return.test.ts: setup(); finishRace(game,'hay-loop'); finishRace(game,'dust-bowl'); click 'Next race' and expect trackId 'forest-ridge'; press Escape, then click 'Quit to menu'. Assert checked(root) contains 'Pine Ridge' and that clicking 'Race' starts 'forest-ridge'."
+    }
+  ],
+  "rulings": [
+    {
+      "id": "R2-1",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R2-1.test.ts",
+      "trace": "pnpm vitest run --config vitest.config.ts tests/verify/R2-1.test.ts. Steps: set racer.finished.hay-loop, setup(), click Pine Ridge (checked), click Race (trackId forest-ridge), remove the key, game.showMenu(). The Pine Ridge card is aria-disabled='true' and still aria-checked='true'. The test fails at `expect(pine.getAttribute('aria-checked')).not.toBe('true')` (received 'true'). Cause: select() at start-screen.ts:105-108 sets the lock, then pick() returns early at :44 without moving `selected`, and show() at :100-103 only refreshes.",
+      "reason": "Reproduced. A card that is locked again stays checked, and RACE would start the locked track. That breaks the plan audit's rule that a locked card is never checked. The fix is small: re-validate the selection in show()."
+    },
+    {
+      "id": "R3-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "grep finds finishedKey and hasFinished only in src/content/tracks.ts. hasFinished is the default reader for isTrackLocked.",
+      "reason": "This is not duplication, and there is no behavioural defect. The spec asks tracks.ts to provide a reader/writer for racer.finished.<id>, and whether these helpers are exported is a style preference."
+    },
+    {
+      "id": "R4-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "I compared start--menu.png with S6. The names do wrap ('BRAMBLE/BENDS', 'DUST/BOWL'). Each card's content box is about 93px, while 'BRAMBLE BENDS' at 22px 900 italic needs roughly 135px. The suggested left-padding change frees only about 2px per card.",
+      "reason": "The S6 mockup shows three cards with short names, not four. No UI_RULES rule requires one-line names. The suggested nowrap would clip the names and fail AC10's scrollWidth ≤ clientWidth check, so the fix would break the spec."
+    },
+    {
+      "id": "R5-1",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "game.ts:199 saves only when racers[0] goes from unfinished to finished. Searching tests for racer.finished finds only pine-ridge-unlock.test.ts:26/30 and setItem calls in next/next-race. Every finish in the game tests goes through finishRace (pine-ridge-helpers.ts:36), which drives car 0 to the finish. No test runs a Hay Loop race where only a bot finishes and then checks that racer.finished.hay-loop is absent. So the mutant `racers.some(x => x.finishTick != null)` would save the same key in every existing test, and they would all still pass.",
+      "reason": "There is a real coverage gap for behaviour the spec states outright (AC6: 'When car 0 finishes'; 'A player finish saves the key'). No test pins that a bot's finish does not unlock Pine Ridge."
+    },
+    {
+      "id": "R5-2",
+      "status": "verified",
+      "method": "trace",
+      "testFile": null,
+      "trace": "The AC7 test (pine-ridge-unlock.test.ts:41) goes finishRace hay-loop → Next race. nextTrackId('hay-loop') wraps to 'bends', so Quit runs showMenu → select('bends'), never select('forest-ridge'). In next-race.test.ts the key is set and NEXT RACE starts forest-ridge, but the test never returns to the menu. Elsewhere the key is set before setup(), so the constructor's refresh() already unlocks the card. No test in tests/ calls .select(). If start-screen.ts:107 (setLocked in select) were removed, then after the unlock (racing forest-ridge, then showMenu), pick('forest-ridge') would see the stale locked=true and return. show() would then unlock the card but leave the previous track checked. All tests would still pass.",
+      "reason": "There is a real coverage gap. Nothing tests that select() re-reads the lock when the menu returns to a track that unlocked after the last menu show."
+    }
+  ],
+  "fixes": [
+    {
+      "id": "R5-1",
+      "status": "fixed",
+      "summary": "The finding was about a missing test, so I added one and left src/ alone. The game already saves the key only when car 0 finishes (src/game.ts:199), but no test checked that. New file tests/game/pine-ridge-player-only.test.ts starts a two-car Hay Loop race with seed 3. It steps the game with no player input (game.step uses NO_INPUT) until racer 1, the bot, has a finishTick, giving up after 10800 ticks. It then asserts that car 0 has not finished, that localStorage has no racer.finished.hay-loop, and that after game.showMenu() the Pine Ridge radio is still aria-disabled with its \"Locked\" padlock. Red/green: with the verifier's mutation applied temporarily (`racers.some((x) => x.finishTick != null)`), the test fails with \"expected '1' to be null\". With the real code restored (byte-identical, checked with cmp), it passes. pnpm typecheck is clean and pnpm test passes: 147 files, 854 tests.",
+      "tests": [
+        "tests/game/pine-ridge-player-only.test.ts"
+      ],
+      "commit": "0b57dc6071f2d85d04e0ffd54ca1a9824c1ff594",
+      "kept": true
+    },
+    {
+      "id": "R2-1",
+      "status": "fixed",
+      "summary": "Fixed in `src/ui/start-screen.ts`. The menu could leave a card selected after that card became locked again. Now `show()` re-reads the locks and best laps through `refresh()`, then checks the current selection. If the selected card is now locked, the selection moves to the first unlocked card using the existing `pick()`. Pine Ridge is then no longer aria-checked, and RACE no longer starts a locked track. The check is in `show()` and not in `refresh()`, because `refresh()` first runs before `selected` is set. I also updated the `tracks` option comment to say \"first unlocked\".\n\nNew test: `tests/ui/relocked-selection.test.ts` (the verifier's test). It failed before the fix (aria-checked was 'true') and passes after. `pnpm typecheck` passes.\n\n`pnpm test` did not pass cleanly. Two full runs each failed a few Chromium browser tests: 4 on the first run and 6 on the second, and the failing set changed between runs (desktop-hud, hud-motion, keycap, results-fit-phone, track-card-press). All 10 passed when I re-ran them on their own, so they look like load-related flakes. I couldn't check them on the code without my change, because the working tree isn't a git repository. The other 845 tests passed on both runs.",
+      "tests": [
+        "tests/ui/relocked-selection.test.ts"
+      ],
+      "commit": "4ba491c283328c538c7b1ee16cb4302e3ac85b8b",
+      "kept": true
+    },
+    {
+      "id": "R5-2",
+      "status": "fixed",
+      "summary": "This finding was about a missing test, so I added one test and changed no code. The new file is tests/game/pine-ridge-menu-return.test.ts. It starts with empty storage, finishes a race on Hay Loop and then on Dust Bowl, and clicks NEXT RACE, which starts forest-ridge. Then it presses Escape, clicks QUIT TO MENU, checks that the selected card is Pine Ridge, and clicks RACE to check that forest-ridge starts. This goes through select('forest-ridge') on a card the menu still marks locked because the menu hasn't shown since the unlock. Red/green: I deleted the re-read in select() (`if (card) card.setLocked(locked(trackId));`, start-screen.ts:112) and the test failed with \"expected 'Bramble BendsBEST –:––.––' to contain 'Pine Ridge'\". With the line put back it passes. The repo has no git here, so I restored the line by hand and checked it. pnpm typecheck passes, and pnpm test passes: 149 files, 856 tests.",
+      "tests": [
+        "tests/game/pine-ridge-menu-return.test.ts"
+      ],
+      "commit": "b0f4e2ff1c5456785309e76f34656d589ee88c08",
+      "kept": true
+    },
+    {
+      "id": "J1",
+      "status": "not-fixed",
+      "summary": "The judge's finding is a wrong line number in review.md, not a fault in the code. In src/ui/start-screen.ts (116 lines), select() re-reads the lock at line 112 (`if (card) card.setLocked(locked(trackId));`), so the behaviour the R5-2 fix describes is there and correct. Only the reference \"start-screen.ts:362\" in the review text is stale. review.md isn't in this workspace (journal/runs/2026-11-18/ is empty), and this fixer may only touch src/** and new tests/** files, so I can't correct the citation. Changing src just to move the line would be churn unrelated to any defect. I changed nothing and added no test because there's no behaviour bug to show red/green. The fix is to change the R5-2 citation in review.md to src/ui/start-screen.ts:112.",
+      "tests": [],
+      "commit": null,
+      "kept": null
+    }
+  ],
+  "notes": [],
+  "checked": {
+    "R1": 9,
+    "R2": 12,
+    "R3": 11,
+    "R4": 10,
+    "R5": 8
+  }
+}

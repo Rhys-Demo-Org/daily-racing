@@ -1,0 +1,40 @@
+{
+  "verdict": "revise",
+  "summary": "The spec covers B11's scope and done_when, and putting Pine Ridge third is a necessary, disclosed choice. But AC8 (\"from Dust Bowl NEXT RACE starts Hay Loop while Pine Ridge is locked\") conflicts with the append-only tests/game/pause-results.test.ts:162. That test expects NEXT RACE from dust-bowl to start nextTrackId('dust-bowl'), which becomes 'forest-ridge'. The draft never says how to satisfy both, so an unattended builder would likely hit a red gate.",
+  "findings": [
+    {
+      "check": "supersedes",
+      "severity": "major",
+      "claim": "tests/game/pause-results.test.ts:161-162 (append-only) expects NEXT RACE after a Dust Bowl finish, with empty storage, to start nextTrackId('dust-bowl') using the default list (all of TRACKS). With forest-ridge third, that is 'forest-ridge', but AC8 wants Hay Loop. Unless nextTrackId's default list leaves out locked tracks, AC8 or this test fails. gamepad-menu.test.ts:112 and next-track.test.ts:11 also use the default list and pass only if it keeps every unlocked track in registry order.",
+      "suggestedFix": "State that nextTrackId(id) with no `ids` skips tracks locked under current storage and always equals what NEXT RACE does; with explicit `ids` it is unchanged. Throwing storage counts as locked. Say where the storage read lives without src/content importing src/ui, e.g. a try/catch reader of racer.finished.<id> in src/content/tracks.ts. Add an AC: on empty storage nextTrackId('dust-bowl') is 'hay-loop'; with racer.finished.hay-loop stored it is 'forest-ridge'. List pause-results, gamepad-menu and next-track tests as must-keep-passing."
+    },
+    {
+      "check": "design",
+      "severity": "minor",
+      "claim": "UI_RULES §states says disabled is 'dark-dirt, no shadow', while the draft says the locked card is 'dark dirt with shadow'. The S6 mockup does draw an ink shadow under the locked Pine Ridge card. A locked card is shown by mockup S6 rather than by the generic disabled state, so following the mockup is defensible.",
+      "suggestedFix": "Keep the S6 look (dark-dirt ground, ink shadow, cream name, padlock roundel). Note in the PR that the locked card follows S6, not the generic disabled-control rule."
+    },
+    {
+      "check": "testability",
+      "severity": "minor",
+      "claim": "AC1 uses getTrack, which the harness lint flags. getTrack and TRACKS are the long-standing public content seam that many existing tests already import, so this is acceptable. 'The exported lock data' is unnamed, though, so a test will freeze whatever name the builder picks.",
+      "suggestedFix": "Name and shape the lock export in the spec, e.g. `TRACK_LOCKS: Readonly<Record<string, { afterFinishOn: string }>>` in src/content/tracks.ts, so that the public content API is chosen on purpose."
+    },
+    {
+      "check": "scope",
+      "severity": "minor",
+      "claim": "The id 'forest-ridge' doesn't match the name 'Pine Ridge'. It was picked so it sorts between dust-bowl and hay-loop. That placement is needed: as the last card it would break the ArrowLeft wrap in tests/ui/track-select.test.ts:91-106, and as the second card it would break the ArrowRight check there. The id/name mismatch could still puzzle the owner later.",
+      "suggestedFix": "Keep the third position and explain in the PR body why the id is forest-ridge."
+    },
+    {
+      "check": "visible",
+      "severity": "minor",
+      "claim": "In play-test step 5, 'or just reload the page' skips checking that the menu re-reads the lock without a reload, which is what AC7 covers.",
+      "suggestedFix": "Have step 5 use NEXT RACE → PAUSE → QUIT TO MENU first, and keep the reload for step 7."
+    }
+  ],
+  "overlapAssessment": null,
+  "waitsOn": null,
+  "designRequest": null,
+  "backlogChangeRequests": []
+}

@@ -1,0 +1,42 @@
+{
+  "branchSha": "b0f4e2ff1c5456785309e76f34656d589ee88c08",
+  "mainSha": "37f6e3d82cb0f07cfa5322b67e9f3c2c94f72bb1",
+  "startedAt": "2026-11-18T02:40:00Z",
+  "durationMs": 32825,
+  "pass": true,
+  "maintenance": false,
+  "gates": [
+    {
+      "id": "G1",
+      "name": "Build, types & unit tests",
+      "pass": true,
+      "durationMs": 32356,
+      "summary": "typecheck, build ok; 856/856 tests passed (main 813)",
+      "details": ""
+    },
+    {
+      "id": "G2",
+      "name": "Bot laps",
+      "pass": true,
+      "durationMs": 1882,
+      "summary": "bends 15.48 s (+0.0%), dust-bowl 17.70 s (+0.0%), forest-ridge 28.18 s (new), hay-loop 53.61 s (+0.0%); worst step 0.406",
+      "details": ""
+    },
+    {
+      "id": "G3",
+      "name": "Physics replays",
+      "pass": true,
+      "durationMs": 1133,
+      "summary": "5 replays reproduce main's end states (±0.000001)",
+      "details": ""
+    },
+    {
+      "id": "G8",
+      "name": "Protected files",
+      "pass": true,
+      "durationMs": 614,
+      "summary": "only allowed paths changed; manifest and tokens match",
+      "details": ""
+    }
+  ]
+}

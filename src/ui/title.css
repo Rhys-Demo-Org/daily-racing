@@ -89,9 +89,10 @@
   min-width: 0;
   padding: var(--space-s5) var(--safe-right) var(--safe-bottom) var(--space-s5);
 }
+/* Four cards share the phone's row: an 8px gap and 8px plate padding keep every name and BEST line whole. */
 .ui-start__cards {
   display: flex;
-  gap: var(--space-s4);
+  gap: var(--space-s2);
 }
 .ui-start__race {
   align-self: flex-end;
@@ -163,7 +164,7 @@
   flex-direction: column;
   justify-content: flex-end;
   gap: var(--space-s1);
-  padding: var(--space-s2) var(--space-s3);
+  padding: var(--space-s2);
   border-top: var(--outline-default) solid var(--color-ink);
   background: var(--color-cream);
 }
@@ -181,6 +182,49 @@
 .ui-track-card__best {
   font-variant-numeric: var(--font-numeric);
   white-space: nowrap;
+}
+
+/* Locked card (S6): dark dirt throughout with the outline as an ink road, a cream name over dashes
+   and a cream padlock roundel on the outline. It keeps its ink shadow and focus ring, but never
+   lifts or sinks, since it can't be picked. */
+.ui-track-card__art {
+  position: relative;
+}
+.ui-track-card[aria-disabled='true'] {
+  background: var(--color-dark-dirt);
+  cursor: default;
+}
+.ui-track-card[aria-disabled='true']:focus-visible,
+.ui-track-card[aria-disabled='true']:hover,
+.ui-track-card[aria-disabled='true']:active {
+  transform: none;
+  box-shadow: var(--shadow-button);
+}
+.ui-track-card[aria-disabled='true'] .ui-track-card__road {
+  stroke: var(--color-ink);
+}
+.ui-track-card[aria-disabled='true'] .ui-track-card__plate {
+  background: var(--color-dark-dirt);
+  color: var(--color-cream);
+}
+.ui-track-card__lock {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--space-s6) + var(--space-s2));
+  height: calc(var(--space-s6) + var(--space-s2));
+  border: var(--outline-default) solid var(--color-ink);
+  border-radius: var(--radius-round);
+  background: var(--color-cream);
+  color: var(--color-ink);
+  transform: translate(-50%, -50%);
+}
+.ui-track-card__lock .ui-icon {
+  width: var(--space-s5);
+  height: var(--space-s5);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -225,6 +269,15 @@
 .ui-start.is-desktop .ui-track-card__plate {
   padding: calc(var(--space-s2) * var(--desktop-scale)) calc(var(--space-s3) * var(--desktop-scale));
   border-top-width: var(--desktop-outline);
+}
+.ui-start.is-desktop .ui-track-card__lock {
+  width: calc((var(--space-s6) + var(--space-s2)) * var(--desktop-scale));
+  height: calc((var(--space-s6) + var(--space-s2)) * var(--desktop-scale));
+  border-width: var(--desktop-outline);
+}
+.ui-start.is-desktop .ui-track-card__lock .ui-icon {
+  width: calc(var(--space-s5) * var(--desktop-scale));
+  height: calc(var(--space-s5) * var(--desktop-scale));
 }
 .ui-start.is-desktop .ui-track-card__name {
   font-size: var(--type-button-size-desktop);

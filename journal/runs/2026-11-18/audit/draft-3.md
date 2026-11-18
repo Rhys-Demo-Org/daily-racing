@@ -1,0 +1,56 @@
+# B11 · Track: Pine Ridge and the lock rule
+
+Date: 2026-11-18 · mode: backlog · backlog: B11
+
+## Summary
+
+Add Pine Ridge: JSON id forest-ridge, 3 laps, width 11, sharp angular, 2 ramps, dense cone trees. src/content/tracks.ts exports TRACK_LOCKS: Readonly<Record<string,{afterFinishOn:string}>> = {'forest-ridge':{afterFinishOn:'hay-loop'}}, plus a try/catch reader/writer of racer.finished.<id> (missing or throwing storage = locked). nextTrackId(id) with no ids skips locked tracks except id itself; NEXT RACE uses it; explicit ids unchanged. A player finish saves the key at once; the menu re-reads it on each show. Locked card per S6 (not generic disabled): dark dirt, ink shadow, cream name, padlock. Must still pass: pause-results, gamepad-menu, next-track, hay-loop, track-select, track-card-press tests. PR explains the id: third card keeps track-select wrap tests green.
+
+## Acceptance criteria
+
+- **AC1**: getTrack('forest-ridge') is named "Pine Ridge" with 3 laps and width ≥ 11, and passes validateTrack. TRACKS ids are, in order, bends, dust-bowl, forest-ridge, hay-loop. TRACK_LOCKS from src/content/tracks.ts equals { 'forest-ridge': { afterFinishOn: 'hay-loop' } }, and no other track appears in it.
+- **AC2**: Pine Ridge has exactly 2 ramps and at least 4 sharp corners. Each sharp corner turns ≥ 60° within 30 units of lap distance, and they are at least 40 units apart. Any two centreline samples more than 60 units apart along the lap are at least width + 2 apart, so the road never overlaps itself.
+- **AC3**: Pine Ridge has at least 60 cone trees, more than any other registered track, with trees on both sides of the road. No prop stands closer to the centreline than half the width + 1.
+- **AC4**: On Pine Ridge, with seeds 1, 2 and 3, a six-car race driven only by bots (car 0 included) ends with all six cars finishing 3 laps within 10800 ticks.
+- **AC5**: In the game's menu with empty localStorage, the Pine Ridge radio has aria-disabled="true" and a padlock with accessible name "Locked". It reads "BEST –:––.––" even when racer.bestLap.forest-ridge is stored. Clicking it leaves Bramble Bends selected. From Dust Bowl, ArrowRight selects Hay Loop and ArrowLeft returns to Dust Bowl.
+- **AC6**: When car 0 finishes a race on Hay Loop, localStorage holds racer.finished.hay-loop while the results screen shows, before any return to the menu. Finishing on Dust Bowl does not unlock Pine Ridge: its card is still aria-disabled on the next menu show.
+- **AC7**: After a Hay Loop finish, the next menu show (NEXT RACE, then PAUSE → QUIT TO MENU) re-reads the lock. The Pine Ridge radio is not aria-disabled, has no "Locked" padlock, shows its stored best and can be selected, and RACE then starts forest-ridge. A new game created on the same storage also shows it unlocked.
+- **AC8**: Empty storage: nextTrackId('dust-bowl') is 'hay-loop', and NEXT RACE after a Dust Bowl finish starts hay-loop. With racer.finished.hay-loop stored, both give 'forest-ridge'. nextTrackId('forest-ridge') is 'hay-loop'. nextTrackId('dust-bowl', ['dust-bowl','forest-ridge']) is 'forest-ridge'. With getItem throwing, nextTrackId('dust-bowl') is 'hay-loop'.
+- **AC9**: With localStorage getItem and setItem both throwing, the player can finish a race on Hay Loop and return to the menu without an error. The menu renders all four cards, and Pine Ridge is still aria-disabled.
+- **AC10**: A new screen stage 'start--menu-unlocked' shows the Pine Ridge card enabled with no padlock; in the existing 'start--menu' stage it is locked. In Chromium at 844×390 in 'start--menu': all four cards and RACE are inside the viewport, no card overlaps RACE, and no card's name or best text is clipped (scrollWidth ≤ clientWidth).
+
+## What you'll see
+
+The track select now has a fourth card, Pine Ridge, third in the row. It starts locked: a dark brown card with a padlock badge and no best time. Once you finish a race on Hay Loop it unlocks, and you can drive a sharp, angular track through dense pine trees with two jumps.
+
+## How to play-test
+
+1. Open the preview in a private or incognito tab on your phone, so no saved progress carries over.
+2. On the title screen, check that the third card, Pine Ridge, is dark brown with a padlock and reads BEST –:––.––, and that all four cards and RACE fit on screen.
+3. Tap Pine Ridge: it should stay unselected, and RACE should still start the track that was already picked.
+4. Select Dust Bowl, race and finish. On the results screen tap NEXT RACE: Hay Loop should start, not Pine Ridge.
+5. Finish that Hay Loop race. On the results screen tap NEXT RACE, then PAUSE and QUIT TO MENU, without reloading. Pine Ridge should now look like the other cards, with no padlock.
+6. Select Pine Ridge and tap RACE: you should drive a sharp, angular track through dense pine trees with two ramps.
+7. Reload the page: Pine Ridge should still be unlocked.
+
+## Expected files
+
+- `src/content/tracks/forest-ridge.json`
+- `src/content/tracks.ts`
+- `src/ui/race-ui.ts`
+- `src/ui/start-screen.ts`
+- `src/ui/track-card.ts`
+- `src/ui/title.css`
+- `src/ui/icons.ts`
+- `src/ui/types.ts`
+- `src/game.ts`
+- `src/ui/stages/start.stage.ts`
+- `tests/content/pine-ridge.test.ts`
+- `tests/content/pine-ridge-bot.test.ts`
+- `tests/content/pine-ridge-next.test.ts`
+- `tests/ui/pine-ridge-lock.test.ts`
+- `tests/game/pine-ridge-unlock.test.ts`
+- `tests/game/pine-ridge-next-race.test.ts`
+- `tests/game/pine-ridge-storage-blocked.test.ts`
+- `tests/ui/pine-ridge-stage.test.ts`
+- `tests/ui/track-select-fit-phone.test.ts`

@@ -11,6 +11,8 @@ const POINTS = {
   pause: ['5,3 10,3 10,21 5,21', '14,3 19,3 19,21 14,21'],
   // Lightning bolt: the action (Boost) button.
   bolt: ['14,2 4,14 11,14 9,22 20,9 13,9'],
+  // Padlock (locked track card): an angular shackle over a solid body.
+  padlock: ['5,11 19,11 19,22 5,22', '6,11 6,7 9,3 15,3 18,7 18,11 15,11 15,8 13.5,6 10.5,6 9,8 9,11'],
   home: ['12,2 23,12 20,12 20,22 14,22 14,15 10,15 10,22 4,22 4,12 1,12'],
   // Keycap arrows (keyboard legend): solid head on a stem.
   'key-left': ['3,12 12,4 12,9 21,9 21,15 12,15 12,20'],

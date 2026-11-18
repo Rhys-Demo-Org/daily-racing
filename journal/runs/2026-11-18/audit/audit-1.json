@@ -1,0 +1,54 @@
+{
+  "verdict": "revise",
+  "summary": "The track and lock rule are well scoped, and putting the card third (id forest-ridge) is forced by append-only tests. But step 5 of the play-test can't be done: the results screen has no way back to the menu and pause is blocked once the player finishes. AC6 has the same unclear \"returns to the menu\" route. AC1 also pins the internal nextTrackId even though AC7 already checks the same behaviour through the UI.",
+  "findings": [
+    {
+      "check": "visible",
+      "severity": "major",
+      "claim": "Play-test step 5 says \"Quit to the menu\" after finishing Hay Loop, but the results screen (src/ui/results-screen.ts) only has RETRY and NEXT RACE. setPaused in src/game.ts:178 refuses to pause once racers[0].finishTick is set, so there's no QUIT TO MENU either. The owner can't follow the step as written.",
+      "suggestedFix": "Rewrite step 5 as a real route: on the results screen tap NEXT RACE, then PAUSE → QUIT TO MENU (or reload the page). Pine Ridge should now be unlocked. Do not add a menu button to the results screen (out of scope, not in S5)."
+    },
+    {
+      "check": "testability",
+      "severity": "major",
+      "claim": "AC6 says \"finishes a race on Hay Loop and returns to the menu\" without saying when the finish is recorded or how the test gets back to the menu. A builder could write the flag only on the way back to the menu, and a test could then pass without proving the unlock works.",
+      "suggestedFix": "Split AC6. (a) As soon as car 0 finishes on Hay Loop (results showing), racer.finished.hay-loop is in localStorage. (b) The next time the menu is shown, by PAUSE → QUIT TO MENU from a following race or by the game's showMenu, the Pine Ridge radio is no longer aria-disabled, has no padlock, shows its stored best, can be selected, and RACE starts forest-ridge. (c) A new createGame on the same storage shows it unlocked. Also require the lock state to be re-read on every menu show, as the bests already are."
+    },
+    {
+      "check": "testability",
+      "severity": "major",
+      "claim": "AC1 names the internal function nextTrackId and pins a new behaviour of its default list (skipping locked tracks, and nextTrackId('forest-ridge') === 'hay-loop'). An append-only test would freeze that function's signature and semantics. The behaviour that matters is already covered by AC7 through NEXT RACE, and the existing tests/content/hay-loop.test.ts already forces nextTrackId('dust-bowl') === 'hay-loop'.",
+      "suggestedFix": "Remove the nextTrackId clauses from AC1. Keep name, laps, width, validateTrack and the TRACKS order (exported content data). Let AC7 cover NEXT RACE order through the results screen, and add a NEXT RACE-from-Pine-Ridge check there if needed (it should start Hay Loop)."
+    },
+    {
+      "check": "design",
+      "severity": "minor",
+      "claim": "S6 shows Pine Ridge as the last card, but the draft puts it third, between Dust Bowl and Hay Loop. Existing append-only tests force this: track-select AC3 wraps ArrowLeft onto the last card and expects it selected, and track-card-press presses the last card and expects a sink, not a shake. The deviation is justified, but the owner should be told.",
+      "suggestedFix": "Keep the order, and state in the spec's summary (and the PR body) that the card order differs from S6 because of those two tests."
+    },
+    {
+      "check": "design",
+      "severity": "minor",
+      "claim": "S6 only shows three cards. With Bramble Bends there are now four in the ~560px select column at 844×390. The draft doesn't say how they shrink or how names like \"BRAMBLE BENDS\" wrap. Only AC10 tests the result.",
+      "suggestedFix": "Let the existing flex-shrink cards narrow and let names wrap to two lines. Add no new sizes and no type below the token scale. If they can't fit without new sizes, leave the layout as it is and record a design request rather than inventing one."
+    },
+    {
+      "check": "design",
+      "severity": "minor",
+      "claim": "UI_RULES §10 says disabled = dark-dirt with no shadow, but the S6 mockup draws the locked card with a shadow. The draft also says \"ink-only outline\" without saying this means the thumbnail's track line is drawn in ink without the cream road.",
+      "suggestedFix": "State that the thumbnail draws the track in ink only (as in S6). Follow the mockup for the card shadow, since it is the screen-specific source, and keep the shake to transform only with motion tokens, cut under reduced motion."
+    },
+    {
+      "check": "scope",
+      "severity": "minor",
+      "claim": "validateTrack strips unknown keys, so the lock rule can't live in the track JSON. The draft implies it lives in src/content/tracks.ts but doesn't say so.",
+      "suggestedFix": "Spell out that the lock rule is exported content data in src/content/tracks.ts (e.g. forest-ridge unlocks after a finish on hay-loop), and that src/sim/track.ts is not touched."
+    }
+  ],
+  "overlapAssessment": null,
+  "waitsOn": null,
+  "designRequest": "S6 title / track select at 844×390: the mockup shows three track cards, but the game now has four (Bramble Bends, Dust Bowl, Pine Ridge, Hay Loop) and will have more. Please specify how the card row behaves with four or more cards on a phone: narrower cards with names wrapping to two lines, a smaller card size, or a scrolling row. Also confirm whether the locked card keeps the 4px shadow drawn in S6 or follows the §10 disabled rule (dark-dirt, no shadow), and give the locked-card shake (board 05 #7) as numbers: distance, count, duration and easing.",
+  "backlogChangeRequests": [
+    "B11: note that existing append-only tests (track-select AC3 wrap, track-card-press on the last card) force the locked card to sit before the last card, so S6's 'Pine Ridge last' order can't be met; accept the third position or plan a test-compatible order."
+  ]
+}

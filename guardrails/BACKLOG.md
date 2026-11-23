@@ -140,10 +140,11 @@ track; Bramble Bends and Hay Loop behave exactly as before.
 
 ## B11 · Track: Pine Ridge and the lock rule
 depends_on: B08, B10
-scope: A third track, "Pine Ridge": dense cone-tree forest, a sharp angular layout as in the S6
+scope: A fourth track, "Pine Ridge" (id `pine-ridge`, so it sorts last): dense cone-tree forest, a sharp angular layout as in the S6
 thumbnail, two ramps. In track select it starts locked (dark-dirt card, padlock roundel, best
 "-:--.--") and unlocks once the player has finished a race on Hay Loop (stored like best laps).
-Mockup: S6. Lock rule approved by the owner.
+Mockup: S6. Lock rule approved by the owner. The locked card is always after the open ones (owner,
+2026-11-23).
 done_when: the track registers and the bot finishes it; its card is locked and not selectable
 until a Hay Loop finish is recorded, then unlocked.
 
@@ -157,3 +158,16 @@ Mockups: S1–S2 (action button), desktop HUD (SPACE power-up keycap).
 done_when: collecting a pickup arms the action control; firing it raises speed for a fixed number
 of ticks then returns to normal; pickups respawn after a fixed time; tracks without pickups behave
 exactly as before (replays unchanged).
+
+## B14 · Track select: many cards and the locked-card shake
+depends_on: B11
+scope: Track select (S6) per UI_RULES section 12 (owner, 2026-11-23). The card row shrinks all
+cards together to fit, down to 96px; below that it scrolls sideways with a snap point per card and
+the next card peeking in, while RACE stays fixed. A locked card never hover-lifts or press-sinks.
+Tapping or clicking it, or pressing Enter/Space while it has focus, shakes it ±4px horizontally,
+3 swings in 250ms with easing snap, and the selection doesn't change. Reduced motion: no shake.
+Mockup: S6 (plus UI_RULES section 12).
+done_when: at 844×390, 4 and 5 cards fit unscrolled with no clipped name; with enough cards to pass
+the minimum width the row scrolls, snaps per card and RACE never moves; activating a locked card by
+pointer or Enter/Space shakes it (transform only) and leaves the selection unchanged; with reduced
+motion it doesn't shake; a locked card's transform stays at rest on hover and press.

@@ -55,6 +55,7 @@ guardrails       design pack, tokens, palette, budgets, backlog, gates, cheats, 
 harness          daily.sh, config.env, prompts, scripts, container/ (protected)
 journal/runs     one folder per nightly run
 spikes           Phase 0 throwaway experiments (deleted at handover)
+docs             owner docs; docs/interventions.md logs every owner intervention (owner sessions append)
 ```
 
 ## Conventions

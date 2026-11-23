@@ -4,10 +4,10 @@
 // and A confirms on menus.
 
 /** Standard-mapping button indices. */
-export const PAD_BUTTON = { a: 0, brake: 6, gas: 7, left: 14, right: 15 } as const;
+const PAD_BUTTON = { a: 0, brake: 6, gas: 7, left: 14, right: 15 } as const;
 
 /** |stick X| at or below this reads as centred, so a resting stick never drifts. */
-export const STICK_DEAD_ZONE = 0.15;
+const STICK_DEAD_ZONE = 0.15;
 
 export interface PadState {
   /** −1…+1; 0 when no pad is connected or the stick rests in the dead-zone. */
@@ -23,7 +23,7 @@ const IDLE: PadState = { steer: 0, gas: false, brake: false, confirm: false };
 export const clampSteer = (v: number): number => Math.max(-1, Math.min(1, v));
 
 /** Stick X → steer: 0 inside the dead-zone, then rescaled so the edge of the dead-zone is 0 and full tilt is ±1. */
-export function stickSteer(x: number): number {
+function stickSteer(x: number): number {
   const m = Math.abs(x);
   if (!(m > STICK_DEAD_ZONE)) return 0;
   return Math.sign(x) * Math.min(1, (m - STICK_DEAD_ZONE) / (1 - STICK_DEAD_ZONE));

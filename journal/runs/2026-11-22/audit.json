@@ -1,0 +1,150 @@
+{
+  "verdict": "approve",
+  "rounds": 1,
+  "items": [
+    {
+      "id": "C028",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C014",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C034",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C049",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C035",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C050",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C048",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C053",
+      "verdict": "chosen",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C023",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C026",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C031",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C041",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C047",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C055",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C025",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C004",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C008",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C009",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C010",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C015",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C033",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C045",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C046",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    },
+    {
+      "id": "C054",
+      "verdict": "rejected",
+      "rounds": 1,
+      "waitsOn": null
+    }
+  ]
+}

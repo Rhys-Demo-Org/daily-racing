@@ -50,17 +50,8 @@
   border: var(--outline-default) solid var(--color-ink);
   border-radius: var(--radius-rect);
   box-shadow: var(--shadow-button);
-  /* Button type (BRAKE: mockup 18px is off-scale); buttons don't inherit fonts. */
-  font-family: var(--type-button-font);
-  font-size: var(--type-button-size);
-  font-weight: var(--type-button-weight);
-  font-style: var(--type-button-style);
-  line-height: 1;
-  text-transform: uppercase;
+  /* Button type and transition: components.css (BRAKE: mockup 18px is off-scale). */
   pointer-events: none;
-  transition:
-    transform var(--duration-release) var(--ease-snap),
-    box-shadow var(--duration-release) var(--ease-snap);
 }
 .ui-tc__icon {
   width: calc(var(--space-s6) + var(--space-s2));

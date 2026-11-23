@@ -1,0 +1,2152 @@
+{
+  "version": 1,
+  "nextId": 57,
+  "updatedAt": "2026-11-22",
+  "items": [
+    {
+      "id": "C001",
+      "area": "sim",
+      "category": "docs",
+      "files": [
+        "src/sim/car.ts"
+      ],
+      "line": 76,
+      "claim": "The maxStepUp doc comment says applying it on every track is 'fine while no replay baselines exist (before G3)'. Replay baselines now exist and G3 enforces them, so the comment is stale. It also suggests a global physics change is still acceptable, which is a trap: CLAUDE.md requires new physics to be opt-in per track, car or surface.",
+      "evidence": "src/sim/car.ts:76-79: \"/** Highest step a grounded car can climb in one tick; ... (see MAX_RAMP_SLOPE). It applies on every track: fine while no replay baselines exist (before G3). */ maxStepUp: 0.3,\" — the baselines are present: tests/baselines/replay-states.json and tests/baselines/replays/{drift,jump,prop-collision,car-contact,bot-race}.json. PHASE0_STATUS.md:140 lists 'G3 physics replays' as an active gate.",
+      "suggestedFix": "Replace the last sentence with one saying the value is part of the recorded replay behaviour (G3 baselines), so it must not change; a different step rule has to be opt-in per track, car or surface. Comment only.",
+      "worth": "medium",
+      "estLines": 4,
+      "status": "closed",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-08",
+      "seenCount": 1,
+      "pr": 28,
+      "closedOn": "2026-11-15",
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the sim survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "done in PR #28"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "merged in #28"
+        }
+      ]
+    },
+    {
+      "id": "C002",
+      "area": "sim",
+      "category": "docs",
+      "files": [
+        "src/sim/types.ts",
+        "src/sim/bot.ts"
+      ],
+      "line": 15,
+      "claim": "Two sim comments describe the game as it was earlier. TrackData.width says the width is '8.4 per UI_RULES §9', but registered tracks use 11. The bot.ts header calls the bot 'the race opponent' and 'its line', but player races now run five bots (one per roster AI driver).",
+      "evidence": "src/sim/types.ts:15: \"/** Track ribbon width in units (8.4 per UI_RULES §9). */\" vs src/content/tracks/dust-bowl.json:5 \"width\": 11 (bends.json:5 is 8.4; in-flight hay-loop is 11). src/sim/bot.ts:1: \"// Bot driver: the race opponent, and the driver the bot-lap gate (G2) uses on every track.\" vs merged #20 (B04): six-car races, 'each driven by its own seeded bot'.",
+      "suggestedFix": "types.ts:15: change to 'Track ribbon width in units (e.g. 8.4, the UI_RULES §9 reference).' bot.ts:1: change to 'Bot driver: drives every AI car in a race, and the car the bot-lap gate (G2) uses on every track.' Comments only.",
+      "worth": "low",
+      "estLines": 4,
+      "status": "closed",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-08",
+      "seenCount": 1,
+      "pr": 28,
+      "closedOn": "2026-11-15",
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the sim survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "done in PR #28"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "merged in #28"
+        }
+      ]
+    },
+    {
+      "id": "C003",
+      "area": "sim",
+      "category": "simplify",
+      "files": [
+        "src/sim/track.ts"
+      ],
+      "line": 224,
+      "claim": "validateTrack copies every prop row twice. The map at line 224 already builds a fresh object literal per row, then line 240 spreads each one into another new object. The second copy does nothing.",
+      "evidence": "src/sim/track.ts:224: \"return { kind: k, side, from, to, spacing, offset } as const;\" and src/sim/track.ts:240: \"propRows: propRows.map((r) => ({ ...r })),\" — ramps (line 197/239) and props (line 230/241) are returned directly without a second copy.",
+      "suggestedFix": "Drop the 'as const' at line 224 (side is already narrowed to 'left' | 'right' by the check at line 217) and return 'propRows' directly at line 240, matching ramps and props. Same values, one allocation fewer per row.",
+      "worth": "low",
+      "estLines": 2,
+      "status": "stale",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-08",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the sim survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not reproduced by the sim survey: The redundant second copy is gone: src/sim/track.ts:240 now returns `propRows,` directly, the same as ramps and props. Only the harmless `as const` at :224 is left, so there is nothing left to save an allocation on."
+        }
+      ]
+    },
+    {
+      "id": "C004",
+      "area": "sim",
+      "category": "duplication",
+      "files": [
+        "src/sim/track.ts",
+        "src/sim/vec.ts"
+      ],
+      "line": 286,
+      "claim": "The positive-modulo wrap ((v % n) + n) % n is written out by hand five times in track.ts: for spline control points, arc length and three segment indices. A small helper in vec.ts would give identical results.",
+      "evidence": "src/sim/track.ts:286 \"points[((i % n) + n) % n]\"; :429 \"((s % t.length) + t.length) % t.length\"; :461 \"((segment % track.count) + track.count) % track.count\"; :497 \"((hintSeg % n) + n) % n\"; :504 \"(((centre + o) % n) + n) % n\".",
+      "suggestedFix": "Add 'export function wrapIndex(v: number, n: number): number { return ((v % n) + n) % n; }' (named for what it does) to src/sim/vec.ts and use it at the five sites. It runs the exact same operations, so results stay bit-identical.",
+      "worth": "low",
+      "estLines": 12,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the sim survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "not chosen by the plan audit: It adds a helper and an import to src/sim to replace five one-line expressions, so src/ grows a little for no performance gain. It also touches hot sim paths for low value. Not worth a night under the delete-only rule for tidy-ups."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the sim survey: All five hand-written positive-modulo wraps are still there: track.ts:286 `points[((i % n) + n) % n]`, :429 `((s % t.length) + t.length) % t.length`, :461 `((segment % track.count) + track.count) % track.count`, :497 `((hintSeg % n) + n) % n`, :504 `(((centre + o) % n) …"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Still adds a helper and an import to src/sim to replace five one-line expressions on hot sim paths. src/ grows for no performance gain, which the delete-only rule doesn't allow."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the sim survey: The five hand-written positive-modulo wraps are still in src/sim/track.ts. Their lines moved: :303 `points[((i % n) + n) % n]`, :453 `((s % t.length) + t.length) % t.length`, :485 `((segment % track.count) + track.count) % track.count`, :521 `((hintSeg % n) + n) % n`, :…"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Adds a helper and an import to src/sim to replace five one-line expressions on hot sim paths. src/ grows for no performance gain, and the risk isn't worth it."
+        }
+      ]
+    },
+    {
+      "id": "C005",
+      "area": "render",
+      "category": "dead-code",
+      "files": [
+        "src/render/geometry.ts"
+      ],
+      "line": 134,
+      "claim": "`MeshBuilder.triangleCount` is never read. Nothing in src/, tests/, harness/ or guardrails/ uses it; the only `triangleCount` matches are an unrelated journal field in harness/lib/journal.ts.",
+      "evidence": "src/render/geometry.ts:134-137:\n  /** Number of triangles added so far. */\n  get triangleCount(): number {\n    return this.solid.col.length + this.decal.col.length;\n  }\nGrep for `triangleCount` over src/, tests/, harness/ and guardrails/ finds only harness/lib/journal.ts:132 `triangleCount: null` and harness/tests/journal.test.ts:43, which are a journal metric and not this getter.",
+      "suggestedFix": "Delete the getter and its doc comment (geometry.ts:134-137). Geometry output does not change.",
+      "worth": "low",
+      "estLines": 5,
+      "status": "closed",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-08",
+      "seenCount": 1,
+      "pr": 28,
+      "closedOn": "2026-11-15",
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the render survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "done in PR #28"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "merged in #28"
+        }
+      ]
+    },
+    {
+      "id": "C006",
+      "area": "render",
+      "category": "dead-code",
+      "files": [
+        "src/render/index.ts"
+      ],
+      "line": 5,
+      "claim": "The render barrel re-exports seven names that nothing imports through it: `frameWidthFor`, `LIGHT_DIRECTION`, `TOON_STEPS`, `attachOutline`, `groundMesh`, `outlinedFlatMesh` and `type RenderRole`. This makes the public seam look wider than it is.",
+      "evidence": "src/render/index.ts:5 `export { CAMERA, cameraAngles, cameraDistance, createCameraRig, frameWidthFor, ... }`; :8 `... toonShade, LIGHT_DIRECTION, TOON_STEPS, TOP_FACE_MIN_Y ...`; :9 `export { attachOutline, groundMesh, outlinedFlatMesh, solidMesh, type RenderRole } from './outline.ts';`. Every importer of src/render/index.ts (src/game.ts:9, tests/render/*.test.ts, tests/content/drivers.test.ts:7, harness/tests/preserve*.test.ts, and harness/screens/scene.ts:182, which uses playerLivery, createRaceScene, createMaterials and buildCar) uses none of these seven. A grep outside src/ for attachOutline|frameWidthFor|LIGHT_DIRECTION|TOON_STEPS|outlinedFlatMesh|groundMesh|RenderRole finds no matches. Inside src they are imported directly from their modules (car.ts:15, dust.ts:14, scene.ts:22).",
+      "suggestedFix": "Remove those seven names from the re-export lists in src/render/index.ts and leave the modules' own exports alone. Keep solidMesh only if someone imports it; it also has no importer through the index, so it can go too.",
+      "worth": "medium",
+      "estLines": 6,
+      "status": "stale",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-15",
+      "seenCount": 2,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the render survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "skipped: touches files of open PR #23"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the render survey: src/render/index.ts:5,8,9 still re-export frameWidthFor, LIGHT_DIRECTION, TOON_STEPS, attachOutline, groundMesh, outlinedFlatMesh, solidMesh and type RenderRole. A grep of tests/, harness/ and src/ finds no import of any of them through the index. PR #23 is no longer…"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Subsumed by C024 (chosen), which removes the same seven names plus the other unused barrel re-exports."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not reproduced by the render survey: src/render/index.ts no longer re-exports frameWidthFor, LIGHT_DIRECTION, TOON_STEPS, attachOutline, groundMesh, outlinedFlatMesh, RenderRole or solidMesh. Closed item C024 removed them."
+        }
+      ]
+    },
+    {
+      "id": "C007",
+      "area": "render",
+      "category": "dead-code",
+      "files": [
+        "src/render/geometry.ts",
+        "src/render/outline.ts",
+        "src/render/materials/index.ts"
+      ],
+      "line": 167,
+      "claim": "Four module exports are only used inside their own file: `smoothNormals` (geometry.ts), `attachOutline` and `CREASE_ANGLE_DEG` (outline.ts, apart from the barrel), and `OUTLINE_PX_AT_844` and `MaterialKind` (materials/index.ts). Dropping the `export` keyword gives them a smaller surface and doesn't change behaviour.",
+      "evidence": "geometry.ts:167 `export function smoothNormals` is used only at geometry.ts:150. outline.ts:19 `export const CREASE_ANGLE_DEG = 25` is used only at outline.ts:55. outline.ts:84 `export function attachOutline` is used only at outline.ts:104 (plus the index.ts:9 re-export, which nothing imports). materials/index.ts:36 `export const OUTLINE_PX_AT_844` is used only at :148 and :173. materials/index.ts:20 `export type MaterialKind` is used only at :136. A grep over src/, tests/, harness/ and guardrails/ finds no other importer.",
+      "suggestedFix": "Remove `export` from these declarations (after the index.ts re-export of attachOutline is dropped). No other change is needed.",
+      "worth": "low",
+      "estLines": 5,
+      "status": "closed",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-15",
+      "seenCount": 2,
+      "pr": 32,
+      "closedOn": "2026-11-22",
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the render survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "not chosen by the plan audit: Dropping `export` from attachOutline requires editing the re-export in src/render/index.ts. That file is touched by open PR #23 (which is also why C006 is held), and it is the gate-facing render seam. Wait for #23."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the render survey: smoothNormals (geometry.ts:162), attachOutline and CREASE_ANGLE_DEG (outline.ts:84,19), and OUTLINE_PX_AT_844 and MaterialKind (materials/index.ts:36,20) are still exported. No file uses them outside their own module except the barrel's re-export of attachOutline."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "done in PR #32"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "merged in #32"
+        }
+      ]
+    },
+    {
+      "id": "C008",
+      "area": "render",
+      "category": "duplication",
+      "files": [
+        "src/render/outline.ts"
+      ],
+      "line": 47,
+      "claim": "outline.ts builds an all-ink palette attribute twice with the same expression: once for the decal-stripped hull and once for the crease lines.",
+      "evidence": "src/render/outline.ts:47 `out.setAttribute('paletteIndex', paletteAttribute(new Uint8Array(count).fill(paletteIndex('ink'))));`\nsrc/render/outline.ts:57 `crease.setAttribute('paletteIndex', paletteAttribute(new Uint8Array(n).fill(paletteIndex('ink'))));`",
+      "suggestedFix": "Add a local `const inkAttribute = (count: number): BufferAttribute => paletteAttribute(new Uint8Array(count).fill(paletteIndex('ink')));` in outline.ts and call it at both sites. The bytes come out identical.",
+      "worth": "low",
+      "estLines": 5,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the render survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "not chosen by the plan audit: The local helper adds about as many lines as it saves (net ≥0) across two call sites. That is cosmetic churn, not a deletion."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the render survey: outline.ts:47 and :57 still build the same `paletteAttribute(new Uint8Array(n).fill(paletteIndex('ink')))`."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: The local helper adds about as many lines as it removes at two call sites. Cosmetic churn."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the render survey: outline.ts:47 `paletteAttribute(new Uint8Array(count).fill(paletteIndex('ink')))` and outline.ts:57 `paletteAttribute(new Uint8Array(n).fill(paletteIndex('ink')))` are both still there."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: The local helper adds about as many lines as it removes at two call sites. Cosmetic churn."
+        }
+      ]
+    },
+    {
+      "id": "C009",
+      "area": "render",
+      "category": "duplication",
+      "files": [
+        "src/render/props.ts",
+        "src/render/track.ts",
+        "src/render/scene.ts"
+      ],
+      "line": 12,
+      "claim": "The 2D point type `[number, number]` is declared privately in two render modules and spelled out by hand a third time in scene.ts, even though shadow outlines pass from props.ts through scene.ts into track.ts.",
+      "evidence": "src/render/props.ts:12 `type Pt = [number, number];`\nsrc/render/track.ts:29 `type Pt = [number, number];`\nsrc/render/scene.ts:87 `const shadowOutlines: [number, number][][] = [];` (filled by placeShadow, which returns props' Pt[], and passed to buildGroundChunks, which takes track's `readonly Pt[][]`)",
+      "suggestedFix": "Export one `type Pt2 = [number, number]` (e.g. next to `Vec3` in geometry.ts), import it in props.ts, track.ts and scene.ts, and delete the two local aliases. This is a types-only change.",
+      "worth": "low",
+      "estLines": 8,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the render survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "skipped: touches files of open PR #23"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the render survey: props.ts:12 and track.ts:29 still declare `type Pt = [number, number]`. scene.ts:91 (was 87) spells out `[number, number][][]`."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Types-only alias move: one export plus three imports to delete two local aliases. Net growth for no behaviour or safety gain."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the render survey: props.ts:13 `type Pt = [number, number];` and track.ts:29 `type Pt = [number, number];` are both still there, and scene.ts:94 still declares `const shadowOutlines: [number, number][][] = [];` (now at line 94)."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Types-only alias move: one export plus three imports to delete two local aliases. Net growth for no behaviour or safety gain."
+        }
+      ]
+    },
+    {
+      "id": "C010",
+      "area": "render",
+      "category": "simplify",
+      "files": [
+        "src/render/car.ts"
+      ],
+      "line": 68,
+      "claim": "car.ts writes its geometry return type as `ReturnType<MeshBuilder['build']>` three times. That type is just `BufferGeometry`, which the other render modules name directly.",
+      "evidence": "src/render/car.ts:68 `export function buildCarGeometry(l: CarLivery): ReturnType<MeshBuilder['build']> {`\nsrc/render/car.ts:129 `export function buildRoundelGeometry(number: number): ReturnType<MeshBuilder['build']> {`\nsrc/render/car.ts:169 `export function buildMarkerGeometry(): ReturnType<MeshBuilder['build']> {`\ngeometry.ts:140 declares `build(): BufferGeometry`; track.ts:58 and outline.ts use `BufferGeometry` directly.",
+      "suggestedFix": "Add `type BufferGeometry` to the existing `three` import in car.ts (line 9) and use it in the three signatures. This is a types-only change.",
+      "worth": "low",
+      "estLines": 4,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the render survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "not chosen by the plan audit: A types-only rename with zero net lines. Cosmetic churn."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the render survey: car.ts:68, 129 and 169 still use `ReturnType<MeshBuilder['build']>`."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Types-only spelling change with zero net lines. Cosmetic churn."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the render survey: car.ts:68, :129 and :169 still declare `ReturnType<MeshBuilder['build']>`. The three import at car.ts:9 still has no BufferGeometry."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Types-only spelling change with zero net lines. Cosmetic churn."
+        }
+      ]
+    },
+    {
+      "id": "C011",
+      "area": "render",
+      "category": "docs",
+      "files": [
+        "src/render/scene.ts"
+      ],
+      "line": 12,
+      "claim": "The scene-graph comment, which tests and gates rely on, says each car Group holds the 'body mesh + player ▼ marker'. It leaves out the 'car-roundel' mesh that every car also carries.",
+      "evidence": "src/render/scene.ts:12 `//   ├─ cars     one Group per car (userData.kind = 'car'), body mesh + player ▼ marker`\nsrc/render/car.ts:191-193 `const body = solidMesh(buildCarGeometry(l), mats, 'car-body'); const roundel = solidMesh(buildRoundelGeometry(l.number), mats, 'car-roundel'); root.add(body, roundel);`",
+      "suggestedFix": "Change the comment to `body mesh, roof roundel + player ▼ marker`. Only the comment changes.",
+      "worth": "low",
+      "estLines": 1,
+      "status": "closed",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-15",
+      "seenCount": 2,
+      "pr": 32,
+      "closedOn": "2026-11-22",
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the render survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "skipped: touches files of open PR #23"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the render survey: The scene.ts:12 comment still reads 'body mesh + player ▼ marker'. car.ts:192-193 still adds the 'car-roundel' mesh."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "done in PR #32"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "merged in #32"
+        }
+      ]
+    },
+    {
+      "id": "C012",
+      "area": "ui",
+      "category": "test-pins-internals",
+      "files": [
+        "src/ui/finish-panel.ts",
+        "src/ui/screens.css",
+        "tests/ui/screens.test.ts",
+        "tests/ui/no-inline-colour.test.ts"
+      ],
+      "line": 25,
+      "claim": "src/ui/finish-panel.ts is dead code: no file in src/ imports it since the results screen (B02) replaced it, and only two existing tests import createFinishPanel. Its CSS (.ui-finish__card, .ui-finish__stats, .ui-finish__stat in screens.css) is dead with it, because nothing else uses those classes.",
+      "evidence": "Grep for `finish-panel` in src/ finds nothing that imports it. Imports exist only in tests/ui/screens.test.ts:3 `import { createFinishPanel } from '../../src/ui/finish-panel.ts';` and tests/ui/no-inline-colour.test.ts:6 (the same import). race-ui.ts:10 uses createResultsScreen. The classes `ui-finish__card` (finish-panel.ts:31), `ui-finish__stats` (:34) and `ui-finish__stat` (:35-36) appear only in that file, so screens.css:62-81 (`.ui-finish__card {…} .ui-finish__stats {…} .ui-finish__stat {…}`) is dead CSS. The bare `ui-finish` class must stay: results-screen.ts:64 sets it, and tests/ui/results-screen.test.ts:34 and tests/ui/race-ui.test.ts:16 check it.",
+      "suggestedFix": "Owner: delete src/ui/finish-panel.ts and the .ui-finish__* rules at screens.css:62-81. Retarget or delete the createFinishPanel cases in tests/ui/screens.test.ts and tests/ui/no-inline-colour.test.ts (no-inline-colour could render createResultsScreen instead). Keep the `ui-finish` class on the results overlay.",
+      "worth": "high",
+      "estLines": 90,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-08",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the ui survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "reported again by the tests survey"
+        }
+      ]
+    },
+    {
+      "id": "C013",
+      "area": "ui",
+      "category": "docs",
+      "files": [
+        "CLAUDE.md"
+      ],
+      "line": 39,
+      "claim": "CLAUDE.md says race-ui.ts produces 'finish-panel updates', but race-ui.ts shows the results screen and never uses the finish panel. A feature night that reads this would look in the dead finish-panel.ts instead of results-screen.ts.",
+      "evidence": "CLAUDE.md:39: \"- `src/ui/race-ui.ts` turns each frame's `RaceView` into HUD, countdown and finish-panel updates.\" Meanwhile src/ui/race-ui.ts:10 has `import { createResultsScreen } from './results-screen.ts';` and :112-120 calls `results.update(...)` / `results.show(...)` when the phase is 'finished'. race-ui.ts:1 itself lists the parts as \"HUD, countdown, touch controls, results and pause screens\".",
+      "suggestedFix": "Sunday edit to CLAUDE.md:39: \"…into HUD, countdown, pause-screen and results-screen updates.\"",
+      "worth": "low",
+      "estLines": 2,
+      "status": "closed",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-08",
+      "seenCount": 1,
+      "pr": 28,
+      "closedOn": "2026-11-15",
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the ui survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "done in PR #28"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "merged in #28"
+        }
+      ]
+    },
+    {
+      "id": "C014",
+      "area": "ui",
+      "category": "duplication",
+      "files": [
+        "src/ui/components.css",
+        "src/ui/touch-controls.css"
+      ],
+      "line": 122,
+      "claim": "The button type and press-transition block (font-family, font-size, font-weight, font-style, line-height, text-transform, transition) is copied word for word in .ui-button and .ui-tc. clones.md flags it.",
+      "evidence": "src/ui/components.css:122-131 (.ui-button) and src/ui/touch-controls.css:47-56 (.ui-tc) both read:\n  font-family: var(--type-button-font);\n  font-size: var(--type-button-size);\n  font-weight: var(--type-button-weight);\n  font-style: var(--type-button-style);\n  line-height: 1;\n  text-transform: uppercase;\n  …\n  transition:\n    transform var(--duration-release) var(--ease-snap),\n    box-shadow var(--duration-release) var(--ease-snap);\nclones.md: `src/ui/components.css:122` = `src/ui/touch-controls.css:47`.",
+      "suggestedFix": "In components.css, move these declarations into a grouped rule `.ui-button, .ui-tc { … }` placed where they are now, before .ui-button--primary. Delete them from .ui-tc in touch-controls.css. Every later override (.ui-button--primary, .ui-tc--gas, .ui-tc.is-resting `transition: none`, the :active and is-pressed transition-duration) has equal or higher specificity and comes later, so computed styles don't change. touch-controls.ts already imports components.css before touch-controls.css. Note that open PR #24 also edits components.css.",
+      "worth": "medium",
+      "estLines": 20,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the ui survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "reported again by the duplication survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "skipped: touches files of open PR #24"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the ui survey: Unchanged. components.css:122-131 (.ui-button) and touch-controls.css:47-56 (.ui-tc) still carry the same button-type and transition block. clones.md still flags components.css:122 = touch-controls.css:47."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Real duplication. But touch-controls.css is very likely edited by in-flight B09 (#31: touch slots slide in on race reset), and components.css may be too. Moving .ui-tc declarations across files while that PR is open invites a cascade-order conflict. Do it after #31 lan…"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the ui survey: The type and transition block is still copied: src/ui/components.css:122-131 (.ui-button) and src/ui/touch-controls.css:54-63 (.ui-tc), which clones.md flags at :122 = :54. B09 (#31) has merged, so the blocker given in the history is gone."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "chosen by the plan audit"
+        }
+      ]
+    },
+    {
+      "id": "C015",
+      "area": "ui",
+      "category": "duplication",
+      "files": [
+        "src/ui/screens.css",
+        "src/ui/results.css"
+      ],
+      "line": 115,
+      "claim": "The full-width 4:2:1 stripe band (flex 1/4/2, width auto, height s3) is written twice, once for the pause card and once for the results screen. Only border-width differs.",
+      "evidence": "src/ui/screens.css:115-126:\n.ui-pause__stripes .ui-stripe { flex: 1; width: auto; height: var(--space-s3); border-width: var(--outline-default) 0; }\n.ui-pause__stripes .ui-stripe--red { flex: 4; }\n.ui-pause__stripes .ui-stripe--mustard { flex: 2; }\n\nsrc/ui/results.css:28-39:\n.ui-results > .ui-stripes .ui-stripe { flex: 1; width: auto; height: var(--space-s3); border-width: 0 0 var(--outline-default); }\n.ui-results > .ui-stripes .ui-stripe--red { flex: 4; }\n.ui-results > .ui-stripes .ui-stripe--mustard { flex: 2; }\n(results.css:20 even says \"4:2:1 like the pause card's\")",
+      "suggestedFix": "In screens.css, group the shared declarations: `.ui-pause__stripes .ui-stripe, .ui-results > .ui-stripes .ui-stripe { flex: 1; width: auto; height: var(--space-s3); }`, do the same for the --red (flex 4) and --mustard (flex 2) rules, and keep the two border-width declarations in their own rules. Each selector in a group keeps its own specificity, and no other rule sets flex, width or height on these elements, so computed styles stay the same.",
+      "worth": "low",
+      "estLines": 16,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the ui survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "reported again by the duplication survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "not chosen by the plan audit: Grouping the selectors would keep computed styles the same (specificity is unchanged). But it moves results-screen layout into screens.css, coupling two stylesheets for a few lines saved. Low value. Leave it for a night that touches the stripe styles anyway."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the ui survey: Unchanged. screens.css:115-126 (.ui-pause__stripes .ui-stripe flex 1 / width auto / height s3, red flex 4, mustard flex 2) and results.css:28-39 (.ui-results > .ui-stripes …) are still duplicated. Only border-width differs."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Groups results-screen stripe rules into screens.css, coupling two stylesheets for a few lines. screens.css is likely reshaped by in-flight B08 (#30, the S6 stripe screen change). Low value now."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the ui survey: The stripe band is still written twice: src/ui/screens.css:97-108 (.ui-pause__stripes) and src/ui/results.css:28-39 (.ui-results > .ui-stripes); only border-width differs. B08 (#30) has merged."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Grouping would keep computed styles the same, but it moves results-screen stripe rules into screens.css, coupling two stylesheets to save about four lines. Low value. Leave it for a night that works on the stripes anyway."
+        }
+      ]
+    },
+    {
+      "id": "C016",
+      "area": "content",
+      "category": "docs",
+      "files": [
+        "src/content/drivers.ts"
+      ],
+      "line": 21,
+      "claim": "The JSDoc for raceDrivers sits above PLAYER_CAR_COUNT. That makes two stacked doc comments: editors and hovers attach both to the constant, and raceDrivers ends up with no doc at all. The next night that edits the roster could misread which comment describes what.",
+      "evidence": "src/content/drivers.ts:21-25:\n/** The drivers of an `carCount`-car race: the player (car 0), then the first carCount − 1 AI drivers. */\n/** Races the player starts (RACE, RETRY, RESTART RACE, NEXT RACE): YOU plus every roster AI driver. */\nexport const PLAYER_CAR_COUNT = ROSTER.length;\n\nexport function raceDrivers(carCount: number): Driver[] {",
+      "suggestedFix": "Move line 21's comment to directly above `export function raceDrivers` (line 25), and fix its typo 'an `carCount`-car' to 'a `carCount`-car'. Only comments change.",
+      "worth": "low",
+      "estLines": 4,
+      "status": "closed",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-08",
+      "seenCount": 1,
+      "pr": 28,
+      "closedOn": "2026-11-15",
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the content survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "done in PR #28"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "merged in #28"
+        }
+      ]
+    },
+    {
+      "id": "C017",
+      "area": "tests",
+      "category": "test-pins-internals",
+      "files": [
+        "src/ui/results-screen.ts",
+        "tests/ui/race-ui.test.ts",
+        "tests/ui/results-screen.test.ts"
+      ],
+      "line": 64,
+      "claim": "The results screen's root still carries the legacy `ui-finish` class only so that old finish-panel tests keep finding it. No CSS rule targets `.ui-finish` on its own. Tests should find the results screen by role or text, not by this leftover class.",
+      "evidence": "src/ui/results-screen.ts:64 `'ui-results ui-finish',`. In src, `ui-finish` otherwise appears only as `.ui-finish__*` in finish-panel.ts and screens.css:63-81. Pinned by tests/ui/race-ui.test.ts:16 `finish: () => q('.ui-finish')` (test title :47 'shows the finish panel once') and tests/ui/results-screen.test.ts:34 `expect(el.classList.contains('ui-finish')).toBe(true)`.",
+      "suggestedFix": "Owner: make race-ui.test.ts look the screen up through `[role=\"table\"][aria-label=\"Results\"]` (or `.ui-results`) and drop the assertion at results-screen.test.ts:34. Then drop ` ui-finish` from results-screen.ts:64, together with the finish-panel removal.",
+      "worth": "medium",
+      "estLines": 4,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the tests survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the tests survey: Still there. src/ui/results-screen.ts:67 (was :64) still has 'ui-results ui-finish'. tests/ui/race-ui.test.ts:16 `finish: () => q('.ui-finish')` and tests/ui/results-screen.test.ts:34 `classList.contains('ui-finish')` still pin it."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the tests survey: src/ui/results-screen.ts:67 (was :64) still has 'ui-results ui-finish'. Still pinned by tests/ui/race-ui.test.ts:16 `finish: () => q('.ui-finish')` and tests/ui/results-screen.test.ts:34."
+        }
+      ]
+    },
+    {
+      "id": "C018",
+      "area": "tests",
+      "category": "tests",
+      "files": [
+        "tests/ui/no-inline-colour-overlays.test.ts"
+      ],
+      "line": null,
+      "claim": "The 'no colour in any inline style or SVG paint attribute' rule is never checked for the pause screen. The results screen gets only a weaker check: 4 paint attributes instead of 7, and it does not allow hatch url() fills. Both screens use icons and the hatch, which is exactly where a stray fill/stroke attribute would slip in.",
+      "evidence": "tests/ui/no-inline-colour.test.ts:19-25 builds the HUD, touch controls, countdown, start screen and the dead finish panel, but not createPauseScreen (src/ui/pause-screen.ts:27) or the results screen. tests/ui/results-screen.test.ts:120-126 checks only `['fill','stroke','color','stop-color']`, while PAINT_ATTRS in no-inline-colour.test.ts:14 also has flood-color, lighting-color and bgcolor. No test checks inline colour on .ui-pause (grep COLOUR_PROPS: only those two files).",
+      "suggestedFix": "Add a new test file. It renders createPauseScreen(...).show({lap:1,laps:3,timeMs:0}) and a createRaceUi synced to a finished RaceView (results visible). It then applies the same COLOUR_PROPS/COLOUR_VALUE/PAINT_ATTRS checks as no-inline-colour.test.ts, allowing only `url(#…)` paint references. It passes on main today: icons.ts and the hatch set no colour attributes.",
+      "worth": "medium",
+      "estLines": 45,
+      "status": "closed",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-08",
+      "seenCount": 1,
+      "pr": 28,
+      "closedOn": "2026-11-15",
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the tests survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "done in PR #28"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "merged in #28"
+        }
+      ]
+    },
+    {
+      "id": "C019",
+      "area": "tests",
+      "category": "test-pins-internals",
+      "files": [
+        "tests/game/pause.test.ts",
+        "tests/game/pause-review.test.ts",
+        "tests/game/pause-results.test.ts",
+        "tests/game/results-drivers.test.ts",
+        "tests/game/start-race-invalid-count.test.ts",
+        "tests/game/helpers.ts"
+      ],
+      "line": 57,
+      "claim": "Game tests copy the same harness again and again: a hand-driven requestAnimationFrame stub with runFrames, setup(), esc(), the render mock, and the 'bot drives car 0 of a twin world' input recorder. The recorder is already shared as twinPlayerInputs in tests/game/helpers.ts. The render mocks also still stub `playerLivery`, which game.ts no longer imports.",
+      "evidence": "runFrames is identical in pause.test.ts:41-48, pause-review.test.ts:39-46 and pause-results.test.ts:36-43, along with the rAF/cAF stubs at :27-30, :25-28 and :24-27. esc() is copied at pause.test.ts:57 and pause-results.test.ts:70. The twin-world recorders pause-results.test.ts:57-68 `winningInputs()` and results-drivers.test.ts:23-33 `playerInputs()` duplicate tests/game/helpers.ts:9-20 `twinPlayerInputs(trackId, seed, carCount, maxTicks)` (same loop, 2 cars, 60*60*10 ticks). Stale mock entries: `playerLivery: (n) => …` at pause.test.ts:14, pause-review.test.ts:13, pause-results.test.ts:12 and start-race-invalid-count.test.ts:10, while tests/content/drivers.test.ts:80 asserts game.ts does not mention playerLivery.",
+      "suggestedFix": "Owner: move runFrames, the rAF stub install and esc() into tests/game/helpers.ts (or a new tests/game/frames.ts). Replace winningInputs/playerInputs with twinPlayerInputs(TRACK, SEED, 2, 36000), and drop the playerLivery mock lines. vi.mock must stay in each file because it is hoisted per module.",
+      "worth": "medium",
+      "estLines": 90,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the tests survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the tests survey: Still there and grown. runFrames is still copied at pause:41, pause-review:39 and pause-results:36, and now also gamepad-menu:53. esc is at pause:57 and pause-results:70. winningInputs and playerInputs still duplicate twinPlayerInputs. The stale playerLivery mock is s…"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the tests survey: Still present and growing. runFrames is now also copied at pause-action-latch:32 and gamepad-menu:53. esc is also copied at pause-review:57, track-select-race:39 and screen-change:55. winningInputs and playerInputs remain. The stale playerLivery mock is now in ~15 fil…"
+        }
+      ]
+    },
+    {
+      "id": "C020",
+      "area": "tests",
+      "category": "test-pins-internals",
+      "files": [
+        "tests/ui/race-ui.test.ts",
+        "tests/ui/results-screen.test.ts",
+        "tests/ui/results-review.test.ts",
+        "tests/ui/results-drivers.test.ts",
+        "tests/game/pause.test.ts",
+        "tests/ui/helpers.ts"
+      ],
+      "line": 8,
+      "claim": "The RacerView/RaceView/CarView fixture builders are copied word for word into five test files, while tests/ui/helpers.ts already holds the shared hudState/outline fixtures and tests/render/helpers.ts:21 has an equivalent carView(). If RacerView gains a required field, a feature night has to touch five append-only files it cannot edit.",
+      "evidence": "`const racer = (over: Partial<RacerView> = {}): RacerView => ({ lapsCompleted: 0, lap: 1, lapTicks: [], finishTick: null, position: 1, ...over });` appears in race-ui.test.ts:8, results-screen.test.ts:9, results-review.test.ts:9, results-drivers.test.ts:9 and pause.test.ts:68. `const finished = (racers) => ({ phase: 'finished', countdown: 0, raceTick: 8000, racers })` appears in results-screen.test.ts:10, results-review.test.ts:10 and results-drivers.test.ts:10. `const car = (x) => ({ x, y: 0, z: 0, heading: 0, pitch: 0, speed: 0, slip: 0, surface: 'dirt', airborne: false })` appears in race-ui.test.ts:7, results-screen.test.ts:8 and pause.test.ts:67, and duplicates tests/render/helpers.ts:21-23 carView().",
+      "suggestedFix": "Owner: export racerView(over), finishedView(racers) and carAt(x) from tests/ui/helpers.ts, reusing render/helpers carView for the latter. Then replace the local copies with imports.",
+      "worth": "medium",
+      "estLines": 35,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the tests survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the tests survey: Still there and grown. The racer/car copies are in the 5 listed files plus keycap-legend:37-38, keycap-legend-keys:29-30, keycap-legend-slide-state:20 and no-inline-colour-overlays:14-15. finished() is still in three results tests. tests/ui/helpers.ts still exports on…"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the tests survey: Grown: the racer/car fixture pair is now in about 14 files. Added since: power-up-legend-idle:8, touch-zones-entry-slide:10, keycap-legend-keys:29, keycap-legend:37, action-button:27, action-button-icon:11, hud-entry-restart:9, no-inline-colour-overlays:14 and keycap-…"
+        }
+      ]
+    },
+    {
+      "id": "C021",
+      "area": "tests",
+      "category": "test-pins-internals",
+      "files": [
+        "tests/content/drivers.test.ts",
+        "src/game.ts"
+      ],
+      "line": 76,
+      "claim": "drivers.test.ts AC5 reads src/game.ts as text and uses a regex to require one exact import statement. It pins how game.ts imports the roster, not what the game does. Any behaviour-preserving refactor of game.ts (splitting it, importing via a content index, aliasing) fails this test.",
+      "evidence": "tests/content/drivers.test.ts:76-80: `const game = readFileSync('src/game.ts', 'utf8'); expect(game).toMatch(/import \\{[^}]*\\braceDrivers\\b[^}]*\\} from '\\.\\/content\\/drivers\\.ts'/); expect(game).not.toMatch(/LIVERIES/); expect(game).not.toMatch(/\\bbody:\\s*'/); expect(game).not.toMatch(/playerLivery/);`. The behaviour it guards (game races use roster liveries) is already covered through the DOM by tests/game/results-drivers.test.ts:48-54 and tests/game/six-car-grid.test.ts.",
+      "suggestedFix": "Owner: replace the source-text assertions with a behavioural one, such as the started game's state/RaceView driver names or the createRaceScene mock receiving raceDrivers(n) liveries. Or drop them, since results-drivers and six-car-grid already cover it.",
+      "worth": "medium",
+      "estLines": 8,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the tests survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the tests survey: tests/content/drivers.test.ts:76-80 still reads src/game.ts as text and regex-matches the raceDrivers import and the absence of LIVERIES, `body: '` and playerLivery."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the tests survey: tests/content/drivers.test.ts:76-80 still reads src/game.ts as text and regex-matches the import and the playerLivery absence."
+        }
+      ]
+    },
+    {
+      "id": "C022",
+      "area": "tests",
+      "category": "test-pins-internals",
+      "files": [
+        "tests/sim/ramp-pose.test.ts",
+        "tests/sim/ramp-lip-roll.test.ts",
+        "tests/sim/helpers.ts"
+      ],
+      "line": 13,
+      "claim": "The body-into-ground probe clipDepth(world, view) is implemented twice, with slightly different sampling (41 samples vs 81), in two sim tests. tests/sim/helpers.ts is the shared home for such geometry probes (propOverlap, circleOverlap and others).",
+      "evidence": "tests/sim/ramp-pose.test.ts:13-24 `function clipDepth(world: World, v: CarView): number { const fx = Math.sin(v.heading); const fz = -Math.cos(v.heading); … for (let i = 0; i < SAMPLES; i++) { const t = -1 + (2 * i) / (SAMPLES - 1); …groundAt(world.track, v.x + fx * along, v.z + fz * along).h - body` versus tests/sim/ramp-lip-roll.test.ts:16-26, the same body with `for (let i = 0; i <= 80; i++) { const t = -1 + i / 40;`. Both also redeclare `const HALF = CAR_LENGTH / 2` (:9 and :13).",
+      "suggestedFix": "Owner: export clipDepth(world, view, samples = 81) from tests/sim/helpers.ts and import it in both files (ramp-pose passes 41).",
+      "worth": "low",
+      "estLines": 25,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the tests survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the tests survey: clipDepth is still written twice: tests/sim/ramp-pose.test.ts:13 and tests/sim/ramp-lip-roll.test.ts:16, each redeclaring `const HALF = CAR_LENGTH / 2` (:9 and :13). tests/sim/helpers.ts doesn't export it."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the tests survey: clipDepth is still defined twice: tests/sim/ramp-pose.test.ts:13 and tests/sim/ramp-lip-roll.test.ts:16."
+        }
+      ]
+    },
+    {
+      "id": "C023",
+      "area": "seams",
+      "category": "consistency",
+      "files": [
+        "src/sim/index.ts",
+        "src/render/props.ts",
+        "src/render/scene.ts",
+        "src/render/track.ts",
+        "src/ui/race-ui.ts",
+        "src/ui/format.ts",
+        "src/ui/results-screen.ts",
+        "src/input/index.ts"
+      ],
+      "line": 5,
+      "claim": "CLAUDE.md and the sim barrel both say other layers import the sim only through src/sim/index.ts, but 8 imports in render, UI and input go straight to sim/types.ts or sim/track.ts. render/props.ts imports three constants that the barrel doesn't export at all, so the next feature night will copy the deep-import pattern.",
+      "evidence": "src/sim/index.ts:1 \"Render, UI, input and driver code import only from here.\" CLAUDE.md: \"import the sim only via `src/sim/index.ts`\". Deep imports: src/render/props.ts:9 `import { HAY_BALE_LENGTH, HAY_BALE_WIDTH, TYRE_STACK_RADIUS } from '../sim/track.ts'` (not exported by index.ts:5, which only has `trackLayout, validateTrack`); src/render/props.ts:8, src/render/scene.ts:16, src/render/track.ts:5, src/ui/race-ui.ts:5, src/ui/format.ts:2, src/ui/results-screen.ts:7, src/input/index.ts:3 all `from '../sim/types.ts'`. Meanwhile src/render/car.ts:11 and src/render/dust.ts:11 already use '../sim/index.ts'.",
+      "suggestedFix": "Add `HAY_BALE_LENGTH, HAY_BALE_WIDTH, TYRE_STACK_RADIUS` to the `./track.ts` re-export in src/sim/index.ts:5. Then point those 8 import lines at '../sim/index.ts'. types.ts is already `export *`, so the names are identical. Type-only, no runtime change. race-ui.ts, results-screen.ts (PR #26) and input/index.ts (PR #25) are in open PRs, so do those after the PRs land.",
+      "worth": "medium",
+      "estLines": 18,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the seams survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "skipped: touches files of open PR #26, #25, #23"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the seams survey: Still present, now 9 deep imports. props.ts:9 imports the bale/tyre constants from '../sim/track.ts', which sim/index.ts:5 doesn't export. types.ts imports are at props.ts:8, scene.ts:16, render/track.ts:5, race-ui.ts:5, format.ts:2, results-screen.ts:7, input/index.t…"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Incomplete: it misses a ninth deep import (src/ui/countdown.ts:5). It is net-zero import-path churn across 9 files, several of them (race-ui.ts, countdown.ts, results-screen.ts) likely touched by in-flight B08/B09. Better done once #30/#31 land."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the seams survey: Still 9 deep imports: ui/countdown.ts:5, ui/race-ui.ts:5, ui/results-screen.ts:7, ui/format.ts:2, input/index.ts:4, render/scene.ts:17, render/props.ts:9 (types) and props.ts:10 (HAY_BALE_LENGTH, HAY_BALE_WIDTH, TYRE_STACK_RADIUS from sim/track.ts), render/track.ts:5.…"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Real (nine deep imports, countdown.ts:5 included, and props.ts takes three constants the barrel doesn't export). But it re-points import paths across nine files plus the barrel for zero net lines, which is churn under the delete-only rule. It is better done together wi…"
+        }
+      ]
+    },
+    {
+      "id": "C024",
+      "area": "seams",
+      "category": "dead-code",
+      "files": [
+        "src/render/index.ts"
+      ],
+      "line": 5,
+      "claim": "The render barrel re-exports about 12 names that nothing outside src/render imports: no src module, test, gate or harness file. The only consumer in src is game.ts (createRaceScene, createRenderer, RaceScene).",
+      "evidence": "src/render/index.ts:5 `frameWidthFor, type CameraRig`; :6 `type CarObject`; :7 `type DustPool`; :8 `LIGHT_DIRECTION, TOON_STEPS, type Materials`; :9 `attachOutline, groundMesh, outlinedFlatMesh, solidMesh, type RenderRole` (the whole line). Grep for `\\b(frameWidthFor|attachOutline|groundMesh|outlinedFlatMesh|solidMesh|RenderRole|LIGHT_DIRECTION|TOON_STEPS|CameraRig|DustPool|CarObject|Materials)\\b` over tests/, guardrails/ and harness/ finds nothing. harness/screens/scene.ts uses only playerLivery, createRaceScene, createMaterials and buildCar.",
+      "suggestedFix": "Drop those names from the re-export lines in src/render/index.ts and delete line 9. Keep every name that tests or gates use: createRaceScene, buildCar, createMaterials, playerLivery, CELL_SIZE, PlacedProp, CAMERA, cameraAngles, cameraDistance, createCameraRig, cabinColour, validateLivery, CAR, CarLivery, createDust, DUST, isFactoryMaterial, toonShade, TOP_FACE_MIN_Y, addRamp, PROPS, CHUNK_ROWS, LAYER, MeshBuilder, allNormalsUp, pixelRatio, MAX_PIXEL_RATIO, createRenderer, RaceScene. Also update the line 1–2 comment.",
+      "worth": "low",
+      "estLines": 8,
+      "status": "closed",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-15",
+      "seenCount": 2,
+      "pr": 32,
+      "closedOn": "2026-11-22",
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the seams survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "skipped: touches files of open PR #23"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the seams survey: src/render/index.ts:5-9 still re-exports frameWidthFor, CameraRig, CarObject, DustPool, LIGHT_DIRECTION, TOON_STEPS, Materials, and all of line 9. A grep outside src/render finds no users. Keep countdownOffsetEast on line 5: tests/render/countdown-*.test.ts import it."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "done in PR #32"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "merged in #32"
+        }
+      ]
+    },
+    {
+      "id": "C025",
+      "area": "seams",
+      "category": "duplication",
+      "files": [
+        "src/ui/stages/stage.ts",
+        "src/game.ts",
+        "src/ui/race-ui.ts"
+      ],
+      "line": 71,
+      "claim": "The stage fixture hard-codes the game's minimap stride as a bare `8`, and its comment says \"as in the game\". If MINIMAP_STRIDE in game.ts changes, the staged HUD silently stops matching the real one.",
+      "evidence": "src/game.ts:30 `const MINIMAP_STRIDE = 8;` and src/game.ts:251 `world.track.layout.centre.filter((_, i) => i % MINIMAP_STRIDE === 0)`. src/ui/stages/stage.ts:66 `(every 8th centreline point, as in the game)` and :71 `outline: centre.filter((_, i) => i % 8 === 0)`.",
+      "suggestedFix": "Move the stride into the UI as an exported helper, e.g. `minimapOutline(centre)` next to the minimap code (a UI module both files already import from, such as src/ui/race-ui.ts). Call it from game.ts:251 and stage.ts:71 and delete MINIMAP_STRIDE from game.ts. game.ts is in open PRs #25/#26, so do this after they land.",
+      "worth": "low",
+      "estLines": 8,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the seams survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "reported again by the duplication survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "skipped: touches files of open PR #26, #25, #23"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the seams survey: src/game.ts:31 `const MINIMAP_STRIDE = 8;` used at :279, while src/ui/stages/stage.ts:67 says 'every 8th centreline point, as in the game' and :72 has `centre.filter((_, i) => i % 8 === 0)`."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Needs a new exported helper plus edits to game.ts, race-ui.ts and the stage fixture, all likely in in-flight B08/B09. Net lines about zero. Wait until #30/#31 land."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the seams survey: game.ts:33 `MINIMAP_STRIDE = 8`, used at :151 (track cards) and :293. The stride is still a bare 8 at stage.ts:72, and now also at start.stage.ts:12 (`stageTrackCards`, which copies game.ts:151 and is imported by screen-change.stage.ts:6). The fix should cover all thr…"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Without C055 (blocked: it needs a stage edit) it would leave the bare 8 in start.stage.ts. A new helper replacing MINIMAP_STRIDE is net about zero lines. Do C025 and C055 together when stages may change."
+        }
+      ]
+    },
+    {
+      "id": "C026",
+      "area": "seams",
+      "category": "docs",
+      "files": [
+        "CLAUDE.md"
+      ],
+      "line": null,
+      "claim": "Three CLAUDE.md statements about the seams don't match the code: race-ui's job (it drives results and pause screens, not the finish panel), registration by folder (cars and screens don't register by folder), and the content layout (there are no cars or features folders).",
+      "evidence": "CLAUDE.md: \"`src/ui/race-ui.ts` turns each frame's `RaceView` into HUD, countdown and finish-panel updates.\" vs src/ui/race-ui.ts:1 \"(HUD, countdown, touch controls, results and pause screens)\": it imports createResultsScreen/createPauseScreen and never finish-panel.ts. CLAUDE.md: \"tracks, cars and screens register by being in their folder (`import.meta.glob`)\" vs cars being a hand-edited `ROSTER` array (src/content/drivers.ts:12), and screens imported directly (src/game.ts:24-25). The only globs are src/content/tracks.ts:6 and src/ui/stages/registry.ts:6. Layout: \"src/content  tracks (src/content/tracks/*.json), cars, features\" vs src/content containing only tracks/, tracks.ts and drivers.ts.",
+      "suggestedFix": "Change the race-ui line to \"…into HUD, countdown, results-screen and pause-screen updates\". Change the registration line to \"tracks and screen stages register by being in their folder…\", and note that the driver roster (liveries) is data in src/content/drivers.ts. Change the layout line to \"tracks (src/content/tracks/*.json), driver roster (drivers.ts)\".",
+      "worth": "medium",
+      "estLines": 6,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the seams survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "not chosen by the plan audit: It overlaps C013 (chosen) on the race-ui line. Its other edits rewrite the owner's conventions: what registers by folder, and the planned cars/features content layout. Whether to drop or keep those as intent is the owner's call, not an unattended refactor's."
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the seams survey: Partly fixed: the race-ui line now names the pause and results screens (C013). Still wrong: 'tracks, cars and screens register by being in their folder', when the roster is a hand-edited ROSTER (drivers.ts:12) and only tracks.ts and stages/registry.ts glob. Also the l…"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: The race-ui line it targets is already fixed in CLAUDE.md. The rest rewrites the owner's stated conventions (what registers by folder, the planned cars/features layout). That is the owner's call, not an unattended refactor's."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the seams survey: The race-ui line is fixed. Still wrong: CLAUDE.md says \"tracks, cars and screens register by being in their folder\", but the only globs are content/tracks.ts:6 and ui/stages/registry.ts:6. The layout line says \"src/content tracks…, cars, features\", but src/content hol…"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: The race-ui line is already fixed (CLAUDE.md:39). What's left rewrites the owner's stated conventions (which folders register content, and the planned cars/features layout). That is the owner's call, not an unattended refactor's."
+        }
+      ]
+    },
+    {
+      "id": "C027",
+      "area": "performance",
+      "category": "performance",
+      "files": [
+        "src/sim/car.ts"
+      ],
+      "line": 192,
+      "claim": "groundUnderBody (called through carView→visualPose for every car on every tick via carViews) calls groundAt without the module's scratch `ground`. groundAt's default parameter therefore allocates a new Ground object for every sample. The function also builds a throwaway `[-1e-6, -r.length]` array for every ramp. groundAt is the top allocation site in dust-bowl and the third in bends.",
+      "evidence": "src/sim/car.ts:206 `return { ts, hs: ts.map((t) => groundAt(track, car.x + fx * t, car.z + fz * t).h) };` takes the default at src/sim/track.ts:555 `out: Ground = { h: 0, gx: 0, gz: 0, ramp: null }`. The hot path already passes scratch: car.ts:370 and 580 `groundAt(track, car.x, car.z, ground)`, with the scratch at car.ts:324 `const ground: Ground = ...`. car.ts:201 `for (const a of [-1e-6, -r.length]) {` runs once per ramp per call. perf.json allocation per frame: groundAt 2118 B (bends) and 3975 B (dust-bowl, the top site); groundUnderBody 1168 B and 2295 B; visualPose 1197 B (dust-bowl). Only `.h` is read, straight away, and groundUnderBody never runs inside stepCars' use of `ground`, so the numbers can't change.",
+      "suggestedFix": "In groundUnderBody, pass the existing scratch: `groundAt(track, car.x + fx * t, car.z + fz * t, ground).h`. Replace the literal-array loop with two explicit pushes in the same order: compute t for a = -1e-6, then for a = -r.length, keeping the `Math.abs(t) < half` check. Same ts order and same hs values, so replays, bot laps and car poses are identical.",
+      "worth": "high",
+      "estLines": 10,
+      "status": "closed",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-08",
+      "seenCount": 1,
+      "pr": 28,
+      "closedOn": "2026-11-15",
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the performance survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "done in PR #28"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "merged in #28"
+        }
+      ]
+    },
+    {
+      "id": "C028",
+      "area": "performance",
+      "category": "performance",
+      "files": [
+        "src/game.ts"
+      ],
+      "line": 190,
+      "claim": "draw() calls raceView(r.world) on every rendered frame, but the world only changes in tick(). Each call allocates a distances array, the positions() order array with its sort and forEach closures and result array, and per racer a RacerView with `lapTicks.slice()`. Frames that ran no tick (any display above 60 Hz) and frames that ran several ticks still pay for it.",
+      "evidence": "src/game.ts:190 `ui.sync(raceView(r.world), r.curr);` runs in draw(), which frame() calls on every animation frame (game.ts:207) whether or not a tick ran. src/sim/world.ts:128-134: `world.racers.map(...)`, `positions(...)`, `world.racers.map((r, i) => racerView(...))`. src/sim/race.ts:96-112 shows map, sort with a closure, `new Array().fill`, and forEach. race.ts:121 has `lapTicks: r.lapTicks.slice()`. perf.json (bends): `sort ((native))` 968 B/frame and `map ((native))` 924 B/frame. Note: game.ts is also in open PRs #25 and #26.",
+      "suggestedFix": "Add `view: RaceView | null` to the Race record. Set it to null in tick() after stepWorld and in startRace, and in draw() use `ui.sync((r.view ??= raceView(r.world)), r.curr)`. raceView is a pure function of the world, so the UI receives identical values. Apply after #25 and #26 land, since both touch game.ts.",
+      "worth": "medium",
+      "estLines": 6,
+      "status": "open",
+      "firstSeen": "2026-11-08",
+      "lastSeen": "2026-11-22",
+      "seenCount": 3,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-08",
+          "event": "reported by the performance survey"
+        },
+        {
+          "date": "2026-11-08",
+          "event": "skipped: touches files of open PR #26, #25, #23"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "confirmed by the performance survey: src/game.ts:188 `const view = raceView(r.world);` still runs in draw() every animation frame, tick or not. raceView (world.ts:126-135) still allocates distances, positions() (race.ts:95-113: order, sort closure, result) and a RacerView with lapTicks.slice() per …"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Touches game.ts draw(), which in-flight B08 (#30) changes. Caching one RaceView across frames also changes object identity for ui.sync, while B09 (#31) adds position and lap change detection in the UI that may keep or compare views. Re-check after both land."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the performance survey: src/game.ts:202: draw() still calls `const view = raceView(r.world);` every rendered frame. world.ts:138-157 still allocates the distances map, positions, the racers map and, on pickup tracks, `p.respawn.map`. B08 and B09, which the audit was waiting on, have bo…"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "chosen by the plan audit"
+        }
+      ]
+    },
+    {
+      "id": "C029",
+      "area": "sim",
+      "category": "dead-code",
+      "files": [
+        "src/sim/index.ts"
+      ],
+      "line": 3,
+      "claim": "The sim barrel re-exports nine names that nothing imports through it: `nextRange`, `nextInt`, `type Rng`, `encodeInputs`, `decodeInputs`, `replayInputs`, `type Replay`, `type WorldOptions` and `CAR_LENGTH`. As with the render barrel (C006/C024), this makes the public seam look wider than it is.",
+      "evidence": "src/sim/index.ts:3 `export type { World, WorldOptions }`, :8 `CAR_LENGTH`, :10 `export type { Replay }`, :13-18 `decodeInputs, ... encodeInputs, ... replayInputs`, :20-21 `export type { Rng }` / `nextRange, nextInt`. I grepped every importer of sim/index.ts: src/game.ts:10-23, src/render/car.ts:11, src/render/dust.ts:11, src/content/tracks.ts:4, src/ui/stages/*.ts, src/driver/index.ts:6, tests/**, harness/screens/{scene,capture,shots}.ts, harness/tests/*.ts, guardrails/gates/{g2-measure,g3-measure,record-replays}.ts and spikes/m2-game/inputs.ts. Between them they import only DT, CAR_WIDTH, SURFACES, COUNTDOWN_TICKS, TICK_HZ, carViews, raceView, createBot, createWorld, stepWorld, validateTrack, trackLayout, createRng, nextFloat, createReplay, encodeReplay, decodeReplay, runReplay and the types Bot, World, CarInput, CarView, RaceView, RacerView and TrackData. Tests that use CAR_LENGTH, nextInt, nextRange, encodeInputs or decodeInputs import them from car.ts, rng.ts or replay.ts directly (e.g. tests/sim/rng-vec.test.ts:2, tests/sim/replay.test.ts:4-10).",
+      "suggestedFix": "Remove those nine names from the re-export lists in src/sim/index.ts and leave the modules' own exports alone. Keep every name that gates, harness or tests import (the list above). This is export-list only, with no runtime change.",
+      "worth": "low",
+      "estLines": 8,
+      "status": "stale",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-15",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the sim survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Claim is wrong: CAR_LENGTH is imported through the barrel by src/render/car.ts:11. The sim barrel is also the documented sole entry for other layers. Trimming the RNG and replay API would push the next feature (e.g. B12 pickups) into deep imports, against C023's goal."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not reproduced by the sim survey: The claim no longer holds. CAR_LENGTH comes in through the barrel (src/render/car.ts:11), and so do encodeInputs, decodeInputs and replayInputs (tests/sim/pickup-replay.test.ts:3-17). Only nextRange, nextInt, Rng, Replay and WorldOptions are still unimported throug…"
+        }
+      ]
+    },
+    {
+      "id": "C030",
+      "area": "sim",
+      "category": "docs",
+      "files": [
+        "src/sim/world.ts"
+      ],
+      "line": 46,
+      "claim": "The grid comment says slots from GRID_CURVED_FROM on are reached only by six-car races. But GRID_CURVED_FROM is 4, so slot index 4 is used by any race with five or more cars, and startRace accepts 1 to 6 cars.",
+      "evidence": "src/sim/world.ts:46-48 `/** Slots from this index on (only six-car races reach them) follow the centreline back, ... */ const GRID_CURVED_FROM = 4;` and :72-78 `for (let i = 0; i < options.carCount; i++) { ... if (i < GRID_CURVED_FROM) {` — with carCount = 5, i = 4 takes the curved branch. createWorld (:61) accepts any positive integer carCount.",
+      "suggestedFix": "Change the comment to `(races of five or more cars reach them)`. Only the comment changes.",
+      "worth": "low",
+      "estLines": 2,
+      "status": "closed",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-15",
+      "seenCount": 1,
+      "pr": 32,
+      "closedOn": "2026-11-22",
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the sim survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "done in PR #32"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "merged in #32"
+        }
+      ]
+    },
+    {
+      "id": "C031",
+      "area": "render",
+      "category": "consistency",
+      "files": [
+        "src/render/scene.ts",
+        "src/render/camera.ts",
+        "src/render/materials/index.ts"
+      ],
+      "line": 140,
+      "claim": "The render layer writes the 844×390 reference frame by hand 9 times across three files, though the token `tokens.safeArea.frame` holds it and `src/ui/layout.ts` already reads it. This breaks the CLAUDE.md rule against raw pixel sizes in src/. A later feature night could copy the literal or change one copy and miss the others (for example the outline width's /844 divisor vs the initial resolution uniform).",
+      "evidence": "src/render/scene.ts:140-141 `let viewW = 844; let viewH = 390;`\nsrc/render/scene.ts:213-214 `new Vector2(844, 390); applyViewport(initial.x || 844, initial.y || 390);`\nsrc/render/camera.ts:85 `export function createCameraRig(width = 844, height = 390): CameraRig {`\nsrc/render/materials/index.ts:147 `const resolution = { value: new Vector2(844, 390) };`\nsrc/render/materials/index.ts:173 `widthPx.value = (OUTLINE_PX_AT_844 * Math.max(1, bufferWidth)) / 844;`\nThe token already exists: guardrails/design/tokens.json:68 `\"safeArea\": { \"frame\": [844, 390], ... }`, and src/ui/layout.ts:6 reads it: `const [frameW, frameH] = tokens.safeArea.frame;`",
+      "suggestedFix": "In each of the three files, import `tokens` from '@tokens' (car.ts already does this) and write `const [FRAME_W, FRAME_H] = tokens.safeArea.frame;`, or export it once from camera.ts and import it in scene.ts and materials. Then replace the 844/390 literals at the lines listed. The values are identical, so the camera, outline width and scene don't change.",
+      "worth": "medium",
+      "estLines": 18,
+      "status": "open",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-22",
+      "seenCount": 2,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the render survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Real rule violation (raw 844/390 in src/render). But reading the token needs new imports and a constant in three files, so src/ grows a few lines for a non-performance item, against tonight's delete-only rule. Pair it with a render feature night."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the render survey: The literal 844/390 is still written at scene.ts:156-157 (`let viewW = 844; let viewH = 390;`), scene.ts:235-236, camera.ts:85 (`createCameraRig(width = 844, height = 390)`), materials/index.ts:147 (`new Vector2(844, 390)`) and materials/index.ts:173 (`/ 844`)."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Same 844×390 literals as C041. Reading the token needs new imports and a constant, so src/ grows a little for a non-performance item, against tonight's delete-only rule."
+        }
+      ]
+    },
+    {
+      "id": "C032",
+      "area": "ui",
+      "category": "test-pins-internals",
+      "files": [
+        "src/ui/countdown.ts",
+        "tests/render/countdown-framing.test.ts"
+      ],
+      "line": 20,
+      "claim": "`countdownOnScreen` and `countdownClearance` in countdown.ts are dead in src/. game.ts now passes `COUNTDOWN_HALF_WIDTH` and `countdownFraming(view)` to the scene. The only importer of these two functions is tests/render/countdown-framing.test.ts, so removing them needs the owner.",
+      "evidence": "src/ui/countdown.ts:20 `export function countdownOnScreen(view…)` and :47 `export const countdownClearance = (view…) => (countdownOnScreen(view) ? COUNTDOWN_HALF_WIDTH : 0);`. The src uses are src/game.ts:24 `import { COUNTDOWN_HALF_WIDTH, countdownFraming } from './ui/countdown.ts'`, :191 `r.scene.update(r.drawn, dt, COUNTDOWN_HALF_WIDTH, countdownFraming(view))` and :322 (same call). A grep over the repo finds `countdownOnScreen` and `countdownClearance` only in countdown.ts itself and in tests/render/countdown-framing.test.ts:15, :37, :54-56 and :75-76. The `countdownClearance: 5.5` in render/camera.ts:32 is an unrelated CAMERA field.",
+      "suggestedFix": "Owner: retarget the countdown-framing.test.ts cases to `countdownFraming` / `COUNTDOWN_HALF_WIDTH`, or inline the predicate in the test. Then delete `countdownOnScreen` and `countdownClearance` (countdown.ts:19-22 and :46-47). GO_GONE_TICKS stays, because countdownFraming uses it.",
+      "worth": "medium",
+      "estLines": 10,
+      "status": "open",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-15",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the ui survey"
+        }
+      ]
+    },
+    {
+      "id": "C033",
+      "area": "ui",
+      "category": "duplication",
+      "files": [
+        "src/ui/format.ts",
+        "src/ui/race-ui.ts",
+        "src/ui/countdown.ts"
+      ],
+      "line": 21,
+      "claim": "Converting ms to whole sim ticks (rounded up) is written out twice: once as a private helper in race-ui.ts and once inline in countdown.ts. The inverse, `ticksToMs`, already lives in format.ts.",
+      "evidence": "src/ui/race-ui.ts:21 `const msToTicks = (ms: number): number => Math.ceil((ms * TICK_HZ) / 1000);`\nsrc/ui/countdown.ts:17 `export const GO_GONE_TICKS = Math.ceil((GO_GONE_MS * TICK_HZ) / 1000);`\nsrc/ui/format.ts:5 `export const ticksToMs = (ticks: number): number => (ticks * 1000) / TICK_HZ;`",
+      "suggestedFix": "Export `msToTicks` from format.ts next to `ticksToMs`, with the same expression. Import it in race-ui.ts (delete the local copy) and use `msToTicks(GO_GONE_MS)` at countdown.ts:17. The arithmetic is the same, so the values are the same.",
+      "worth": "low",
+      "estLines": 6,
+      "status": "open",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-22",
+      "seenCount": 2,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the ui survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "reported again by the duplication survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Moving msToTicks to format.ts needs a new import in countdown.ts (net about +1 line). It edits race-ui.ts and countdown.ts, which in-flight B09 (HUD event motion, #31) very likely changes along with their tick timings. Revisit after #31."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the ui survey: src/ui/race-ui.ts:21 still has the private msToTicks, and src/ui/countdown.ts:17 still writes `Math.ceil((GO_GONE_MS * TICK_HZ) / 1000)` inline. format.ts:5 still has only ticksToMs. #31 has merged."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Moving msToTicks into format.ts needs a new import in countdown.ts: net about zero lines, for two copies of a one-line expression. Low value."
+        }
+      ]
+    },
+    {
+      "id": "C034",
+      "area": "ui",
+      "category": "duplication",
+      "files": [
+        "src/ui/hud.css"
+      ],
+      "line": 197,
+      "claim": "The NEW BEST chip repeats the BEST chip's tuck-under declarations word for word. That is padding, no top outline, square top corners and line-height 1, matching the comment 'styled like BEST'.",
+      "evidence": "src/ui/hud.css:117-125 `.ui-hud-best { … padding: var(--space-s1) var(--space-s2); border-top: 0; border-radius: 0 0 var(--radius-rect) var(--radius-rect); line-height: 1; }`\nsrc/ui/hud.css:196-200 `.ui-hud-new-best { padding: var(--space-s1) var(--space-s2); border-top: 0; border-radius: 0 0 var(--radius-rect) var(--radius-rect); line-height: 1; …`",
+      "suggestedFix": "Move the four shared declarations into a grouped rule `.ui-hud-best, .ui-hud-new-best { … }` at the .ui-hud-best position. Keep display/align-items/gap on .ui-hud-best, and visibility/transform on .ui-hud-new-best. Both selectors are single classes with unchanged specificity. They come after .ui-panel (components.css is imported first) and before the .is-desktop overrides, so the cascade order is preserved and computed styles stay the same.",
+      "worth": "low",
+      "estLines": 8,
+      "status": "open",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-22",
+      "seenCount": 2,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the ui survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: hud.css is certainly edited by in-flight B09 (#31: Pos/Lap stamps, slide-in entry). Regrouping the BEST/NEW BEST chip rules now risks a cascade conflict. Do it after #31 lands."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the ui survey: src/ui/hud.css:121-124 (.ui-hud-best) and :197-200 (.ui-hud-new-best) still repeat padding, border-top: 0, border-radius and line-height 1. #31 has merged."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "chosen by the plan audit"
+        }
+      ]
+    },
+    {
+      "id": "C035",
+      "area": "ui",
+      "category": "docs",
+      "files": [
+        "src/ui/components.css",
+        "src/ui/screens.css"
+      ],
+      "line": 52,
+      "claim": "Several CSS comments still name the dead finish panel as the user of shared components and leave out the live pause and results screens. A feature night reading them would look in finish-panel.ts (see C012).",
+      "evidence": "src/ui/components.css:52 `/* Display heading: italic 900 caps (start title, FINISHED). */` — live users are start-screen.ts:23 and results-screen.ts:57; 'Finished' is only in finish-panel.ts:33. components.css:63 `(LAP, TIME, finish stats)`. components.css:77 `/* Big overlay (finish card, countdown roundel)` — live users are countdown.ts:83 and pause-screen.ts:32. screens.css:1 `/* Start screen, finish panel and the shared full-screen menu ground. */` while most of the file is the pause card (:83-136) and the stripe used by start, pause and results.",
+      "suggestedFix": "Comment-only edits: components.css:52 → '(start title, results track name)', :63 → '(LAP, TIME, results rows)', :77 → '(pause card, countdown roundel)', screens.css:1 → 'Start and pause screens, the triple stripe and the shared full-screen menu ground.' Leave the .ui-finish__* block's own comment for the owner's C012 removal.",
+      "worth": "low",
+      "estLines": 8,
+      "status": "open",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-22",
+      "seenCount": 2,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the ui survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Real, but in-flight B08 (#30) rewrites the start screen and its CSS (screens.css, shared components), which would make these comments stale again or conflict. Fix them after #30 lands."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the ui survey: components.css:52 still says 'FINISHED', :63 'finish stats' and :77 'finish card'. screens.css:1 now reads 'Finish panel, pause card, the triple stripe and the shared full-screen menu ground.', which still names the dead finish panel. results.css:1-2 is also stale (repor…"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "chosen by the plan audit"
+        }
+      ]
+    },
+    {
+      "id": "C036",
+      "area": "tests",
+      "category": "test-pins-internals",
+      "files": [
+        "tests/content/hay-loop-tight.test.ts",
+        "tests/content/hay-loop-corners.test.ts",
+        "tests/content/hay-loop.test.ts"
+      ],
+      "line": 23,
+      "claim": "Three Hay Loop tests each copy the same centreline-analysis code: the wrapped `pt(i)`, segment `heading(i)` and lap length. Two of them also copy the CORNER_RADIUS/SPAN corner-run detector almost line for line. B11 (Pine Ridge, next in the backlog) will need the same analysis and can't import any of it, so it will make a fourth copy.",
+      "evidence": "tests/content/hay-loop-tight.test.ts:23-57 `function corners()` and tests/content/hay-loop-corners.test.ts:17-53 `lap()` + `corners()` both declare `const CORNER_RADIUS = 80; const SPAN = 5;` and contain the same lines: `const pt = (i: number): [number, number] => c[((i % n) + n) % n] as [number, number];`, `heading(i) = headingOf(bx - ax, bz - az)`, the `length += Math.hypot(...)` loop, `const curve = (i) => wrapAngle(heading(i + SPAN) - heading(i - SPAN)) / (2 * SPAN * step);`, `const way = ...`, `while (way(start) !== 0 && start < n) start++;` and the run loop. The only difference is that tight also tracks minRadius. tests/content/hay-loop.test.ts:12-21 `geometry()` repeats the pt/heading pair a third time.",
+      "suggestedFix": "Owner: add a shared tests/content/centreline.ts with `centreline(trackId)` (returning n, pt, heading, step and length) and `cornerRuns(trackId, { radius, span })` (returning turn and minRadius per run). Import them in the three Hay Loop tests. A night can create that new file now so B11 imports it instead of copying, but changing the three existing files needs the owner.",
+      "worth": "medium",
+      "estLines": 90,
+      "status": "open",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-22",
+      "seenCount": 2,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the tests survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the tests survey: The wrapped pt(i) is still copied at hay-loop-corners:20, hay-loop-tight:26 and hay-loop:16. CORNER_RADIUS = 80 and corners() are still in both corners and tight. No shared centreline helper exists yet, and B11 (#36) is still in flight."
+        }
+      ]
+    },
+    {
+      "id": "C037",
+      "area": "tests",
+      "category": "test-pins-internals",
+      "files": [
+        "tests/content/hay-loop-bales.test.ts",
+        "tests/sim/helpers.ts"
+      ],
+      "line": 9,
+      "claim": "hay-loop-bales.test.ts writes its own oriented-box corner function and SAT overlap test. tests/sim/helpers.ts already exports both as boxCorners and polygonOverlap, which the other prop-overlap tests use.",
+      "evidence": "tests/content/hay-loop-bales.test.ts:9-23 `function corners(b: Box)` builds the 4 corners from fx=sin h, fz=-cos h and HAY_BALE_LENGTH/2, HAY_BALE_WIDTH/2. :25-36 `function overlap(a, b)` is a hand-rolled separating-axis check. tests/sim/helpers.ts:291 `export function boxCorners(x, z, heading, halfLength, halfWidth)` (doc: 'Corners of an oriented box (hay bale)') and :261 `export function polygonOverlap(a, b)` ('Overlap depth of two convex polygons by the separating axis theorem').",
+      "suggestedFix": "Owner: replace corners/overlap with `polygonOverlap(boxCorners(a.x, a.z, a.heading, HAY_BALE_LENGTH / 2, HAY_BALE_WIDTH / 2), boxCorners(b.x, …)) > 1e-6` imported from ../sim/helpers.ts.",
+      "worth": "low",
+      "estLines": 30,
+      "status": "open",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-22",
+      "seenCount": 2,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the tests survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the tests survey: tests/content/hay-loop-bales.test.ts:9 corners() and :25 overlap() still hand-roll what boxCorners/polygonOverlap in tests/sim/helpers.ts do."
+        }
+      ]
+    },
+    {
+      "id": "C038",
+      "area": "tests",
+      "category": "test-pins-internals",
+      "files": [
+        "tests/ui/new-best-chip.test.ts",
+        "tests/game/best-lap-persistence.test.ts",
+        "tests/game/best-lap-storage-blocked.test.ts",
+        "tests/game/helpers.ts"
+      ],
+      "line": 27,
+      "claim": "The three B07 best-lap tests copy their helpers. The m:ss.cc formatter `fmt` appears three times, `visibleNewBest` twice, and new-best-chip's `twinRace` repeats the loop of the shared twinPlayerInputs. All three also keep the stale `playerLivery` render mock. None of these files is among C019's six.",
+      "evidence": "fmt, identical body `const cs = Math.round(t / 10); return `${Math.floor(cs / 6000)}:${String(Math.floor((cs % 6000) / 100)).padStart(2, '0')}.${…}``, at tests/ui/new-best-chip.test.ts:42-45, tests/game/best-lap-persistence.test.ts:37-40 and tests/game/best-lap-storage-blocked.test.ts:29-32. tests/ui/results-screen.test.ts:4 already imports formatTime from src/ui/format.ts:14 instead. visibleNewBest is identical at new-best-chip.test.ts:85-93 and best-lap-persistence.test.ts:57-65. new-best-chip.test.ts:27-38 `twinRace()` repeats tests/game/helpers.ts:9-20 twinPlayerInputs line for line, adding only `lapTicks`. Stale mock `playerLivery: (n) => …` at new-best-chip.test.ts:14, best-lap-persistence.test.ts:13, best-lap-storage-blocked.test.ts:11 and gamepad-menu.test.ts:13.",
+      "suggestedFix": "Owner: export `lapTime(ms)` (or reuse formatTime) and `visibleNewBest(root)` from tests/game/helpers.ts. Replace twinRace's loop with twinPlayerInputs(TRACK, SEED, 2, 36000) and read the lap ticks from a replayed world or the game. Drop the playerLivery mock lines in these files, together with C019's.",
+      "worth": "low",
+      "estLines": 40,
+      "status": "open",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-22",
+      "seenCount": 2,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the tests survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the tests survey: fmt is still identical at new-best-chip:42, best-lap-persistence:37 and best-lap-storage-blocked:29. visibleNewBest is still at new-best-chip:85 and best-lap-persistence:57, and twinRace is still at new-best-chip:27."
+        }
+      ]
+    },
+    {
+      "id": "C039",
+      "area": "tests",
+      "category": "test-pins-internals",
+      "files": [
+        "tests/ui/keycap-legend.test.ts",
+        "tests/ui/keycap-legend-keys.test.ts",
+        "tests/ui/keycap-legend-slide-state.test.ts"
+      ],
+      "line": 19,
+      "claim": "Three keycap-legend tests each write their own matchMedia stub. Two of them are the same media-query evaluator, one with the device fixed and one taking it as a parameter. No shared stub exists in tests/ui/helpers.ts, so the next desktop or reduced-motion UI test (B08/B09 are in flight) will copy it a fourth time.",
+      "evidence": "tests/ui/keycap-legend.test.ts:19-35 `function useDevice(d: Device)` and tests/ui/keycap-legend-keys.test.ts:11-27 `function useDesktop()` share the same body: `query.split(/\\s+and\\s+/).every((part) => { const m = /\\(\\s*([\\w-]+)\\s*:\\s*([\\w.]+?)(px)?\\s*\\)/.exec(part); … })`, then `vi.stubGlobal('matchMedia', (query) => { const list = new EventTarget() as MediaQueryList; Object.assign(list, { media: query, matches: …, onchange: null, addListener() {}, removeListener() {} }); return list; })`. keycap-legend-keys only fixes d = 1440×900 fine. tests/ui/keycap-legend-slide-state.test.ts:11-17 is a third stub with `matches: !query.includes('coarse')`.",
+      "suggestedFix": "Owner: move `useDevice(d)` and a `DESKTOP` constant into a shared test helper and call `useDevice(DESKTOP)` from all three files. A night may create the helper as a new file (e.g. tests/ui/media.ts) so new tests import it, but changing the three existing files needs the owner.",
+      "worth": "low",
+      "estLines": 40,
+      "status": "open",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-22",
+      "seenCount": 2,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the tests survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the tests survey: Grown: besides the three keycap-legend files, matchMedia stubs are now also in action-button.test.ts:12 (useDevice), action-button-icon.test.ts:15 and race-stage-pickups.test.ts:9 (useDesktop). There is still no shared media helper."
+        }
+      ]
+    },
+    {
+      "id": "C040",
+      "area": "seams",
+      "category": "docs",
+      "files": [
+        "src/game.ts"
+      ],
+      "line": 178,
+      "claim": "A comment in tick() still describes the Phase 0 finish panel. Since B02, the results screen is what takes over once the player finishes. That is the same stale reference C013 fixed in CLAUDE.md, and it would send a feature night looking at the dead finish-panel.ts.",
+      "evidence": "src/game.ts:178 `// After the finish the player's car coasts; the panel takes over the controls. The bots drive on.` but src/game.ts:48 `/** Control surface used by the start screen, the results screen and src/driver (gates). */` and :325 `// ... if the player finishes, the results screen replaces the pause.` race-ui.ts shows createResultsScreen; nothing in src imports finish-panel.ts (C012).",
+      "suggestedFix": "Change 'the panel takes over the controls' to 'the results screen takes over the controls'. Only the comment changes.",
+      "worth": "low",
+      "estLines": 2,
+      "status": "closed",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-15",
+      "seenCount": 1,
+      "pr": 32,
+      "closedOn": "2026-11-22",
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the seams survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "done in PR #32"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "merged in #32"
+        }
+      ]
+    },
+    {
+      "id": "C041",
+      "area": "duplication",
+      "category": "duplication",
+      "files": [
+        "src/render/scene.ts",
+        "src/render/camera.ts",
+        "src/render/materials/index.ts"
+      ],
+      "line": 140,
+      "claim": "The 844×390 reference frame is hard-coded as bare numbers 7 times across three render modules, though tokens.safeArea.frame already holds it and src/ui/layout.ts reads it from there. These are also raw pixel sizes in src/, which CLAUDE.md forbids, so the next render night is likely to copy the pattern.",
+      "evidence": "src/render/scene.ts:140 `let viewW = 844;` :141 `let viewH = 390;` :213 `new Vector2(844, 390)` :214 `applyViewport(initial.x || 844, initial.y || 390);`\nsrc/render/camera.ts:85 `export function createCameraRig(width = 844, height = 390): CameraRig {`\nsrc/render/materials/index.ts:147 `const resolution = { value: new Vector2(844, 390) };` :173 `widthPx.value = (OUTLINE_PX_AT_844 * Math.max(1, bufferWidth)) / 844;`\nThe single source: guardrails/generated/tokens.ts:219-222 `\"safeArea\": { \"frame\": [844, 390]`, read in src/ui/layout.ts:6 `const [frameW, frameH] = tokens.safeArea.frame;`. src/render/car.ts:10 already imports `tokens` from '@tokens', so render may use it.",
+      "suggestedFix": "Read the frame from tokens once: export `export const [FRAME_W, FRAME_H] = tokens.safeArea.frame;` (or a `REFERENCE_FRAME` pair) from src/render/camera.ts, which gets a `tokens` import. Use it for createCameraRig's defaults, then import it in scene.ts (lines 140, 141, 213, 214) and materials/index.ts (lines 147, 173). The numbers are the same, so camera, outline width and scene stay bit-identical. Keep the OUTLINE_PX_AT_844 name and its comments as they are.",
+      "worth": "medium",
+      "estLines": 14,
+      "status": "open",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-22",
+      "seenCount": 2,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the duplication survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Duplicate of C031 (same 844×390 literals in the same three files). Rejected for the same net-growth reason."
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the duplication survey: The literals are still there; only the scene.ts line numbers moved. scene.ts:156-157 `let viewW = 844; let viewH = 390;`, :235-236 `new Vector2(844, 390)` / `initial.x || 844, initial.y || 390`; camera.ts:85 `createCameraRig(width = 844, height = 390)`; material…"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Real rule violation (raw 844/390 in src/render). But the fix adds a tokens import, an exported constant and imports in three render files: net src/ growth for a non-performance item. Pair it with a render feature night."
+        }
+      ]
+    },
+    {
+      "id": "C042",
+      "area": "performance",
+      "category": "performance",
+      "files": [
+        "src/sim/car.ts"
+      ],
+      "line": 193,
+      "claim": "groundUnderBody still allocates two arrays on every call: the `ts` literal and the `hs` array from `ts.map` with a closure. visualPose also returns a fresh `{ y, pitch }` object. Both run for every car on every tick through carViews→carView, so a 6-car race makes about 18 short-lived allocations per tick. C027 (closed) only removed the groundAt default object and the per-ramp `[-1e-6, -r.length]` array; these allocations were left.",
+      "evidence": "src/sim/car.ts:196 `const ts = [-half, 0, half];`, :203/:205 `ts.push(...)`, :207 `return { ts, hs: ts.map((t) => groundAt(track, car.x + fx * t, car.z + fz * t, ground).h) };`; :168 `return { y, pitch };`, :188 `return y >= car.y ? { y, pitch } : { y: car.y, pitch: 0 };`; caller :137 `const { y, pitch } = visualPose(car, track, speed);`. In perf.json, groundUnderBody (main:162) is 1205 B/frame on bends, 1865 on dust-bowl and 1322 on hay-loop. visualPose (main:121) is 1173 B/frame on dust-bowl.",
+      "suggestedFix": "Add module scratch next to `ground` (car.ts:325): `const bodyTs: number[] = []; const bodyHs: number[] = [];`. In groundUnderBody, reset with `bodyTs.length = 0`, push `-half, 0, half` and then the lips and feet in the same order. Fill bodyHs with a plain loop that calls the same groundAt, and return nothing; visualPose then reads bodyTs/bodyHs. Have visualPose write into a scratch `pose = { y: 0, pitch: 0 }` that carView reads straight away. The float operations and their order stay the same, so replays are bit-identical.",
+      "worth": "medium",
+      "estLines": 20,
+      "status": "closed",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-15",
+      "seenCount": 1,
+      "pr": 32,
+      "closedOn": "2026-11-22",
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the performance survey; resembles C027, closed in #28"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "chosen by the plan audit"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "done in PR #32"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "merged in #32"
+        }
+      ]
+    },
+    {
+      "id": "C043",
+      "area": "performance",
+      "category": "performance",
+      "files": [
+        "src/game.ts",
+        "src/sim/world.ts"
+      ],
+      "line": 184,
+      "claim": "tick() replaces r.curr with a new array from carViews(r.world) on every sim tick: one `map` array plus one new CarView per car. Nothing keeps those views beyond the next tick. draw() copies them into r.drawn, ui.sync reads x/z only, and state() deep-copies. A two-buffer swap would remove all of these per-tick allocations.",
+      "evidence": "src/game.ts:183-184 `r.prev = r.curr; r.curr = carViews(r.world);`; src/sim/world.ts:121-123 `return world.cars.map((car) => carView(car, world.track));`; src/sim/car.ts:138-148 builds a new 9-field object per car. Readers: game.ts:189 interpolate (Object.assign into r.drawn), :193 ui.sync (race-ui.ts:139-146 copies x/z), :301 state() `race.curr.map((c) => ({ ...c }))`. perf.json: hay-loop carView (main:98) 780 B/frame; `map ((native))` 1127 B/frame bends, 1111 hay-loop.",
+      "suggestedFix": "Add `carViewsInto(world, out: CarView[])` in src/sim/world.ts, which Object.assigns carView(car, track) into out[i], or writes the fields in place to avoid even the temporary. In startRace, create prev and curr as two distinct arrays (`views` and `views.map((v) => ({ ...v }))`). In tick(), swap them (`const t = r.prev; r.prev = r.curr; r.curr = t; carViewsInto(r.world, r.curr);`). The values are the same, so drawing and the UI are unchanged. game.ts is likely touched by open PR #30 (B08), so apply it after that lands.",
+      "worth": "low",
+      "estLines": 14,
+      "status": "open",
+      "firstSeen": "2026-11-15",
+      "lastSeen": "2026-11-22",
+      "seenCount": 2,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-15",
+          "event": "reported by the performance survey"
+        },
+        {
+          "date": "2026-11-15",
+          "event": "not chosen by the plan audit: Swapping the CarView buffers changes object identity for everything that reads r.curr/r.prev (render mocks in game tests, ui.sync, state()). It also edits game.ts, which in-flight B08 (#30) touches. Too risky to promise unchanged behaviour unattended tonight; re-check …"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "confirmed by the performance survey: src/game.ts:197-198 still does `r.prev = r.curr; r.curr = carViews(r.world);`. world.ts:133-134 `world.cars.map((car) => carView(car, world.track))` and car.ts:145-155 still build a new CarView per car every tick. perf.json still shows carView at 791 B/frame (be…"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "skipped: touches files of open PR #35"
+        }
+      ]
+    },
+    {
+      "id": "C044",
+      "area": "sim",
+      "category": "dead-code",
+      "files": [
+        "src/sim/pickups.ts",
+        "src/sim/car.ts"
+      ],
+      "line": 10,
+      "claim": "Four B12 tuning constants are exported but nothing in src/, tests/, harness/, guardrails/ or spikes/ imports them. Each is used only inside its own module, so the `export` keyword makes the sim's internal surface look wider than it is.",
+      "evidence": "src/sim/pickups.ts:10 `export const PICKUP_RADIUS = 2.5;` (used only at :48), :12 `export const PICKUP_RESPAWN_TICKS = 300;` (only :50), :14 `export const BOOST_TICKS = 90;` (only :38); src/sim/car.ts:40 `export const BOOST_TOP_SPEED = 32;` (only :42-43 in BOOSTED). A repo-wide grep for `\\b(PICKUP_RADIUS|PICKUP_RESPAWN_TICKS|BOOST_TICKS|BOOST_TOP_SPEED)\\b` outside node_modules finds only those lines plus the header comments pickups.ts:4-6 and car.ts:271. None of them is re-exported by src/sim/index.ts.",
+      "suggestedFix": "Drop the `export` keyword from the four declarations and leave the values and comments alone. This changes only the module surface, not runtime values. Open PR #35 (B13) edits both pickups.ts and car.ts, and its new tests (tests/sim/rival-boost.test.ts, rival-helpers.ts) may import these constants. Apply this only after #35 lands, and only to the names that are still unimported after a fresh grep.",
+      "worth": "low",
+      "estLines": 8,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the sim survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "skipped: touches files of open PR #35"
+        }
+      ]
+    },
+    {
+      "id": "C045",
+      "area": "render",
+      "category": "dead-code",
+      "files": [
+        "src/render/geometry.ts",
+        "src/render/outline.ts",
+        "src/render/car.ts",
+        "src/render/camera.ts",
+        "src/render/materials/index.ts",
+        "src/render/props.ts"
+      ],
+      "line": 17,
+      "claim": "Once C024 trimmed the barrel, seven render exports are only used inside their own files. Nothing in src/, tests/, harness/ or guardrails/ imports them: `Paint` and `ProfilePoint` (geometry.ts), `RenderRole` (outline.ts), `buildMarkerGeometry` (car.ts), `frameWidthFor` (camera.ts), `LIGHT_DIRECTION` and `TOON_STEPS` (materials/index.ts). props.ts writes out the `ProfilePoint` shape by hand rather than using it.",
+      "evidence": "src/render/geometry.ts:17 `export type Paint = ...`, :20 `export type ProfilePoint = readonly [number, number];`\nsrc/render/outline.ts:21 `export type RenderRole = ...`\nsrc/render/car.ts:169 `export function buildMarkerGeometry()` (only caller is car.ts:196)\nsrc/render/camera.ts:38 `export function frameWidthFor` (callers are camera.ts:47 and :53)\nsrc/render/materials/index.ts:23 `export const LIGHT_DIRECTION`, :26 `export const TOON_STEPS` (used at :44-47, :95-96, :153)\nA repo-wide grep for these names, excluding node_modules, finds them only in their own files. tests/content/drivers.test.ts imports buildCarGeometry and buildRoundelGeometry, but not buildMarkerGeometry.\nsrc/render/props.ts:48 `const profile: [number, number][] = [[0, 0]];` is a hand-written ProfilePoint list passed to b.lathe.",
+      "suggestedFix": "Remove the `export` keyword from those seven declarations. If ProfilePoint should stay public, import it in props.ts and type line 48 as `const profile: ProfilePoint[]` instead. Both changes are types or visibility only, and the emitted geometry stays the same.",
+      "worth": "low",
+      "estLines": 9,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the render survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Real (all seven names appear only in their own files), but tonight's eight-item limit is full, and render exports matter less than the UI/input ones in C048. Safe to take next week."
+        }
+      ]
+    },
+    {
+      "id": "C046",
+      "area": "render",
+      "category": "duplication",
+      "files": [
+        "src/render/props.ts"
+      ],
+      "line": 40,
+      "claim": "props.ts spells out the same object type twice, once for every prop kind (`PROPS`) and once for the pickup box (`PICKUP`). scene.ts uses both the same way (`.add(new MeshBuilder()).build()` plus `.shadow`), so a change to one could miss the other.",
+      "evidence": "src/render/props.ts:40 `export const PROPS: Record<PropKind, { add(b: MeshBuilder): MeshBuilder; shadow: ShadowShape }> = {`\nsrc/render/props.ts:115 `export const PICKUP: { add(b: MeshBuilder): MeshBuilder; shadow: ShadowShape } = {`\nscene.ts:106 `PROPS[p.kind].add(new MeshBuilder()).build()` / :107 `PROPS[p.kind].shadow`; scene.ts:132 `PICKUP.add(new MeshBuilder()).build()` / :133 `PICKUP.shadow`",
+      "suggestedFix": "Declare `interface PropModel { add(b: MeshBuilder): MeshBuilder; shadow: ShadowShape }` once next to ShadowShape in props.ts. Type the two constants as `Record<PropKind, PropModel>` and `PropModel`. This is a types-only change.",
+      "worth": "low",
+      "estLines": 4,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the render survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Types-only: adds an interface to deduplicate one inline type used twice. Net about zero lines, cosmetic."
+        }
+      ]
+    },
+    {
+      "id": "C047",
+      "area": "ui",
+      "category": "duplication",
+      "files": [
+        "src/ui/hud.ts",
+        "src/ui/track-card.ts"
+      ],
+      "line": 132,
+      "claim": "The minimap and the track card each have their own copy of the code that fits a closed [x, z] outline into an SVG box. Both copies find the bounds, scale to fit with padding, centre the result, round to 0.1 units with a private `r1` and build an `M…L…Z` path. The next outline drawing (B11's locked card, or a results thumbnail) would make a third copy.",
+      "evidence": "src/ui/hud.ts:40 `const r1 = (v: number): number => Math.round(v * 10) / 10;` = src/ui/track-card.ts:22 `const r1 = (n: number): number => Math.round(n * 10) / 10;`.\nhud.ts:135-146: `const xs = outline.map((p) => p[0]); const zs = outline.map((p) => p[1]); const minX = Math.min(...xs); … scale = Math.min((MAP_W - 2 * MAP_PAD) / w, (MAP_H - 2 * MAP_PAD) / d); ox = (MAP_W - w * scale) / 2 - minX * scale; oz = (MAP_H - d * scale) / 2 - minZ * scale; const pts = outline.map(([x, z]) => `${r1(x * scale + ox)} ${r1(z * scale + oz)}`); const path = pts.length ? `M${pts.join('L')}Z` : '';`\ntrack-card.ts:26-33: `if (outline.length === 0) return ''; const xs = outline.map((p) => p[0]); const zs = …; const scale = Math.min((THUMB_W - THUMB_PAD * 2) / (maxX - minX || 1), (THUMB_H - THUMB_PAD * 2) / (maxZ - minZ || 1)); const ox = (THUMB_W - (maxX - minX) * scale) / 2 - minX * scale; … return `M${outline.map(([x, z]) => `${r1(x * scale + ox)} ${r1(z * scale + oz)}`).join('L')}Z`;`\nThe only difference is the guard for a zero-extent axis: `Math.max(…, 1e-6)` in the HUD and `|| 1` on the card.",
+      "suggestedFix": "In track-card.ts, export `fitOutline(outline, w, h, pad, minExtent)`. It returns `{ scale, ox, oz, d }`, where d is the path string, and it takes the extent guard as a parameter so each caller keeps its exact arithmetic. The HUD passes its 1e-6 floor; the card keeps its own `|| 1` guard via a wrapper. Alternatively, put it in a small new src/ui/outline.ts with the single `r1`. Then rebuild() uses scale/ox/oz for the dots, and outlinePath becomes a one-line call. Real tracks give the same numbers and strings. Check open PR #36 (B11 locked card) first, since it likely edits track-card.ts.",
+      "worth": "medium",
+      "estLines": 30,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the ui survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "reported again by the duplication survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: The two copies don't share arithmetic: the HUD clamps w/d with 1e-6 and uses the clamped extent in ox/oz, while the card uses `|| 1` only in the scale term and the raw extent in ox/oz. A shared helper needs guard parameters or a wrapper to stay bit-identical, which sav…"
+        }
+      ]
+    },
+    {
+      "id": "C048",
+      "area": "ui",
+      "category": "dead-code",
+      "files": [
+        "src/ui/layout.ts",
+        "src/ui/track-card.ts",
+        "src/ui/screen-change.ts",
+        "src/input/keyboard.ts",
+        "src/input/gamepad.ts"
+      ],
+      "line": 9,
+      "claim": "Ten UI/input exports are used only inside their own module: no other src file, test, harness or gates file imports them. The modules therefore look like they have a wider API than they do, as C007 found for render.",
+      "evidence": "A grep over the repo (excluding node_modules, journal and spikes) finds each name only in its defining file:\n- src/ui/layout.ts:9 `export const DESKTOP_MIN` and :17 `export const DESKTOP_QUERY` (used only at :17 and :21)\n- src/ui/track-card.ts:25 `export function outlinePath` (used only at :39)\n- src/ui/screen-change.ts:14 `export const SCREEN_CHANGE_MS` (used only at :53)\n- src/input/keyboard.ts:7 `export const KEY_MAP`, :21 `ACTION_KEY` and :27 `PAUSE_KEY` (used only at :51-86)\n- src/input/gamepad.ts:7 `PAD_BUTTON`, :10 `STICK_DEAD_ZONE` and :26 `stickSteer` (used only at :28-61)\nBy contrast, hitTest, GO_HIDE_TICKS, GO_GONE_MS and GO_GLIDE_SECONDS are imported by tests and must stay exported.",
+      "suggestedFix": "Drop the `export` keyword from those ten declarations and change nothing else. bestLapKey (best-laps.ts:6) is also only used locally, but its doc says B08/B11 reuse the key, so leave it. Skip outlinePath if the fitOutline finding is taken, since it reworks that function anyway.",
+      "worth": "low",
+      "estLines": 10,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the ui survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "chosen by the plan audit"
+        }
+      ]
+    },
+    {
+      "id": "C049",
+      "area": "ui",
+      "category": "simplify",
+      "files": [
+        "src/ui/title.css",
+        "src/ui/hud.css"
+      ],
+      "line": 120,
+      "claim": "Several selectors are split across two rules in the same file. title.css has two `.ui-track-card:focus-visible` rules a few lines apart. hud.css repeats `.ui-hud__timer`, `.ui-hud-best` and `.ui-hud-pos__n` as later second rules. Readers editing the first rule miss the second.",
+      "evidence": "src/ui/title.css:120-123 `.ui-track-card:focus-visible { outline: …; outline-offset: …; }` and :127-130 `.ui-track-card:focus-visible { transform: translate(var(--ui-card-lift), var(--ui-card-lift)); box-shadow: var(--shadow-overlay); }`. The only rule between them is :124 `.ui-track-card[aria-checked='true']:focus-visible`, which has higher specificity and sets only outline-color.\nsrc/ui/hud.css:31 `.ui-hud__timer {display…}` and :189 `.ui-hud__timer { isolation: isolate; }`; :117 `.ui-hud-best {…}` and :192 `.ui-hud-best { position: relative; z-index: 1; }`; :57 `.ui-hud-pos__n {font-size; color}` and :234 `.ui-hud-pos__n { display: block; }`. No rule in between sets isolation, position, z-index or display on these elements.",
+      "suggestedFix": "Move the declarations of each second rule into the first rule for the same selector and delete the second rule. In hud.css, keep the comment at :185-188 above the .ui-hud-new-best block. No property is set twice and no intervening rule sets these properties, so computed styles are unchanged. In hud.css this can go together with C034.",
+      "worth": "low",
+      "estLines": 14,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the ui survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "chosen by the plan audit"
+        }
+      ]
+    },
+    {
+      "id": "C050",
+      "area": "ui",
+      "category": "docs",
+      "files": [
+        "src/ui/results.css",
+        "src/ui/screens.css"
+      ],
+      "line": 1,
+      "claim": "Since B08, two stylesheet header comments contradict the code. results.css says the navy menu ground is shared with the start screen, but the S6 start screen is dirt and lives in title.css. screens.css:1 still lists the dead finish panel and leaves out the results ground it holds.",
+      "evidence": "src/ui/results.css:1-2 `/* Results screen (S5). Tokens only. The navy menu ground is shared with the start screen (screens.css); …`. In fact src/ui/screens.css:9 says `/* Full-screen menus (results) on a solid navy ground. The start screen (S6) is in title.css. */`, and src/ui/title.css:7 has `.ui-start { … background: var(--color-dirt); }`. screens.css:1 reads `/* Finish panel, pause card, the triple stripe and the shared full-screen menu ground. */`, while the file's live content is .ui-screen, the .ui-results ground, the stripe and the pause card. Only .ui-finish__* (:43-62, dead, C012) is finish panel.",
+      "suggestedFix": "Comment-only edits. results.css:1-2 → `/* Results screen (S5). Tokens only. Its navy ground is in screens.css; rows and the roundel use .ui-value type. */`. This adds to C035, whose screens.css:1 wording should also mention the results ground.",
+      "worth": "low",
+      "estLines": 4,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the ui survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "chosen by the plan audit"
+        }
+      ]
+    },
+    {
+      "id": "C051",
+      "area": "tests",
+      "category": "test-pins-internals",
+      "files": [
+        "tests/sim/replay.test.ts",
+        "src/sim/replay.ts",
+        "tests/sim/pickup-replay.test.ts"
+      ],
+      "line": 63,
+      "claim": "The frozen-format test 'ignores the reserved action bit when decoding' still expects bit 2 to decode as nothing. To keep it passing, decodeInputs sets `action` as a non-enumerable property. Any spread, structuredClone or JSON.stringify of a decoded frame drops the action without a sound, which is a trap for the next night that copies or records replay inputs (for example B13 rival boosts).",
+      "evidence": "tests/sim/replay.test.ts:63-66 `it('ignores the reserved action bit when decoding', () => { const text = bytesToBase64(Uint8Array.from([0x00, 0b111])); expect(decodeInputs(text, 1, 1)).toEqual([[{ steer: 0, throttle: true, brake: true }]]); });`. Since B12, bit 2 is a live flag: src/sim/replay.ts:6 'bit2 action (fire the power-up…)' and :26 `const FLAG_ACTION = 4;`. The workaround is src/sim/replay.ts:96-98: `// Non-enumerable, so frames still deep-equal what pre-pickup decoders gave (bit 2 used to be ignored) while input.action reads true and stepWorld fires.` `if ((flags & FLAG_ACTION) !== 0) Object.defineProperty(input, 'action', { value: true, writable: true, configurable: true });`. It is the only defineProperty in src/. The behaviour is already pinned through the public value by tests/sim/pickup-replay.test.ts:21-34, which checks `decoded?.[0]?.action` is true and that 'action' is not in frames with bit 2 clear.",
+      "suggestedFix": "Owner: change replay.test.ts:65 to expect `{ steer: 0, throttle: true, brake: true, action: true }` (or delete the case, since pickup-replay AC6 covers it). Then replace the defineProperty at replay.ts:96-98 with a plain `input.action = true` and drop the comment. stepWorld reads `input.action` the same way, so replays and bot laps don't change.",
+      "worth": "medium",
+      "estLines": 6,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the tests survey"
+        }
+      ]
+    },
+    {
+      "id": "C052",
+      "area": "tests",
+      "category": "test-pins-internals",
+      "files": [
+        "tests/ui/keycap-style.test.ts",
+        "tests/ui/track-card-press.test.ts",
+        "tests/ui/results-fit-phone.test.ts",
+        "tests/ui/keycap-legend-resize.test.ts",
+        "tests/ui/desktop-start-screen.test.ts",
+        "tests/ui/desktop-hud-scale.test.ts",
+        "tests/ui/countdown-clear-browser.test.ts",
+        "tests/ui/keycap-legend-slide.test.ts",
+        "tests/ui/desktop-hud.test.ts",
+        "tests/game/best-lap-e2e.test.ts",
+        "tests/ui/hud-motion.ts"
+      ],
+      "line": 27,
+      "claim": "Ten browser test files each copy the same ~17-line beforeAll/afterAll harness: mkdtemp, a vite build of harness/screens, serve, launch Chromium, then close and rm. tests/ui/hud-motion.ts already exports exactly this as a generic `setup()`, but its name and comment tie it to B09, so the next browser-test night will make an eleventh copy. Every file, and each of the 8 hud-motion files, also runs its own full vite build: about 18 builds per `pnpm test`.",
+      "evidence": "tests/ui/keycap-style.test.ts:27-38 `beforeAll(async () => { dist = mkdtempSync(join(tmpdir(), 'keycap-style-')); await build({ configFile: 'harness/screens/vite.config.ts', logLevel: 'silent', build: { outDir: dist, emptyOutDir: true } }); ({ origin, server } = await serve(dist)); browser = await launch(); }, 120_000); afterAll(async () => { await browser?.close(); server?.close(); rmSync(dist, { recursive: true, force: true }); });`, and the same in tests/ui/track-card-press.test.ts:33-44. The identical build call appears at results-fit-phone:24, keycap-legend-resize:32, desktop-start-screen:63, desktop-hud-scale:42, countdown-clear-browser:39, keycap-legend-slide:55, desktop-hud:72 and best-lap-e2e:284. The shared copy is tests/ui/hud-motion.ts:42-65 `export function setup(): { browser(): Browser; origin(): string }` (same body, with prefix 'hud-motion-'), used only by the 8 hud-motion-*.test.ts files.",
+      "suggestedFix": "A night may add a new tests/ui/browser-build.ts (or tests/browser.ts) exporting hud-motion's `setup()` under a neutral name, so new browser tests import it instead of copying. Owner: point hud-motion.ts and the ten files at it and delete their local beforeAll/afterAll blocks. A vitest globalSetup that builds once would also remove the ~18 repeated builds, but the vitest config is owner-only.",
+      "worth": "medium",
+      "estLines": 170,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the tests survey"
+        }
+      ]
+    },
+    {
+      "id": "C053",
+      "area": "seams",
+      "category": "docs",
+      "files": [
+        "CLAUDE.md",
+        "src/ui/types.ts"
+      ],
+      "line": 1,
+      "claim": "CLAUDE.md says the UI receives view models from `src/ui/types.ts`, but the game passes the UI the sim's own view types (`RaceView`, `CarView` from src/sim/types.ts). `HudState` in ui/types.ts is built inside race-ui.ts, not by the game loop, so the ui/types.ts header is also wrong. A feature night adding a HUD field would go looking for a game-side builder that doesn't exist.",
+      "evidence": "CLAUDE.md (How the game fits together): \"the UI receives view models (`src/ui/types.ts`), never the sim.\" src/ui/types.ts:1 \"// View models the UI renders. Built by the game loop from sim views; the UI never reads the sim.\" In fact src/game.ts:207 `ui.sync(view, r.curr);` with `const view = raceView(r.world)` (:202), and src/ui/race-ui.ts:44 `sync(view: RaceView, cars: readonly CarView[]): void;`, where RaceView/CarView come from '../sim/types.ts' (race-ui.ts:5). HudState is created and kept by race-ui itself: race-ui.ts:73 `let state: HudState | null = null;`. game.ts never imports src/ui/types.ts. Its only importers are hud.ts:11, race-ui.ts:14, start-screen.ts:13, track-card.ts:7 and start.stage.ts:7.",
+      "suggestedFix": "Docs only. CLAUDE.md: \"…the UI receives the sim's view types (`RaceView`, `CarView` from `src/sim/types.ts`), never the World; race-ui builds its own view models (`src/ui/types.ts`) from them.\" src/ui/types.ts:1: \"View models the UI renders, built by race-ui.ts (and the game, for track cards) from sim views; the UI never reads the World.\"",
+      "worth": "medium",
+      "estLines": 4,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the seams survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "chosen by the plan audit"
+        }
+      ]
+    },
+    {
+      "id": "C054",
+      "area": "seams",
+      "category": "dead-code",
+      "files": [
+        "src/ui/stages/stage.ts"
+      ],
+      "line": 76,
+      "claim": "`carOnTrack` in the stage fixtures is exported, but only stage.ts itself uses it. No stage, test or harness file imports it.",
+      "evidence": "src/ui/stages/stage.ts:76 `export function carOnTrack(centre: readonly [number, number][], at: number): CarView {`. Its only use is stage.ts:128 `o.at.map((a) => carOnTrack(centre, a)),`. A repo-wide grep (excluding node_modules) for `carOnTrack` finds only these two lines.",
+      "suggestedFix": "Drop the `export` keyword on carOnTrack (stage.ts:76). Nothing else changes, and stages are never shipped.",
+      "worth": "low",
+      "estLines": 1,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the seams survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Real but trivial: one `export` keyword on stage-only fixture code that never ships. Tonight's eight-item limit is full. Safe to take next week."
+        }
+      ]
+    },
+    {
+      "id": "C055",
+      "area": "duplication",
+      "category": "duplication",
+      "files": [
+        "src/ui/stages/start.stage.ts",
+        "src/game.ts",
+        "src/ui/stages/stage.ts"
+      ],
+      "line": 12,
+      "claim": "The start-screen stage rebuilds the game's track-card list with a copy of the game's mapping, and writes the minimap stride as a bare 8. B08 added this copy after C025 was filed, so C025 now misses two of the four stride sites (game.ts:151 and start.stage.ts:12).",
+      "evidence": "src/game.ts:151 `tracks: TRACKS.map((t) => ({ id: t.id, name: t.name, outline: trackLayout(t).centre.filter((_, i) => i % MINIMAP_STRIDE === 0) })),`\nsrc/ui/stages/start.stage.ts:12 `return TRACKS.map((t) => ({ id: t.id, name: t.name, outline: trackLayout(t).centre.filter((_, i) => i % 8 === 0) }));`\nThe other stride copies are src/game.ts:293 `world.track.layout.centre.filter((_, i) => i % MINIMAP_STRIDE === 0)` and src/ui/stages/stage.ts:72 `centre.filter((_, i) => i % 8 === 0)`. The constant is src/game.ts:33 `const MINIMAP_STRIDE = 8;`.",
+      "suggestedFix": "Combine this with C025. Export `minimapOutline(centre)` (stride 8) from a UI module that game.ts and the stages already import, for example src/ui/track-card.ts. Add `trackCardViews(tracks)` next to it, returning `{ id, name, outline: minimapOutline(trackLayout(t).centre) }`. Call it from game.ts:151 and start.stage.ts:12, and use minimapOutline at game.ts:293 and stage.ts:72. Then delete MINIMAP_STRIDE. The values are the same, so the DOM is the same.",
+      "worth": "medium",
+      "estLines": 12,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the duplication survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "not chosen by the plan audit: Needs an edit to src/ui/stages/start.stage.ts, and screen stages are append-only tonight."
+        }
+      ]
+    },
+    {
+      "id": "C056",
+      "area": "performance",
+      "category": "performance",
+      "files": [
+        "src/sim/track.ts",
+        "src/sim/car.ts"
+      ],
+      "line": 491,
+      "claim": "Every car makes a new TrackPos object on every sim tick. stepCars sets `car.pos = trackPosition(...)`, and trackPosition gets its result from nearestLocal→projectOnSegment, which returns a fresh object literal. When a car is off the track, nearestGlobal (called from trackPosition and from surfaceAt) allocates one or two more. The old car.pos is thrown away right after: nothing keeps a reference to it between ticks.",
+      "evidence": "src/sim/track.ts:491 `return { seg: i, s: ..., lateral, distance: Math.hypot(x - px, z - pz) };` (projectOnSegment, reached from nearestLocal:538 and nearestGlobal:505). src/sim/car.ts:290 `car.pos = trackPosition(track, car.x, car.z, car.pos);`, car.ts:291 surfaceAt → track.ts:566 `nearestGlobal(track, x, z).distance` (a TrackPos used for one field). Readers of car.pos all read it within the tick: world.ts:89/128/140 (`.s`), bot.ts:95-131 (`.seg`, `.s`, `.lateral`). No match in src/ for structuredClone or spreads of car/pos, and src/driver does not read pos. perf.json: the sim's other hot functions are allocation-free in source (scratch `hit`, `seg`, `ground`, `nearby`), so this is one of the few real per-tick allocation sites left on the stepCars path, at 6 cars × 60 Hz.",
+      "suggestedFix": "Add an optional `out: TrackPos` parameter to projectOnSegment/nearestLocal/trackPosition, defaulting to a fresh object so the existing tests in tests/sim/track.test.ts:250-287 are unaffected. In trackPosition, write the local result into `prev` only after `prev.seg` has been read. Use one module scratch TrackPos for the global candidate and copy it into `out` only if it wins. In surfaceAt, use a scratch for the nearestGlobal distance check. Every number stays the same. Wait for in-flight PR #35, which also edits src/sim/car.ts.",
+      "worth": "low",
+      "estLines": 24,
+      "status": "open",
+      "firstSeen": "2026-11-22",
+      "lastSeen": "2026-11-22",
+      "seenCount": 1,
+      "pr": null,
+      "closedOn": null,
+      "history": [
+        {
+          "date": "2026-11-22",
+          "event": "reported by the performance survey"
+        },
+        {
+          "date": "2026-11-22",
+          "event": "skipped: touches files of open PR #35"
+        }
+      ]
+    }
+  ]
+}

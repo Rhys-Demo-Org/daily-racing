@@ -32,6 +32,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  isolation: isolate;
 }
 
 /* PAUSE in the corner, right of TIME: the only HUD widget that takes pointer input. */
@@ -55,6 +56,7 @@
   line-height: 0.9;
 }
 .ui-hud-pos__n {
+  display: block;
   font-size: var(--type-hud-xl-size);
   color: var(--color-mustard);
 }
@@ -115,9 +117,14 @@
 
 /* BEST chip tucks under the timer: mustard panel, no top outline, square top corners. */
 .ui-hud-best {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: var(--space-s2);
+}
+.ui-hud-best,
+.ui-hud-new-best {
   padding: var(--space-s1) var(--space-s2);
   border-top: 0;
   border-radius: 0 0 var(--radius-rect) var(--radius-rect);
@@ -186,18 +193,7 @@
    one chip-height up; a new best slides it down (200ms, snap), it holds 2s, then slides back.
    Only transform and visibility change; colours cut. The timer stack isolates the stacking so
    BEST covers the chip without rising over the overlays. */
-.ui-hud__timer {
-  isolation: isolate;
-}
-.ui-hud-best {
-  position: relative;
-  z-index: 1;
-}
 .ui-hud-new-best {
-  padding: var(--space-s1) var(--space-s2);
-  border-top: 0;
-  border-radius: 0 0 var(--radius-rect) var(--radius-rect);
-  line-height: 1;
   visibility: hidden;
   transform: translateY(-100%);
 }
@@ -230,9 +226,6 @@
 .ui-hud-pos__roll {
   display: block;
   clip-path: inset(0);
-}
-.ui-hud-pos__n {
-  display: block;
 }
 @media (prefers-reduced-motion: no-preference) {
   /* Position change: the panel bumps to ×1.12 (stamp) and the digit rolls up one digit (snap). */

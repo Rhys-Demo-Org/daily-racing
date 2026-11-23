@@ -11,7 +11,7 @@ import { h, s } from './dom.ts';
 export type ScreenChangeKind = 'stripes' | 'chequer';
 
 /** How long the overlay stays: the 250ms wipe plus two 40ms staggers. */
-export const SCREEN_CHANGE_MS = tokens.motion.durationMs.wipe + tokens.motion.durationMs.stagger * 2;
+const SCREEN_CHANGE_MS = tokens.motion.durationMs.wipe + tokens.motion.durationMs.stagger * 2;
 
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
 

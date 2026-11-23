@@ -120,13 +120,11 @@
 .ui-track-card:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring-color);
   outline-offset: var(--focus-ring-offset);
+  transform: translate(var(--ui-card-lift), var(--ui-card-lift));
+  box-shadow: var(--shadow-overlay);
 }
 .ui-track-card[aria-checked='true']:focus-visible {
   outline-color: var(--color-cream);
-}
-.ui-track-card:focus-visible {
-  transform: translate(var(--ui-card-lift), var(--ui-card-lift));
-  box-shadow: var(--shadow-overlay);
 }
 @media (hover: hover) {
   .ui-track-card:hover:not(:active) {

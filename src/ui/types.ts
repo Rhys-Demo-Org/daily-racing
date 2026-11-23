@@ -26,3 +26,6 @@ export interface TrackCardView {
   /** Closed centreline [x, z] in world units; the card fits it into its outline drawing. */
   outline: [number, number][];
 }
+
+/** Whether a track on the track select is still locked (S6 locked card); the menu asks on every show. */
+export type TrackLocked = (trackId: string) => boolean;

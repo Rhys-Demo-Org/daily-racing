@@ -1,0 +1,12 @@
+{
+  "verdict": "approve",
+  "rounds": 3,
+  "items": [
+    {
+      "id": "B11",
+      "verdict": "approve",
+      "rounds": 3,
+      "waitsOn": null
+    }
+  ]
+}

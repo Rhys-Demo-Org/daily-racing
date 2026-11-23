@@ -25,9 +25,50 @@ export function getTrack(id: string): TrackData {
   return track;
 }
 
-/** The id of the track after `currentId` in `ids` (default: registry order), wrapping to the first. */
-export function nextTrackId(currentId: string, ids: readonly string[] = TRACKS.map((t) => t.id)): string {
-  const i = ids.indexOf(currentId);
+/** Tracks that start locked: each unlocks once the player has finished a race on `afterFinishOn`. */
+export const TRACK_LOCKS: Readonly<Record<string, { afterFinishOn: string }>> = {
+  'pine-ridge': { afterFinishOn: 'hay-loop' },
+};
+
+/** The localStorage key set once the player has finished a race on a track. */
+export function finishedKey(trackId: string): string {
+  return `racer.finished.${trackId}`;
+}
+
+/**
+ * Whether the player has ever finished a race on `trackId`. Storage can be missing (plain Node) or
+ * blocked (private tabs), so every access, `window` included, is wrapped: a failure reads as not finished.
+ */
+export function hasFinished(trackId: string): boolean {
+  try {
+    return window.localStorage.getItem(finishedKey(trackId)) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** Records that the player finished a race on `trackId`; a write that fails is dropped. */
+export function saveFinished(trackId: string): void {
+  try {
+    window.localStorage.setItem(finishedKey(trackId), '1');
+  } catch {
+    // Storage blocked or full: the finish just isn't kept.
+  }
+}
+
+/** Whether `trackId` is still locked, reading finishes from `finished` (default: localStorage). */
+export function isTrackLocked(trackId: string, finished: (trackId: string) => boolean = hasFinished): boolean {
+  const lock = TRACK_LOCKS[trackId];
+  return lock !== undefined && !finished(lock.afterFinishOn);
+}
+
+/**
+ * The id of the track after `currentId` in `ids`, wrapping to the first. Without `ids` it walks the
+ * registry and skips locked tracks (but never `currentId` itself).
+ */
+export function nextTrackId(currentId: string, ids?: readonly string[]): string {
+  const order = ids ?? TRACKS.map((t) => t.id).filter((id) => id === currentId || !isTrackLocked(id));
+  const i = order.indexOf(currentId);
   if (i < 0) throw new Error(`Unknown track "${currentId}"`);
-  return ids[(i + 1) % ids.length] as string;
+  return order[(i + 1) % order.length] as string;
 }

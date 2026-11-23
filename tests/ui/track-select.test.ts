@@ -2,7 +2,7 @@
 // B08 · Track select on the start screen (S6): one radio card per registered track with its outline,
 // name and stored best; one selected, arrows move the selection. Driven through the game's menu.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TRACKS } from '../../src/content/tracks.ts';
+import { TRACK_LOCKS, TRACKS } from '../../src/content/tracks.ts';
 import { createGame } from '../../src/game.ts';
 
 vi.mock('../../src/render/index.ts', () => ({
@@ -90,7 +90,8 @@ describe('B08 track select', () => {
 
   it('AC3: ArrowRight/ArrowLeft on a focused card move the selection, wrapping at the ends', () => {
     const root = menu();
-    const names = TRACKS.map((t) => t.name);
+    // Locked cards (B11) are skipped, so the ends are the first and last unlocked tracks.
+    const names = TRACKS.filter((t) => !(t.id in TRACK_LOCKS)).map((t) => t.name);
     const first = card(root, names[0] ?? '') as HTMLElement;
     first.focus();
     key(first, 'ArrowLeft');

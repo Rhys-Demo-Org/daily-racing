@@ -1,0 +1,101 @@
+{
+  "pass": false,
+  "reasons": [
+    "review.md has 1 claim(s) the diff contradicts"
+  ],
+  "blind": {
+    "scores": {
+      "specMet": 9,
+      "styleMatch": 9,
+      "notBroken": 9,
+      "testsReal": 9,
+      "noSniffing": 10,
+      "scope": 9,
+      "noDuplication": 9
+    },
+    "overall": 9,
+    "verdict": "pass",
+    "failures": [],
+    "plantedInstructions": [],
+    "summary": "Adds Pine Ridge (forest-ridge.json): 3 laps, width 11, angular centreline, 2 ramps, dense cone trees, third in the track list. tracks.ts gains TRACK_LOCKS, isTrackLocked and a try/catch reader and writer for racer.finished.<id>. nextTrackId skips locked tracks only when no ids are passed. game.ts saves the player's finish on the tick car 0 finishes, before results are left. The start screen takes an injectable locked() check and re-reads it on every show() and select(). Clicks, arrows and select() skip locked cards, and a card locked again hands the selection to the first unlocked one. The locked card uses only theme tokens, with an SVG padlock (role img, label Locked). New stage start--menu-unlocked. Screenshots at 844×390 and 1440×900 match the S6 mockup: dark-dirt card, ink road, cream padlock roundel, cream name, dashes for best. All four cards and RACE fit unclipped. Race frames show dense pines. Tests cover every AC through the DOM, game and content data, plus a Chromium fit check and edge cases (bot finish doesn't unlock, re-lock, blocked storage). All gates pass. Small deviations: race-ui.ts was listed in Expected files but not changed, and a few extra test files were added. Neither is harmful."
+  },
+  "check": {
+    "claims": [
+      {
+        "claim": "R2-1 fix: show() now calls refresh() to re-read locks and bests, then moves a now-locked selection to the first unlocked card via pick().",
+        "verdict": "confirmed",
+        "evidence": "diff start-screen.ts show(): refresh(); then `if (cards.find((c) => c.id === selected)?.locked) { const first = cards.find((c) => !c.locked); if (first) pick(first.id, false); }`."
+      },
+      {
+        "claim": "R2-1: the check lives in show() rather than refresh() because refresh() first runs before `selected` is set.",
+        "verdict": "confirmed",
+        "evidence": "createStartScreen calls refresh() before `let selected = cards.find((c) => !c.locked)?.id ?? null;`."
+      },
+      {
+        "claim": "R2-1: the `tracks` option comment was updated to say \"first unlocked\".",
+        "verdict": "confirmed",
+        "evidence": "`/** The tracks to pick from, in registry order; the first unlocked one is selected until select() is called. */`"
+      },
+      {
+        "claim": "R2-1 new test tests/ui/relocked-selection.test.ts checks that a relocked Pine Ridge card is not aria-checked and RACE does not start it.",
+        "verdict": "confirmed",
+        "evidence": "The test removes racer.finished.hay-loop, calls game.showMenu(), and asserts aria-disabled 'true', aria-checked not 'true', and that trackId after RACE is not 'forest-ridge'."
+      },
+      {
+        "claim": "R2-1: the test failed before the fix; there were flaky Chromium tests in full runs that passed when run alone.",
+        "verdict": "unconfirmed",
+        "evidence": "The diff and gates cannot show the red run or the flakiness. gates.md G1 reports 856/856 passed on the final branch."
+      },
+      {
+        "claim": "R5-1: src/game.ts:199 saves the key only when car 0 finishes.",
+        "verdict": "confirmed",
+        "evidence": "New line 199 in the game.ts hunk: `if (!finished && r.world.racers[0]?.finishTick != null) saveFinished(r.track.id);`. No src change came with the R5-1 fix."
+      },
+      {
+        "claim": "R5-1 test tests/game/pine-ridge-player-only.test.ts starts a two-car Hay Loop race with seed 3, steps until racer 1 finishes (capped at 10800 ticks), and asserts car 0 has not finished, there is no storage key, and Pine Ridge is still aria-disabled with its padlock after showMenu().",
+        "verdict": "confirmed",
+        "evidence": "The test matches this: startRace({trackId:'hay-loop', seed:3, carCount:2}), a while loop with game.step(60) up to 10800, then expects on finishTick, localStorage.getItem null, aria-disabled 'true' and padlock not null."
+      },
+      {
+        "claim": "R5-1: game.step uses NO_INPUT for the player; the red/green with the mutation `racers.some(...)` fails with \"expected '1' to be null\".",
+        "verdict": "unconfirmed",
+        "evidence": "Neither game.step's input handling nor the mutation run is visible in the diff."
+      },
+      {
+        "claim": "R5-2 finding cites src/ui/start-screen.ts:362 for select() re-reading the lock.",
+        "verdict": "false",
+        "evidence": "After the diff start-screen.ts is about 116 lines long. The re-read is at line 112, as the fix note itself says, so line 362 does not exist."
+      },
+      {
+        "claim": "R5-2: the re-read in select() is `if (card) card.setLocked(locked(trackId));` at start-screen.ts:112.",
+        "verdict": "confirmed",
+        "evidence": "Counting from hunk @@ -82,17 +94,23 @@, new line 112 is `if (card) card.setLocked(locked(trackId));`."
+      },
+      {
+        "claim": "R5-2 test tests/game/pine-ridge-menu-return.test.ts finishes Hay Loop then Dust Bowl, clicks NEXT RACE to forest-ridge, presses Escape, quits to the menu, checks Pine Ridge is selected, and checks RACE starts forest-ridge. No src change.",
+        "verdict": "confirmed",
+        "evidence": "The test body matches step for step. The R5-2 fix adds only a test file."
+      },
+      {
+        "claim": "R5-2: the quit-to-menu path goes through select('forest-ridge') before the menu re-shows; removing the re-read fails with \"expected 'Bramble BendsBEST –:––.––' to contain 'Pine Ridge'\".",
+        "verdict": "unconfirmed",
+        "evidence": "game.ts's quit-to-menu flow is not in the diff, and the red run cannot be seen."
+      },
+      {
+        "claim": "Final pnpm test passes: 149 files, 856 tests.",
+        "verdict": "confirmed",
+        "evidence": "gates.md G1: '856/856 tests passed (main 813)'. The file count cannot be checked."
+      },
+      {
+        "claim": "Header: 5 findings, 3 verified, 2 dropped; reviewers R1–R5 ok.",
+        "verdict": "unconfirmed",
+        "evidence": "The dropped findings are not listed, and the reviewer status cannot be seen in the inputs."
+      }
+    ],
+    "newRules": [],
+    "plantedInstructions": [],
+    "summary": "I checked review.md against diff.patch and gates.md. Its main claims hold up:\n- **R2-1:** show() now re-checks the selection after refresh(), the \"first unlocked\" comment was updated, and relocked-selection.test.ts was added.\n- **R5-1:** only car 0's finish saves the key (src/game.ts:199), and the new player-only test is described accurately.\n- **R5-2:** the re-read in select() is at start-screen.ts:112, and the menu-return test is described accurately.\n- **Test count:** gates.md confirms 856/856 tests pass.\n\nOne claim is false: the R5-2 finding cites start-screen.ts:362, but the file is only about 116 lines long. The line reference is wrong, but the substance of the finding is right.\n\nSome claims can't be checked from the inputs: the red/green mutation runs, the flaky Chromium runs, what game.step feeds the player, and the dropped findings.\n\nThe diff adds or changes no rules for agents, and I found no planted instructions in review.md or the diff."
+  },
+  "scan": [],
+  "newRules": []
+}

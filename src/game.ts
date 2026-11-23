@@ -4,7 +4,7 @@
 // car positions interpolated between the last two ticks, so motion is smooth at any refresh rate.
 // The UI only ever sees views (src/ui/race-ui.ts), never the sim itself.
 import { PLAYER_CAR_COUNT, raceDrivers, type Driver } from './content/drivers.ts';
-import { TRACKS, getTrack, nextTrackId } from './content/tracks.ts';
+import { TRACKS, getTrack, isTrackLocked, nextTrackId, saveFinished } from './content/tracks.ts';
 import { createInput } from './input/index.ts';
 import { createRaceScene, createRenderer, type RaceScene } from './render/index.ts';
 import {
@@ -151,6 +151,7 @@ export function createGame(root: HTMLElement): Game {
   const startScreen = createStartScreen(menuLayer, {
     onRace: () => enterRace(startScreen.selected() ?? menuTrack.id),
     tracks: TRACKS.map((t) => ({ id: t.id, name: t.name, outline: trackLayout(t).centre.filter((_, i) => i % MINIMAP_STRIDE === 0) })),
+    locked: (id) => isTrackLocked(id),
   });
 
   function sceneFor(world: World, drivers: readonly Driver[]): RaceScene {
@@ -196,6 +197,8 @@ export function createGame(root: HTMLElement): Game {
     r.inputs[0] = finished ? NO_INPUT : carInput;
     for (let i = 0; i < r.bots.length; i++) r.inputs[i + 1] = (r.bots[i] as Bot).input(r.world);
     stepWorld(r.world, r.inputs);
+    // The player's finish is saved at once (it unlocks tracks, TRACK_LOCKS), not on the way back to the menu.
+    if (!finished && r.world.racers[0]?.finishTick != null) saveFinished(r.track.id);
     r.prev = r.curr;
     r.curr = carViews(r.world);
     r.view = null;

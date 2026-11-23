@@ -1,0 +1,80 @@
+2026-11-17T02:00:07Z live run 2026-11-17 (manual=0) main=37f6e3d82cb0f07cfa5322b67e9f3c2c94f72bb1
+2026-11-17T02:00:08Z work: backlog B13 · Rivals use pickups
+2026-11-17T02:00:08Z phase ideate-1: start (max turns 40, wall 10m)
+2026-11-17T02:01:45Z phase ideate-1: exit 0
+2026-11-17T02:01:45Z phase audit-1: start (max turns 50, wall 10m)
+2026-11-17T02:04:08Z phase audit-1: exit 0
+2026-11-17T02:04:09Z plan audit 1 (B13, round 1): revise
+2026-11-17T02:04:09Z phase ideate-2: start (max turns 40, wall 10m)
+2026-11-17T02:05:32Z phase ideate-2: exit 0
+2026-11-17T02:05:33Z phase audit-2: start (max turns 50, wall 10m)
+2026-11-17T02:07:02Z phase audit-2: exit 0
+2026-11-17T02:07:03Z plan audit 2 (B13, round 2): approve
+2026-11-17T02:07:03Z spec locked: sha256 564baaa0ba3e47a52a548c2c1e4bf3b6412233668ef505e4193a878df449e1f6
+2026-11-17T02:07:03Z phase build-1: start (max turns 60, wall 75m)
+2026-11-17T02:12:22Z phase build-1: exit 0
+2026-11-17T02:12:23Z gates attempt 1 on 6294a1a0743ee795443bbfea5b052693d5f6b39b
+# Gates: PASS
+
+Branch `6294a1a0743e` vs main `37f6e3d82cb0`, 54.0 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 53.5 s | typecheck, build ok; 821/821 tests passed (main 813) |
+| G2 Bot laps | pass | 2.0 s | bends 15.48 s (+0.0%), dust-bowl 17.30 s (-2.3%), hay-loop 53.61 s (+0.0%); worst step 0.515 |
+| G3 Physics replays | pass | 1.2 s | 5 replays reproduce main's end states (±0.000001) |
+| G8 Protected files | pass | 0.7 s | only allowed paths changed; manifest and tokens match |
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+captured 80 screenshots (28 stages, 3 race(s)) into /out
+2026-11-17T02:13:35Z screenshots: 80 in /home/admin_rhysharris_altostrat_com/.daily-racer/work/2026-11-17/review-in/screenshots
+2026-11-17T02:13:35Z phase r1-1: start (max turns 120, wall 40m)
+2026-11-17T02:13:35Z phase r2-1: start (max turns 120, wall 40m)
+2026-11-17T02:13:35Z phase r3-1: start (max turns 120, wall 40m)
+2026-11-17T02:13:35Z phase r4-1: start (max turns 120, wall 40m)
+2026-11-17T02:13:35Z phase r5-1: start (max turns 120, wall 40m)
+2026-11-17T02:13:58Z phase r4-1: exit 0
+2026-11-17T02:14:11Z phase r3-1: exit 0
+2026-11-17T02:14:45Z phase r5-1: exit 0
+2026-11-17T02:15:28Z phase r1-1: exit 0
+2026-11-17T02:32:45Z phase r2-1: exit 0
+2026-11-17T02:32:45Z review: 4 findings; checked: R1 1, R2 17, R3 9, R4 7, R5 8
+2026-11-17T02:32:45Z phase verify-1: start (max turns 80, wall 30m)
+2026-11-17T02:33:54Z phase verify-1: exit 0
+2026-11-17T02:33:55Z verify: 1 of 4 findings verified
+2026-11-17T02:33:55Z phase fix-1: start (max turns 40, wall 20m)
+2026-11-17T02:34:09Z phase fix-1: exit 0
+2026-11-17T02:34:11Z phase judge-1: start (max turns 50, wall 15m)
+2026-11-17T02:34:51Z phase judge-1: exit 0
+2026-11-17T02:34:52Z phase judgecheck-1: start (max turns 50, wall 15m)
+2026-11-17T02:35:14Z phase judgecheck-1: exit 0
+2026-11-17T02:35:14Z judge round 1: fail
+2026-11-17T02:35:15Z phase fix-2: start (max turns 40, wall 20m)
+2026-11-17T02:37:16Z phase fix-2: exit 0
+2026-11-17T02:37:17Z gates attempt 2 on 2787116a64075287211ef195f371368f925a65bb
+# Gates: PASS
+
+Branch `2787116a6407` vs main `37f6e3d82cb0`, 31.4 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 30.9 s | typecheck, build ok; 821/821 tests passed (main 813) |
+| G2 Bot laps | pass | 1.7 s | bends 15.48 s (+0.0%), dust-bowl 17.30 s (-2.3%), hay-loop 53.61 s (+0.0%); worst step 0.515 |
+| G3 Physics replays | pass | 1.1 s | 5 replays reproduce main's end states (±0.000001) |
+| G8 Protected files | pass | 0.6 s | only allowed paths changed; manifest and tokens match |
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+captured 80 screenshots (28 stages, 3 race(s)) into /out
+2026-11-17T02:38:07Z screenshots: 80 in /home/admin_rhysharris_altostrat_com/.daily-racer/work/2026-11-17/shots-judge-fix
+2026-11-17T02:38:07Z phase judge-2: start (max turns 50, wall 15m)
+2026-11-17T02:38:46Z phase judge-2: exit 0
+2026-11-17T02:38:47Z phase judgecheck-2: start (max turns 50, wall 15m)
+2026-11-17T02:39:06Z phase judgecheck-2: exit 0
+2026-11-17T02:39:07Z judge round 2: pass
+2026-11-17T02:39:07Z outcome: pass

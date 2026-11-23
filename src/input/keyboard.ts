@@ -4,7 +4,7 @@
 export type KeyAction = 'left' | 'right' | 'gas' | 'brake';
 
 /** Physical key code → action. */
-export const KEY_MAP: Readonly<Record<string, KeyAction>> = {
+const KEY_MAP: Readonly<Record<string, KeyAction>> = {
   ArrowLeft: 'left',
   KeyA: 'left',
   ArrowRight: 'right',
@@ -18,13 +18,13 @@ export const KEY_MAP: Readonly<Record<string, KeyAction>> = {
 export type KeyState = Record<KeyAction, boolean>;
 
 /** Physical key code that fires the power-up. */
-export const ACTION_KEY = 'Space';
+const ACTION_KEY = 'Space';
 
 /** Focused elements whose own Space activation wins over the power-up. */
 const INTERACTIVE = 'button, a, input, select, textarea';
 
 /** Physical key code that toggles pause (a command, not a held action). */
-export const PAUSE_KEY = 'Escape';
+const PAUSE_KEY = 'Escape';
 
 export interface KeyboardOptions {
   /** PAUSE_KEY went down (key repeat ignored). */

@@ -6,7 +6,7 @@ import { tokens } from '@tokens';
 const [frameW, frameH] = tokens.safeArea.frame;
 
 /** Smallest desktop viewport in CSS px. */
-export const DESKTOP_MIN = {
+const DESKTOP_MIN = {
   width: Math.ceil(frameW * tokens.desktop.scale),
   height: Math.ceil(frameH * tokens.desktop.scale),
 } as const;
@@ -14,7 +14,7 @@ export const DESKTOP_MIN = {
 /** Touch-first devices (they get the touch controls). */
 export const COARSE_POINTER = '(pointer: coarse)';
 
-export const DESKTOP_QUERY = `(pointer: fine) and (min-width: ${DESKTOP_MIN.width}px) and (min-height: ${DESKTOP_MIN.height}px)`;
+const DESKTOP_QUERY = `(pointer: fine) and (min-width: ${DESKTOP_MIN.width}px) and (min-height: ${DESKTOP_MIN.height}px)`;
 
 /** Calls `onChange` now with the current mode, then on every change (resize, pointer change). */
 export function watchDesktop(onChange: (desktop: boolean) => void): void {

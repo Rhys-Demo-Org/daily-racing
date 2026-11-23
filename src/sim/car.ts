@@ -268,15 +268,15 @@ function longitudinal(vf: number, input: CarInput, s: SurfaceTuning): number {
 /**
  * Advances every car by one tick (mutating them): inputs change each car's velocity, then all cars
  * move together so they collide with props and with each other, then heights and track positions
- * update. Car `boosted` (if any; −1 = none) drives with BOOST_TOP_SPEED this tick.
+ * update. Every car k with `boosted[k]` true drives with BOOST_TOP_SPEED this tick (none by default).
  */
-export function stepCars(cars: readonly CarState[], inputs: readonly CarInput[], track: Track, boosted = -1): void {
+export function stepCars(cars: readonly CarState[], inputs: readonly CarInput[], track: Track, boosted: readonly boolean[] = []): void {
   let steps = 1;
   for (let k = 0; k < cars.length; k++) {
     const car = cars[k] as CarState;
     start[k * 3] = car.x;
     start[k * 3 + 1] = car.z;
-    applyInput(car, inputs[k] as CarInput, k === boosted);
+    applyInput(car, inputs[k] as CarInput, boosted[k] === true);
     const travel = Math.hypot(car.vx, car.vz) * DT;
     start[k * 3 + 2] = travel;
     steps = Math.max(steps, Math.ceil(travel / CAR_TUNING.maxSubstep));

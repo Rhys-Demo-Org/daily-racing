@@ -1,0 +1,14 @@
+2	1	CLAUDE.md
+5	1	src/game.ts
+3	3	src/input/gamepad.ts
+3	3	src/input/keyboard.ts
+8	4	src/ui/components.css
+7	14	src/ui/hud.css
+2	2	src/ui/layout.ts
+2	2	src/ui/results.css
+1	1	src/ui/screen-change.ts
+1	1	src/ui/screens.css
+2	4	src/ui/title.css
+1	10	src/ui/touch-controls.css
+1	1	src/ui/track-card.ts
+1	1	src/ui/types.ts

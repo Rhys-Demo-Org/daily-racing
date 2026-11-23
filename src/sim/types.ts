@@ -25,7 +25,7 @@ export interface TrackData {
   propRows: PropRowData[];
   /** Individually placed props (scenery). */
   props: PropPointData[];
-  /** Power-up boxes the player can drive through to arm a boost. Optional: most tracks have none. */
+  /** Power-up boxes any car can drive through to arm a boost. Optional: most tracks have none. */
   pickups?: PickupData[];
 }
 
@@ -127,7 +127,7 @@ export interface RacerView {
   finishTick: number | null;
   /** 1-based race position. */
   position: number;
-  /** Pickup tracks only: holding a power-up (always false for AI cars). */
+  /** Pickup tracks only: holding a power-up. */
   armed?: boolean;
   /** Pickup tracks only: ticks of boost left (0 when not boosting). */
   boostTicks?: number;

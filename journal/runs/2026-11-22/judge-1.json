@@ -1,0 +1,55 @@
+{
+  "pass": true,
+  "reasons": [],
+  "blind": {
+    "scores": {
+      "specMet": 8,
+      "styleMatch": 10,
+      "notBroken": 10,
+      "testsReal": 10,
+      "noSniffing": 10,
+      "scope": 10,
+      "noDuplication": 10
+    },
+    "overall": 8,
+    "verdict": "pass",
+    "failures": [
+      {
+        "axis": "specMet",
+        "file": "src/game.ts",
+        "claim": "The perf probe doesn't show the C028 RaceView cache cutting allocations. The code change is right, but the numbers the item points at didn't move beyond noise. Either measure on a frame rate above 60 Hz (or with frames that ran no tick) to show the saving, or say plainly in the PR that the 60 Hz probe can't see it.",
+        "evidence": "perf-main.json vs perf-branch.json, sampledAllocBytesPerFrame: bends 35728→35908, dust-bowl 52841→52782, hay-loop 29270→29578. `sort ((native))`: bends 970→952, hay-loop 897→867. The probe seems to run one tick per frame, so `r.view ??= raceView(r.world)` (game.ts draw) almost never reuses a cached view."
+      }
+    ],
+    "plantedInstructions": [],
+    "summary": "All eight chosen cleanup items are applied as the spec describes, and nothing else changed.\n\n- **C028:** draw() now reuses a cached RaceView. The view is stored on the Race, reset to null in startRace's record, and cleared in tick() after carViews.\n- **C014:** the button type and transition block is now one grouped `.ui-button, .ui-tc` rule in components.css, and the copy in touch-controls.css is gone. The clone report goes from one clone to none.\n- **C034 and C049:** the BEST/NEW BEST tuck-under is one grouped rule. The split hud.css rules (timer isolation, best position/z-index, pos__n display) and the second title.css focus-visible rule are folded into their first rules.\n- **C035, C050 and C053:** the stale CSS comments are reworded, and so are CLAUDE.md and the ui/types.ts header. The CLAUDE.md change only corrects the description to match the code and adds no rule.\n- **C048:** the `export` keyword is dropped from all ten names, and all ten are gone from the branch inventory.\n\nEvery gate passes. P1 has DOM and computed styles identical across 56 stage snapshots, P2 has identical geometry, bot laps and replays match exactly, and net `src/` is −10 lines. No tests or stages were touched. The screenshots match the mockups. The only weak point is that the perf probe shows no measurable drop in allocations from the C028 cache. That is expected for a 60 Hz probe and doesn't hurt behaviour."
+  },
+  "check": {
+    "claims": [
+      {
+        "claim": "Reviewers: R1 ok, R2 ok, R3 ok, R4 ok, R5 ok.",
+        "verdict": "unconfirmed",
+        "evidence": "This is about how the reviewers ran, and the diff can't show that. Nothing in diff.patch contradicts it: the eight cleanup items are applied as the spec describes."
+      },
+      {
+        "claim": "2 findings, 0 verified, 2 dropped.",
+        "verdict": "unconfirmed",
+        "evidence": "review.md doesn't list the dropped findings, so they can't be checked against the diff. My blind check found one weak point: the perf probe shows no measurable allocation saving from the C028 cache in game.ts draw(). That isn't a code defect, so it doesn't contradict the findings being dropped."
+      },
+      {
+        "claim": "0 fixes kept after the gates.",
+        "verdict": "unconfirmed",
+        "evidence": "The diff contains only the spec's cleanup items (C028, C014, C034/C049, C035/C050/C053, C048). Nothing looks like an extra review fix, which fits 0 fixes kept, but the diff alone can't prove it."
+      }
+    ],
+    "newRules": [
+      "CLAUDE.md (How the game fits together), changed line: \"`src/game.ts` owns the loop: ... the UI receives the sim's view types (`RaceView`, `CarView` from `src/sim/types.ts`), never the World; race-ui builds its own view models (`src/ui/types.ts`) from them.\" It replaces \"the UI receives view models (`src/ui/types.ts`), never the sim.\" This is the wording the spec asks for (C053), and it corrects the description to match the code."
+    ],
+    "plantedInstructions": [],
+    "summary": "review.md is very short. It says all five reviewers were OK, that 2 findings were raised and both dropped as not reproducible, and that no fixes were kept. None of this can be checked from the diff, and none of it is contradicted. The diff holds only the spec's cleanup items, with no extra fix commits, which fits \"0 fixes kept\". The dropped findings aren't described, so I can't judge whether dropping them was right. My blind check's one weak point (no measurable perf drop from the C028 cache) is a measurement gap, not a bug. The only agent-loaded file that changed is CLAUDE.md. That change is the spec-approved C053 rewording of the UI/sim view-types line, recorded under newRules: it describes the code accurately and keeps the \"never the World\" constraint. I found no planted instructions in review.md, the diff or the spec."
+  },
+  "scan": [],
+  "newRules": [
+    "CLAUDE.md (How the game fits together), changed line: \"`src/game.ts` owns the loop: ... the UI receives the sim's view types (`RaceView`, `CarView` from `src/sim/types.ts`), never the World; race-ui builds its own view models (`src/ui/types.ts`) from them.\" It replaces \"the UI receives view models (`src/ui/types.ts`), never the sim.\" This is the wording the spec asks for (C053), and it corrects the description to match the code."
+  ]
+}

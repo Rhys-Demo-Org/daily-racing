@@ -1,0 +1,73 @@
+2026-11-22T02:00:07Z live run 2026-11-22 (manual=0) main=37f6e3d82cb0f07cfa5322b67e9f3c2c94f72bb1
+2026-11-22T02:00:08Z work: maintenance 
+the diff contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
+2026-11-22T02:00:10Z could not fetch the diff of #35
+the diff contains terminal escape sequences; pass --allow-escape-sequences to output it anyway
+2026-11-22T02:00:11Z could not fetch the diff of #36
+2026-11-22T02:00:12Z cleanup list: 6 item(s) closed by merged maintenance PRs, 0 reopened
+2026-11-22T02:00:30Z perf probe: done
+2026-11-22T02:00:31Z phase survey-sim-1: start (max turns 60, wall 20m)
+2026-11-22T02:00:31Z phase survey-render-1: start (max turns 60, wall 20m)
+2026-11-22T02:00:31Z phase survey-ui-1: start (max turns 60, wall 20m)
+2026-11-22T02:00:31Z phase survey-content-1: start (max turns 60, wall 20m)
+2026-11-22T02:00:31Z phase survey-tests-1: start (max turns 60, wall 20m)
+2026-11-22T02:00:31Z phase survey-seams-1: start (max turns 60, wall 20m)
+2026-11-22T02:00:31Z phase survey-duplication-1: start (max turns 60, wall 20m)
+2026-11-22T02:00:31Z phase survey-performance-1: start (max turns 60, wall 20m)
+2026-11-22T02:00:49Z phase survey-content-1: exit 0
+2026-11-22T02:01:37Z phase survey-render-1: exit 0
+2026-11-22T02:01:48Z phase survey-duplication-1: exit 0
+2026-11-22T02:01:49Z phase survey-seams-1: exit 0
+2026-11-22T02:01:51Z phase survey-sim-1: exit 0
+2026-11-22T02:01:54Z phase survey-performance-1: exit 0
+2026-11-22T02:02:26Z phase survey-ui-1: exit 0
+2026-11-22T02:02:58Z phase survey-tests-1: exit 0
+2026-11-22T02:02:59Z survey: 14 findings, 13 new on the cleanup list
+2026-11-22T02:02:59Z cleanup list: 24 item(s) eligible tonight
+2026-11-22T02:02:59Z phase audit-1: start (max turns 50, wall 20m)
+2026-11-22T02:06:32Z phase audit-1: exit 0
+2026-11-22T02:06:33Z plan audit: 8 cleanup item(s) chosen
+2026-11-22T02:06:33Z spec locked: sha256 f68b7be4839c59b51bf90b2c5185c19deb2c4a7ed522b6e47a3e2b6cb94d1b7b
+2026-11-22T02:06:33Z refactor inputs: perf-main.json 
+2026-11-22T02:06:33Z phase build-1: start (max turns 60, wall 75m)
+2026-11-22T02:10:21Z phase build-1: exit 0
+2026-11-22T02:10:22Z gates attempt 1 on 7e41fb00efe07c9887698763b56c8fdfb6cdcc87
+# Gates: PASS
+
+Branch `7e41fb00efe0` vs main `37f6e3d82cb0` (maintenance), 33.0 s
+
+| Gate | Result | Time | Summary |
+|---|---|---|---|
+| G1 Build, types & unit tests | pass | 32.6 s | typecheck, build ok; 813/813 tests passed (main 813) |
+| G2 Bot laps | pass | 1.9 s | bends 15.48 s (+0.0%), dust-bowl 17.70 s (+0.0%), hay-loop 53.61 s (+0.0%); worst step 0.406 |
+| G3 Physics replays | pass | 1.2 s | 5 replays reproduce main's end states (exact) |
+| G8 Protected files | pass | 0.7 s | only allowed paths changed; manifest and tokens match |
+| P1 Screens unchanged (DOM + styles) | pass | 24.6 s | 56 stage snapshot(s) (DOM + computed styles) identical to main |
+| P2 Scene geometry unchanged | pass | 2.5 s | geometry identical to main: 3 track scene(s) and 6 car(s), 454 objects |
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+captured 80 screenshots (28 stages, 3 race(s)) into /out
+2026-11-22T02:11:13Z screenshots: 80 in /home/admin_rhysharris_altostrat_com/.daily-racer/work/2026-11-22/review-in/screenshots
+2026-11-22T02:11:13Z phase r1-1: start (max turns 120, wall 40m)
+2026-11-22T02:11:13Z phase r2-1: start (max turns 120, wall 40m)
+2026-11-22T02:11:13Z phase r3-1: start (max turns 120, wall 40m)
+2026-11-22T02:11:13Z phase r4-1: start (max turns 120, wall 40m)
+2026-11-22T02:11:13Z phase r5-1: start (max turns 120, wall 40m)
+2026-11-22T02:12:00Z phase r1-1: exit 0
+2026-11-22T02:12:23Z phase r3-1: exit 0
+2026-11-22T02:12:24Z phase r4-1: exit 0
+2026-11-22T02:12:40Z phase r5-1: exit 0
+2026-11-22T02:18:10Z phase r2-1: exit 0
+2026-11-22T02:18:10Z review: 2 findings; checked: R1 10, R2 14, R3 9, R4 11, R5 12
+2026-11-22T02:18:10Z phase verify-1: start (max turns 80, wall 30m)
+2026-11-22T02:18:22Z phase verify-1: exit 0
+2026-11-22T02:18:23Z verify: 0 of 2 findings verified
+2026-11-22T02:18:41Z phase judge-1: start (max turns 50, wall 15m)
+2026-11-22T02:19:18Z phase judge-1: exit 0
+2026-11-22T02:19:19Z phase judgecheck-1: start (max turns 50, wall 15m)
+2026-11-22T02:19:38Z phase judgecheck-1: exit 0
+2026-11-22T02:19:38Z judge round 1: pass
+2026-11-22T02:19:38Z outcome: pass

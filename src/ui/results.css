@@ -1,5 +1,5 @@
-/* Results screen (S5). Tokens only. The navy menu ground is shared with the start screen
-   (screens.css); rows and the roundel use .ui-value type. */
+/* Results screen (S5). Tokens only. Its navy ground is in screens.css; rows and the roundel use
+   .ui-value type. */
 
 .ui-results {
   gap: var(--space-s4);

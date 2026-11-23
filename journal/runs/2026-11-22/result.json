@@ -1,0 +1,1271 @@
+{
+  "date": "2026-11-22",
+  "dryRun": false,
+  "outcome": "pass",
+  "reason": null,
+  "abortReason": null,
+  "phase": 1,
+  "attempts": 1,
+  "models": {
+    "ideate": "claude-opus-5-5",
+    "audit": "claude-opus-5-5",
+    "build": "claude-opus-5-5",
+    "review": "claude-opus-5-5",
+    "reviewR2": "claude-sonnet-5-5",
+    "reviewR2Effort": "max",
+    "verify": "claude-opus-5-5",
+    "fix": "claude-opus-5-5",
+    "judge": "claude-opus-5-5"
+  },
+  "claudeCodeVersion": "2.1.304 (Claude Code)",
+  "ideaType": "maintenance",
+  "backlogId": null,
+  "gates": {
+    "G1": true,
+    "G2": true,
+    "G3": true,
+    "G8": true,
+    "P1": true,
+    "P2": true,
+    "M1": true
+  },
+  "gateRuns": [
+    {
+      "attempt": 1,
+      "pass": true,
+      "gates": {
+        "G1": true,
+        "G2": true,
+        "G3": true,
+        "G8": true,
+        "P1": true,
+        "P2": true,
+        "M1": true
+      }
+    }
+  ],
+  "retries": 0,
+  "judgeScore": 8,
+  "judge": {
+    "pass": true,
+    "reasons": [],
+    "round": 1,
+    "scores": {
+      "specMet": 8,
+      "styleMatch": 10,
+      "notBroken": 10,
+      "testsReal": 10,
+      "noSniffing": 10,
+      "scope": 10,
+      "noDuplication": 10
+    }
+  },
+  "audit": {
+    "verdict": "approve",
+    "rounds": 1,
+    "items": [
+      {
+        "id": "C028",
+        "verdict": "chosen",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C014",
+        "verdict": "chosen",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C034",
+        "verdict": "chosen",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C049",
+        "verdict": "chosen",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C035",
+        "verdict": "chosen",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C050",
+        "verdict": "chosen",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C048",
+        "verdict": "chosen",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C053",
+        "verdict": "chosen",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C023",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C026",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C031",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C041",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C047",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C055",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C025",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C004",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C008",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C009",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C010",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C015",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C033",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C045",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C046",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      },
+      {
+        "id": "C054",
+        "verdict": "rejected",
+        "rounds": 1,
+        "waitsOn": null
+      }
+    ]
+  },
+  "review": {
+    "reviewers": {
+      "R1": "ok",
+      "R2": "ok",
+      "R3": "ok",
+      "R4": "ok",
+      "R5": "ok"
+    },
+    "findings": 2,
+    "perReviewer": {
+      "R1": 0,
+      "R2": 0,
+      "R3": 0,
+      "R4": 0,
+      "R5": 2
+    },
+    "checked": {
+      "R1": 10,
+      "R2": 14,
+      "R3": 9,
+      "R4": 11,
+      "R5": 12
+    },
+    "verified": 0,
+    "dropped": 2,
+    "fixesKept": 0,
+    "fixesDropped": 0
+  },
+  "loc": {
+    "beforeReview": {
+      "files": 13,
+      "added": 37,
+      "deleted": 47
+    },
+    "afterReview": {
+      "files": 13,
+      "added": 37,
+      "deleted": 47
+    }
+  },
+  "maintenance": {
+    "synced": {
+      "closed": 6,
+      "reopened": 0,
+      "inPr": 0
+    },
+    "list": {
+      "size": 56,
+      "open": 40,
+      "in-pr": 0,
+      "stale": 3,
+      "closed": 13
+    },
+    "survey": {
+      "passes": {
+        "sim": "ok",
+        "render": "ok",
+        "ui": "ok",
+        "content": "ok",
+        "tests": "ok",
+        "seams": "ok",
+        "duplication": "ok",
+        "performance": "ok"
+      },
+      "findings": 14,
+      "new": 13,
+      "merged": 1,
+      "confirmed": 25,
+      "staled": 2,
+      "reopened": 0,
+      "dropped": 0,
+      "gone": 0
+    },
+    "candidates": {
+      "eligible": [
+        "C014",
+        "C023",
+        "C026",
+        "C028",
+        "C031",
+        "C041",
+        "C047",
+        "C053",
+        "C055",
+        "C004",
+        "C008",
+        "C009",
+        "C010",
+        "C015",
+        "C025",
+        "C033",
+        "C034",
+        "C035",
+        "C045",
+        "C046",
+        "C048",
+        "C049",
+        "C050",
+        "C054"
+      ],
+      "skipped": [
+        {
+          "id": "C043",
+          "prs": [
+            35
+          ]
+        },
+        {
+          "id": "C044",
+          "prs": [
+            35
+          ]
+        },
+        {
+          "id": "C056",
+          "prs": [
+            35
+          ]
+        }
+      ],
+      "ownerOnly": [
+        "C012",
+        "C017",
+        "C019",
+        "C020",
+        "C021",
+        "C036",
+        "C032",
+        "C051",
+        "C052",
+        "C022",
+        "C037",
+        "C038",
+        "C039"
+      ]
+    },
+    "ownerOnly": [
+      {
+        "id": "C012",
+        "claim": "src/ui/finish-panel.ts is dead code: no file in src/ imports it since the results screen (B02) replaced it, and only two existing tests import createFinishPanel. Its CSS (.ui-finish__card, .ui-finish__stats, .ui-finish__stat in screens.css) is dead with it, because nothing else uses those classes.",
+        "files": [
+          "src/ui/finish-panel.ts",
+          "src/ui/screens.css",
+          "tests/ui/screens.test.ts",
+          "tests/ui/no-inline-colour.test.ts"
+        ]
+      },
+      {
+        "id": "C017",
+        "claim": "The results screen's root still carries the legacy `ui-finish` class only so that old finish-panel tests keep finding it. No CSS rule targets `.ui-finish` on its own. Tests should find the results screen by role or text, not by this leftover class.",
+        "files": [
+          "src/ui/results-screen.ts",
+          "tests/ui/race-ui.test.ts",
+          "tests/ui/results-screen.test.ts"
+        ]
+      },
+      {
+        "id": "C019",
+        "claim": "Game tests copy the same harness again and again: a hand-driven requestAnimationFrame stub with runFrames, setup(), esc(), the render mock, and the 'bot drives car 0 of a twin world' input recorder. The recorder is already shared as twinPlayerInputs in tests/game/helpers.ts. The render mocks also still stub `playerLivery`, which game.ts no longer imports.",
+        "files": [
+          "tests/game/pause.test.ts",
+          "tests/game/pause-review.test.ts",
+          "tests/game/pause-results.test.ts",
+          "tests/game/results-drivers.test.ts",
+          "tests/game/start-race-invalid-count.test.ts",
+          "tests/game/helpers.ts"
+        ]
+      },
+      {
+        "id": "C020",
+        "claim": "The RacerView/RaceView/CarView fixture builders are copied word for word into five test files, while tests/ui/helpers.ts already holds the shared hudState/outline fixtures and tests/render/helpers.ts:21 has an equivalent carView(). If RacerView gains a required field, a feature night has to touch five append-only files it cannot edit.",
+        "files": [
+          "tests/ui/race-ui.test.ts",
+          "tests/ui/results-screen.test.ts",
+          "tests/ui/results-review.test.ts",
+          "tests/ui/results-drivers.test.ts",
+          "tests/game/pause.test.ts",
+          "tests/ui/helpers.ts"
+        ]
+      },
+      {
+        "id": "C021",
+        "claim": "drivers.test.ts AC5 reads src/game.ts as text and uses a regex to require one exact import statement. It pins how game.ts imports the roster, not what the game does. Any behaviour-preserving refactor of game.ts (splitting it, importing via a content index, aliasing) fails this test.",
+        "files": [
+          "tests/content/drivers.test.ts",
+          "src/game.ts"
+        ]
+      },
+      {
+        "id": "C036",
+        "claim": "Three Hay Loop tests each copy the same centreline-analysis code: the wrapped `pt(i)`, segment `heading(i)` and lap length. Two of them also copy the CORNER_RADIUS/SPAN corner-run detector almost line for line. B11 (Pine Ridge, next in the backlog) will need the same analysis and can't import any of it, so it will make a fourth copy.",
+        "files": [
+          "tests/content/hay-loop-tight.test.ts",
+          "tests/content/hay-loop-corners.test.ts",
+          "tests/content/hay-loop.test.ts"
+        ]
+      },
+      {
+        "id": "C032",
+        "claim": "`countdownOnScreen` and `countdownClearance` in countdown.ts are dead in src/. game.ts now passes `COUNTDOWN_HALF_WIDTH` and `countdownFraming(view)` to the scene. The only importer of these two functions is tests/render/countdown-framing.test.ts, so removing them needs the owner.",
+        "files": [
+          "src/ui/countdown.ts",
+          "tests/render/countdown-framing.test.ts"
+        ]
+      },
+      {
+        "id": "C051",
+        "claim": "The frozen-format test 'ignores the reserved action bit when decoding' still expects bit 2 to decode as nothing. To keep it passing, decodeInputs sets `action` as a non-enumerable property. Any spread, structuredClone or JSON.stringify of a decoded frame drops the action without a sound, which is a trap for the next night that copies or records replay inputs (for example B13 rival boosts).",
+        "files": [
+          "tests/sim/replay.test.ts",
+          "src/sim/replay.ts",
+          "tests/sim/pickup-replay.test.ts"
+        ]
+      },
+      {
+        "id": "C052",
+        "claim": "Ten browser test files each copy the same ~17-line beforeAll/afterAll harness: mkdtemp, a vite build of harness/screens, serve, launch Chromium, then close and rm. tests/ui/hud-motion.ts already exports exactly this as a generic `setup()`, but its name and comment tie it to B09, so the next browser-test night will make an eleventh copy. Every file, and each of the 8 hud-motion files, also runs its own full vite build: about 18 builds per `pnpm test`.",
+        "files": [
+          "tests/ui/keycap-style.test.ts",
+          "tests/ui/track-card-press.test.ts",
+          "tests/ui/results-fit-phone.test.ts",
+          "tests/ui/keycap-legend-resize.test.ts",
+          "tests/ui/desktop-start-screen.test.ts",
+          "tests/ui/desktop-hud-scale.test.ts",
+          "tests/ui/countdown-clear-browser.test.ts",
+          "tests/ui/keycap-legend-slide.test.ts",
+          "tests/ui/desktop-hud.test.ts",
+          "tests/game/best-lap-e2e.test.ts",
+          "tests/ui/hud-motion.ts"
+        ]
+      },
+      {
+        "id": "C022",
+        "claim": "The body-into-ground probe clipDepth(world, view) is implemented twice, with slightly different sampling (41 samples vs 81), in two sim tests. tests/sim/helpers.ts is the shared home for such geometry probes (propOverlap, circleOverlap and others).",
+        "files": [
+          "tests/sim/ramp-pose.test.ts",
+          "tests/sim/ramp-lip-roll.test.ts",
+          "tests/sim/helpers.ts"
+        ]
+      },
+      {
+        "id": "C037",
+        "claim": "hay-loop-bales.test.ts writes its own oriented-box corner function and SAT overlap test. tests/sim/helpers.ts already exports both as boxCorners and polygonOverlap, which the other prop-overlap tests use.",
+        "files": [
+          "tests/content/hay-loop-bales.test.ts",
+          "tests/sim/helpers.ts"
+        ]
+      },
+      {
+        "id": "C038",
+        "claim": "The three B07 best-lap tests copy their helpers. The m:ss.cc formatter `fmt` appears three times, `visibleNewBest` twice, and new-best-chip's `twinRace` repeats the loop of the shared twinPlayerInputs. All three also keep the stale `playerLivery` render mock. None of these files is among C019's six.",
+        "files": [
+          "tests/ui/new-best-chip.test.ts",
+          "tests/game/best-lap-persistence.test.ts",
+          "tests/game/best-lap-storage-blocked.test.ts",
+          "tests/game/helpers.ts"
+        ]
+      },
+      {
+        "id": "C039",
+        "claim": "Three keycap-legend tests each write their own matchMedia stub. Two of them are the same media-query evaluator, one with the device fixed and one taking it as a parameter. No shared stub exists in tests/ui/helpers.ts, so the next desktop or reduced-motion UI test (B08/B09 are in flight) will copy it a fourth time.",
+        "files": [
+          "tests/ui/keycap-legend.test.ts",
+          "tests/ui/keycap-legend-keys.test.ts",
+          "tests/ui/keycap-legend-slide-state.test.ts"
+        ]
+      }
+    ],
+    "chosen": [
+      {
+        "id": "C028",
+        "category": "performance",
+        "files": [
+          "src/game.ts"
+        ],
+        "claim": "draw() calls raceView(r.world) on every rendered frame, but the world only changes in tick(). Each call allocates a distances array, the positions() order array with its sort and forEach closures and result array, and per racer a RacerView with `lapTicks.slice()`. Frames that ran no tick (any display above 60 Hz) and frames that ran several ticks still pay for it.",
+        "why": "Real: draw() (game.ts:202) calls raceView(r.world) every animation frame, but the world only changes in tick(); src/driver never touches it. raceView is pure, and its consumers (race-ui.sync, countdownFraming, scene.update, results.update) only read it, with no identity checks. Add `view: RaceView | null` to Race: null in startRace's record and after carViews in tick(), and `const view = (r.view ??= raceView(r.world))` in draw(). Values are identical. Performance item, about +3 lines."
+      },
+      {
+        "id": "C014",
+        "category": "duplication",
+        "files": [
+          "src/ui/components.css",
+          "src/ui/touch-controls.css"
+        ],
+        "claim": "The button type and press-transition block (font-family, font-size, font-weight, font-style, line-height, text-transform, transition) is copied word for word in .ui-button and .ui-tc. clones.md flags it.",
+        "why": "Verified: components.css:122-131 and touch-controls.css:54-63 repeat the button type and transition word for word. Group them as `.ui-button, .ui-tc {…}` right after .ui-button (cursor stays on .ui-button) and delete them from .ui-tc. components.css loads first, nothing else targets the touch buttons, and every later .ui-tc override has equal or higher specificity and comes later, so computed styles are unchanged. Net about −8 lines. The old blocker, #31, has merged."
+      },
+      {
+        "id": "C034",
+        "category": "duplication",
+        "files": [
+          "src/ui/hud.css"
+        ],
+        "claim": "The NEW BEST chip repeats the BEST chip's tuck-under declarations word for word. That is padding, no top outline, square top corners and line-height 1, matching the comment 'styled like BEST'.",
+        "why": "hud.css:117-125 and :196-200 repeat padding, border-top: 0, border-radius and line-height for BEST and NEW BEST. Use a grouped `.ui-hud-best, .ui-hud-new-best` rule at the .ui-hud-best position and keep the rest in each own rule. Between the old and new positions, only higher-specificity .is-desktop rules match these chips, so computed styles are unchanged. Net about −3 lines. #31 has merged."
+      },
+      {
+        "id": "C049",
+        "category": "simplify",
+        "files": [
+          "src/ui/title.css",
+          "src/ui/hud.css"
+        ],
+        "claim": "Several selectors are split across two rules in the same file. title.css has two `.ui-track-card:focus-visible` rules a few lines apart. hud.css repeats `.ui-hud__timer`, `.ui-hud-best` and `.ui-hud-pos__n` as later second rules. Readers editing the first rule miss the second.",
+        "why": "Verified split rules. In hud.css, fold :189 (timer isolation) into :31, :192 (best position/z-index) into the single-selector .ui-hud-best rule after C034, and :234 (pos__n display) into :57. In title.css, fold the second .ui-track-card:focus-visible (:127) into :120. Only :124 sits between those two (higher specificity, outline-color only). No equal-specificity rule in between sets these properties, so computed styles are unchanged. Keep the :185-188 comment. Net about −9 lines."
+      },
+      {
+        "id": "C035",
+        "category": "docs",
+        "files": [
+          "src/ui/components.css",
+          "src/ui/screens.css"
+        ],
+        "claim": "Several CSS comments still name the dead finish panel as the user of shared components and leave out the live pause and results screens. A feature night reading them would look in finish-panel.ts (see C012).",
+        "why": "Comment-only, verified stale. components.css:52 names FINISHED (only dead finish-panel.ts uses it; live users are the start title and the results track name). :63 says 'finish stats'. :77 says 'finish card' (live users are the pause card and the countdown roundel). screens.css:1 lists the finish panel. Reword as suggested. For screens.css:1 use 'Pause card, the triple stripe and the full-screen menu ground (results).' No style change."
+      },
+      {
+        "id": "C050",
+        "category": "docs",
+        "files": [
+          "src/ui/results.css",
+          "src/ui/screens.css"
+        ],
+        "claim": "Since B08, two stylesheet header comments contradict the code. results.css says the navy menu ground is shared with the start screen, but the S6 start screen is dirt and lives in title.css. screens.css:1 still lists the dead finish panel and leaves out the results ground it holds.",
+        "why": "Comment-only: results.css:1-2 says the navy ground is shared with the start screen, but S6 is dirt in title.css (screens.css:9 already says so). Change it to 'Its navy ground is in screens.css; rows and the roundel use .ui-value type.' Coordinate with C035, which rewrites screens.css:1 once."
+      },
+      {
+        "id": "C048",
+        "category": "dead-code",
+        "files": [
+          "src/ui/layout.ts",
+          "src/ui/track-card.ts",
+          "src/ui/screen-change.ts",
+          "src/input/keyboard.ts",
+          "src/input/gamepad.ts"
+        ],
+        "claim": "Ten UI/input exports are used only inside their own module: no other src file, test, harness or gates file imports them. The modules therefore look like they have a wider API than they do, as C007 found for render.",
+        "why": "Verified by repo-wide grep (src, tests, harness, guardrails): DESKTOP_MIN, DESKTOP_QUERY, outlinePath, SCREEN_CHANGE_MS, KEY_MAP, ACTION_KEY, PAUSE_KEY, PAD_BUTTON, STICK_DEAD_ZONE and stickSteer appear only in their own files. Drop just the `export` keyword. The tsconfig has no declaration emit, so the emitted JS is unchanged. Nothing gates build through these names."
+      },
+      {
+        "id": "C053",
+        "category": "docs",
+        "files": [
+          "CLAUDE.md",
+          "src/ui/types.ts"
+        ],
+        "claim": "CLAUDE.md says the UI receives view models from `src/ui/types.ts`, but the game passes the UI the sim's own view types (`RaceView`, `CarView` from src/sim/types.ts). `HudState` in ui/types.ts is built inside race-ui.ts, not by the game loop, so the ui/types.ts header is also wrong. A feature night adding a HUD field would go looking for a game-side builder that doesn't exist.",
+        "why": "Today is Sunday, so CLAUDE.md may change. Verified: CLAUDE.md:33 says the UI receives view models from src/ui/types.ts, and types.ts:1 says the game loop builds them. In fact game.ts passes the sim's RaceView/CarView to ui.sync (race-ui.ts:44), and race-ui builds HudState itself (race-ui.ts:73, 122). Apply the suggested wording. It keeps the owner's intent (the UI never reads the World) and points the next HUD feature at race-ui. Docs only."
+      }
+    ],
+    "rejected": [
+      {
+        "id": "C023",
+        "reason": "Real (nine deep imports, countdown.ts:5 included, and props.ts takes three constants the barrel doesn't export). But it re-points import paths across nine files plus the barrel for zero net lines, which is churn under the delete-only rule. It is better done together with a render/UI feature night that touches these imports anyway."
+      },
+      {
+        "id": "C026",
+        "reason": "The race-ui line is already fixed (CLAUDE.md:39). What's left rewrites the owner's stated conventions (which folders register content, and the planned cars/features layout). That is the owner's call, not an unattended refactor's."
+      },
+      {
+        "id": "C031",
+        "reason": "Same 844×390 literals as C041. Reading the token needs new imports and a constant, so src/ grows a little for a non-performance item, against tonight's delete-only rule."
+      },
+      {
+        "id": "C041",
+        "reason": "Real rule violation (raw 844/390 in src/render). But the fix adds a tokens import, an exported constant and imports in three render files: net src/ growth for a non-performance item. Pair it with a render feature night."
+      },
+      {
+        "id": "C047",
+        "reason": "The two copies don't share arithmetic: the HUD clamps w/d with 1e-6 and uses the clamped extent in ox/oz, while the card uses `|| 1` only in the scale term and the raw extent in ox/oz. A shared helper needs guard parameters or a wrapper to stay bit-identical, which saves little. track-card.ts is also very likely edited by draft #36 (B11 locked card), and its diff isn't available to check."
+      },
+      {
+        "id": "C055",
+        "reason": "Needs an edit to src/ui/stages/start.stage.ts, and screen stages are append-only tonight."
+      },
+      {
+        "id": "C025",
+        "reason": "Without C055 (blocked: it needs a stage edit) it would leave the bare 8 in start.stage.ts. A new helper replacing MINIMAP_STRIDE is net about zero lines. Do C025 and C055 together when stages may change."
+      },
+      {
+        "id": "C004",
+        "reason": "Adds a helper and an import to src/sim to replace five one-line expressions on hot sim paths. src/ grows for no performance gain, and the risk isn't worth it."
+      },
+      {
+        "id": "C008",
+        "reason": "The local helper adds about as many lines as it removes at two call sites. Cosmetic churn."
+      },
+      {
+        "id": "C009",
+        "reason": "Types-only alias move: one export plus three imports to delete two local aliases. Net growth for no behaviour or safety gain."
+      },
+      {
+        "id": "C010",
+        "reason": "Types-only spelling change with zero net lines. Cosmetic churn."
+      },
+      {
+        "id": "C015",
+        "reason": "Grouping would keep computed styles the same, but it moves results-screen stripe rules into screens.css, coupling two stylesheets to save about four lines. Low value. Leave it for a night that works on the stripes anyway."
+      },
+      {
+        "id": "C033",
+        "reason": "Moving msToTicks into format.ts needs a new import in countdown.ts: net about zero lines, for two copies of a one-line expression. Low value."
+      },
+      {
+        "id": "C045",
+        "reason": "Real (all seven names appear only in their own files), but tonight's eight-item limit is full, and render exports matter less than the UI/input ones in C048. Safe to take next week."
+      },
+      {
+        "id": "C046",
+        "reason": "Types-only: adds an interface to deduplicate one inline type used twice. Net about zero lines, cosmetic."
+      },
+      {
+        "id": "C054",
+        "reason": "Real but trivial: one `export` keyword on stage-only fixture code that never ships. Tonight's eight-item limit is full. Safe to take next week."
+      }
+    ],
+    "auditNotes": [],
+    "refactor": [
+      {
+        "id": "C028",
+        "status": "done",
+        "summary": "src/game.ts: the Race record has a new field, `view: RaceView | null`, documented in one comment line. It starts as null in startRace, tick() sets it back to null after carViews, and draw() uses `const view = (r.view ??= raceView(r.world))`. So raceView now runs at most once per sim tick instead of on every animation frame. The driver's state() call to raceView is unchanged. Net +4 lines."
+      },
+      {
+        "id": "C014",
+        "status": "done",
+        "summary": "The button type and transition block (font-family, size, weight, style, line-height, text-transform, transition) now lives in one grouped `.ui-button, .ui-tc` rule in components.css, right after .ui-button. cursor stays on .ui-button. Those declarations are deleted from .ui-tc in touch-controls.css, and its comment is shortened to point at components.css; the BRAKE off-scale note is kept. No other stylesheet targets .ui-tc, and components.css loads before touch-controls.css. P1 DOM and computed styles match the original tree."
+      },
+      {
+        "id": "C034",
+        "status": "done",
+        "summary": "hud.css: padding, border-top: 0, border-radius and line-height for both chips are now in one grouped `.ui-hud-best, .ui-hud-new-best` rule at the .ui-hud-best position. display/align-items/gap stay on .ui-hud-best, and visibility/transform stay on .ui-hud-new-best."
+      },
+      {
+        "id": "C049",
+        "status": "done",
+        "summary": "Each split rule is folded into the first rule for its selector. In hud.css: timer `isolation: isolate` moves into the first .ui-hud__timer rule, best's `position: relative; z-index: 1` into the single-selector .ui-hud-best rule, and `display: block` into the first .ui-hud-pos__n rule; the second rules are deleted. In title.css, the second .ui-track-card:focus-visible rule (transform, box-shadow) is merged into the first. The comment above the NEW BEST block is kept."
+      },
+      {
+        "id": "C035",
+        "status": "done",
+        "summary": "Comment-only changes. components.css: '(start title, results track name)', '(LAP, TIME, results rows)' and 'Big overlay (pause card, countdown roundel)'. The screens.css header now reads 'Pause card, the triple stripe and the full-screen menu ground (results). Tokens only.'"
+      },
+      {
+        "id": "C050",
+        "status": "done",
+        "summary": "The results.css header comment now says the navy ground is in screens.css and that rows and the roundel use .ui-value type. The screens.css header was rewritten once, together with C035, and mentions the results ground."
+      },
+      {
+        "id": "C048",
+        "status": "done",
+        "summary": "Removed only the `export` keyword from DESKTOP_MIN and DESKTOP_QUERY (layout.ts), outlinePath (track-card.ts), SCREEN_CHANGE_MS (screen-change.ts), KEY_MAP, ACTION_KEY and PAUSE_KEY (keyboard.ts), and PAD_BUTTON, STICK_DEAD_ZONE and stickSteer (gamepad.ts). Before the change I grepped the repo again (node_modules, journal and spikes excluded) and found each name only in its own file."
+      },
+      {
+        "id": "C053",
+        "status": "done",
+        "summary": "Docs only. The src/ui/types.ts header now says the view models are built by race-ui.ts (and by the game, for track cards) from sim views, and that the UI never reads the World."
+      }
+    ],
+    "limits": {
+      "pass": true,
+      "files": 14,
+      "lines": 87,
+      "srcAdded": 37,
+      "srcDeleted": 47,
+      "netSrc": -10,
+      "problems": []
+    }
+  },
+  "medianLapTimes": null,
+  "p95FrameTimeMs": null,
+  "triangleCount": null,
+  "bundleSizeBytes": null,
+  "diffSize": {
+    "files": 14,
+    "added": 39,
+    "deleted": 48
+  },
+  "usage": [
+    {
+      "phase": "survey-content",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 17361,
+      "numTurns": 9,
+      "usage": {
+        "input_tokens": 10,
+        "cache_creation_input_tokens": 24783,
+        "cache_read_input_tokens": 52815,
+        "output_tokens": 1086,
+        "output_tokens_details": {
+          "thinking_tokens": 227
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 24783,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.230587
+    },
+    {
+      "phase": "survey-duplication",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 76657,
+      "numTurns": 22,
+      "usage": {
+        "input_tokens": 28,
+        "cache_creation_input_tokens": 71165,
+        "cache_read_input_tokens": 688628,
+        "output_tokens": 6592,
+        "output_tokens_details": {
+          "thinking_tokens": 2748
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 71165,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.8389975999999999
+    },
+    {
+      "phase": "survey-performance",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 82732,
+      "numTurns": 29,
+      "usage": {
+        "input_tokens": 42,
+        "cache_creation_input_tokens": 78223,
+        "cache_read_input_tokens": 1048875,
+        "output_tokens": 6331,
+        "output_tokens_details": {
+          "thinking_tokens": 1985
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 78223,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.9623470000000001
+    },
+    {
+      "phase": "survey-render",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 65896,
+      "numTurns": 23,
+      "usage": {
+        "input_tokens": 24,
+        "cache_creation_input_tokens": 63979,
+        "cache_read_input_tokens": 444593,
+        "output_tokens": 6252,
+        "output_tokens_details": {
+          "thinking_tokens": 2309
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 63979,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.7258866
+    },
+    {
+      "phase": "survey-seams",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 77336,
+      "numTurns": 32,
+      "usage": {
+        "input_tokens": 28,
+        "cache_creation_input_tokens": 66295,
+        "cache_read_input_tokens": 679895,
+        "output_tokens": 7022,
+        "output_tokens_details": {
+          "thinking_tokens": 2848
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 66295,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.8068910000000001
+    },
+    {
+      "phase": "survey-sim",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 79770,
+      "numTurns": 29,
+      "usage": {
+        "input_tokens": 28,
+        "cache_creation_input_tokens": 96581,
+        "cache_read_input_tokens": 912787,
+        "output_tokens": 7407,
+        "output_tokens_details": {
+          "thinking_tokens": 3365
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 96581,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 1.1034574000000001
+    },
+    {
+      "phase": "survey-tests",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 147273,
+      "numTurns": 41,
+      "usage": {
+        "input_tokens": 52,
+        "cache_creation_input_tokens": 83088,
+        "cache_read_input_tokens": 1556533,
+        "output_tokens": 13922,
+        "output_tokens_details": {
+          "thinking_tokens": 3931
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 83088,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 1.2546586000000002
+    },
+    {
+      "phase": "survey-ui",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 115297,
+      "numTurns": 41,
+      "usage": {
+        "input_tokens": 28,
+        "cache_creation_input_tokens": 116236,
+        "cache_read_input_tokens": 981028,
+        "output_tokens": 11245,
+        "output_tokens_details": {
+          "thinking_tokens": 4791
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 116236,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 1.3511055999999997
+    },
+    {
+      "phase": "audit",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 212495,
+      "numTurns": 29,
+      "usage": {
+        "input_tokens": 36,
+        "cache_creation_input_tokens": 98016,
+        "cache_read_input_tokens": 1148384,
+        "output_tokens": 19947,
+        "output_tokens_details": {
+          "thinking_tokens": 10169
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 98016,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 1.4128888000000002
+    },
+    {
+      "phase": "build",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 228258,
+      "numTurns": 21,
+      "usage": {
+        "input_tokens": 40,
+        "cache_creation_input_tokens": 53775,
+        "cache_read_input_tokens": 842852,
+        "output_tokens": 10091,
+        "output_tokens_details": {
+          "thinking_tokens": 2275
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 53775,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.8007504000000001
+    },
+    {
+      "phase": "r1",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 46431,
+      "numTurns": 11,
+      "usage": {
+        "input_tokens": 14,
+        "cache_creation_input_tokens": 35641,
+        "cache_read_input_tokens": 166426,
+        "output_tokens": 4441,
+        "output_tokens_details": {
+          "thinking_tokens": 766
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 35641,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.4072892000000001
+    },
+    {
+      "phase": "r2",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-sonnet-5-5",
+      "wallMs": 416729,
+      "numTurns": 55,
+      "usage": {
+        "input_tokens": 52,
+        "cache_creation_input_tokens": 186363,
+        "cache_read_input_tokens": 2640563,
+        "output_tokens": 58084,
+        "output_tokens_details": {
+          "thinking_tokens": 47035
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 186363,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 1.5904523000000004
+    },
+    {
+      "phase": "r3",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 69302,
+      "numTurns": 19,
+      "usage": {
+        "input_tokens": 26,
+        "cache_creation_input_tokens": 52451,
+        "cache_read_input_tokens": 473867,
+        "output_tokens": 6137,
+        "output_tokens_details": {
+          "thinking_tokens": 1942
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 52451,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.6372254000000002
+    },
+    {
+      "phase": "r4",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 70442,
+      "numTurns": 16,
+      "usage": {
+        "input_tokens": 22,
+        "cache_creation_input_tokens": 48351,
+        "cache_read_input_tokens": 377429,
+        "output_tokens": 6540,
+        "output_tokens_details": {
+          "thinking_tokens": 2128
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 48351,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.5931818
+    },
+    {
+      "phase": "r5",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 86873,
+      "numTurns": 20,
+      "usage": {
+        "input_tokens": 28,
+        "cache_creation_input_tokens": 56135,
+        "cache_read_input_tokens": 581258,
+        "output_tokens": 7334,
+        "output_tokens_details": {
+          "thinking_tokens": 2971
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 56135,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.7121236
+    },
+    {
+      "phase": "verify",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 11515,
+      "numTurns": 3,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 15957,
+        "cache_read_input_tokens": 13346,
+        "output_tokens": 883,
+        "output_tokens_details": {
+          "thinking_tokens": 203
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 15957,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.1480012
+    },
+    {
+      "phase": "judge",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 37252,
+      "numTurns": 15,
+      "usage": {
+        "input_tokens": 14,
+        "cache_creation_input_tokens": 45236,
+        "cache_read_input_tokens": 159815,
+        "output_tokens": 3002,
+        "output_tokens_details": {
+          "thinking_tokens": 1011
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 45236,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.45394700000000004
+    },
+    {
+      "phase": "judgecheck",
+      "attempt": 1,
+      "exit": 0,
+      "class": "ok",
+      "model": "claude-opus-5-5",
+      "wallMs": 18301,
+      "numTurns": 6,
+      "usage": {
+        "input_tokens": 6,
+        "cache_creation_input_tokens": 16359,
+        "cache_read_input_tokens": 21080,
+        "output_tokens": 1587,
+        "output_tokens_details": {
+          "thinking_tokens": 308
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 16359,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [],
+        "speed": "standard",
+        "fallback_credit": null
+      },
+      "costUsd": 0.166852
+    }
+  ],
+  "totalCostUsd": 14.2
+}

@@ -27,7 +27,7 @@ export interface TrackCard {
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 
 /** An SVG path of the closed outline, scaled uniformly and centred in the thumbnail. */
-export function outlinePath(outline: readonly [number, number][]): string {
+function outlinePath(outline: readonly [number, number][]): string {
   if (outline.length === 0) return '';
   const xs = outline.map((p) => p[0]);
   const zs = outline.map((p) => p[1]);

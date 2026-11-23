@@ -1,0 +1,58 @@
+{
+  "reviewers": {
+    "R1": "ok",
+    "R2": "ok",
+    "R3": "ok",
+    "R4": "ok",
+    "R5": "ok"
+  },
+  "findings": [
+    {
+      "id": "R5-1",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/game.ts",
+      "line": 205,
+      "claim": "No test or gate runs the new cache-hit branch of `r.view ??= raceView(r.world)`, which is an animation frame where `frame()` ran zero ticks and `draw()` reuses the cached view. That branch is the whole point of C028. Every pinned path reaches `draw()` with `r.view === null`: `startRace` (line 305) and `play()`/`step()` (line 345, always after `tick()`). The hand-driven rAF tests in tests/game/*.test.ts step `now` by 1000/60, so a zero-tick frame only happens through float drift, and no assertion depends on one.",
+      "evidence": "Trace: frame(now) → accumulator += dt; the while loop runs 0 times when dt < DT, so tick() never sets r.view = null → draw() takes the cached view. The only callers of draw() are line 252 (frame), 305 (startRace, view freshly null) and 345 (play, after tick). tests/game/pause.test.ts:41-47 runFrames() advances exactly 1000/60 ms per frame. G2/G3 run the sim headless without game.ts. P1 stages build the UI directly (stage.ts raceStage), and P2 uses src/render/index.ts. Neither runs createGame's loop. If a later change cleared the cache wrongly, for example by moving `r.view = null` out of tick() or setting it only in startRace, the HUD would freeze on frames after a 0-tick frame. Only play()-path tests would notice, and only partly.",
+      "suggestedFix": "Add a new test file, e.g. tests/game/race-view-cache.test.ts. Reuse the rAF/performance.now stubbing from tests/game/pause.test.ts. Steps: createGame(root), startRace({ seed: 1 }), then run frames at now = 1000/60·k past the countdown. Then call the queued rAF callback twice with the same timestamp (dt = 0, zero ticks). Assert that the HUD TIME/LAP/POS text and game.state().race match the frame before. Then run one frame DT later and assert that the HUD TIME text and game.state().race.raceTick have advanced. This pins both the reuse and its invalidation through the frame() path."
+    },
+    {
+      "id": "R5-2",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/ui/title.css",
+      "line": 120,
+      "claim": "C049 merged the two `.ui-track-card:focus-visible` rules, moving transform and box-shadow above the `[aria-checked='true']:focus-visible` rule. No gate or test renders a focused track card, so the merged rule's computed styles are never checked. P1 renders static stages with no input, so no card has :focus-visible. tests/ui/track-select.test.ts:95 calls first.focus() in jsdom, which does not evaluate :focus-visible or the cascade.",
+      "evidence": "Diff hunk in src/ui/title.css @@ -120,14 +120,12 @@: `transform: translate(var(--ui-card-lift), var(--ui-card-lift)); box-shadow: var(--shadow-overlay);` moved from a second `.ui-track-card:focus-visible` rule (old :127-130) into the first one (:120-125). Grep over tests/ for `focus(` finds only tests/ui/track-select.test.ts:95 (jsdom) and tests/input/space-on-button.test.ts:34 (a button, not a card). Grep for `focus-visible` in tests/ finds nothing. gates.md P1: '56 stage snapshot(s) (DOM + computed styles)': static stages with no focus.",
+      "suggestedFix": "Add a browser test in a new file, e.g. tests/ui/track-card-focus.test.ts, through harness/screens/browser.ts (serve, launch, context, renderStage) on the start stage. Press Tab to focus a track card with keyboard modality, then assert getComputedStyle: the transform is the 2px lift translate, box-shadow equals the --shadow-overlay value, and an outline is present. For the checked card, also assert the outline colour is cream."
+    }
+  ],
+  "rulings": [
+    {
+      "id": "R5-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "I read src/game.ts:193-253. tick() sets r.view = null at line 201 after every stepWorld. draw() at line 205 rebuilds the view lazily with `r.view ??= raceView(r.world)`. On a zero-tick frame the world hasn't changed, so reusing the cached view is correct, and any frame that does tick clears the cache first. No path serves a stale view.",
+      "reason": "This is a coverage gap, not a defect. The cache-hit branch behaves correctly on this branch, so no test can fail here because of a problem. The finding is about a hypothetical future regression, which is out of scope for verification."
+    },
+    {
+      "id": "R5-2",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "I compared old and new src/title.css in the diff hunk. Before the change, `.ui-track-card:focus-visible` set outline and outline-offset, the `[aria-checked='true']:focus-visible` rule set outline-color, and a second `:focus-visible` rule set transform and box-shadow. After the change, transform and box-shadow sit in the first rule (title.css:120-125). The checked rule sets only outline-color, so no property overlaps and the order change can't alter the cascade. The computed styles are identical.",
+      "reason": "The merge is equivalent in the cascade and the focused card looks the same as on main. A missing test for unchanged behaviour is not a defect a failing test could show."
+    }
+  ],
+  "fixes": [],
+  "notes": [],
+  "checked": {
+    "R1": 10,
+    "R2": 14,
+    "R3": 9,
+    "R4": 11,
+    "R5": 12
+  }
+}

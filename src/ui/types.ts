@@ -1,4 +1,4 @@
-// View models the UI renders. Built by the game loop from sim views; the UI never reads the sim.
+// View models the UI renders, built by race-ui.ts (and the game, for track cards) from sim views; the UI never reads the World.
 import type { PaletteName } from '@tokens';
 
 export interface HudState {

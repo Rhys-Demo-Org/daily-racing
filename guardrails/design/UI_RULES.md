@@ -68,7 +68,7 @@ Every state change moves a little, along its own shadow (live demos: board 05 Mo
 
 Timing: press 60 · release 120 · stamp 160 · slide 200 · wipe 250 · stagger 40ms. Easings: snap (.2,.9,.3,1); stamp (.3,1.5,.5,1), one overshoot, landings only; sweep (.6,0,.4,1) for wipes.
 
-Per step: buttons press-sink and hover-lift 1px; touch controls wake with a 0.9→1 pop and rest by retracting the shadow; position digit rolls and its panel bumps; lap panel stamps; new-best chip slides out; countdown roundels drop onto the table; pause hatch wipes in, card drops; result rows are dealt 40ms apart, then the placing roundel stamps; cards lift 2px on hover, locked cards shake; HUD panels slide in from their own edge; pickups pop the action button.
+Per step: buttons press-sink and hover-lift 1px; touch controls wake with a 0.9→1 pop and rest by retracting the shadow; position digit rolls and its panel bumps; lap panel stamps; new-best chip slides out; countdown roundels drop onto the table; pause hatch wipes in, card drops; result rows are dealt 40ms apart, then the placing roundel stamps; cards lift 2px on hover, locked cards shake (section 12); HUD panels slide in from their own edge; pickups pop the action button.
 
 Dimming the scene: overlay a hatch of 3px ink lines every 9px at 45° (hard-stop pattern) — never a translucent layer. Full-screen menus use a solid navy or cream ground.
 
@@ -112,3 +112,13 @@ Motion from section 7 only. If a rule here doesn't cover it, ask for a design up
 ## 11 · BANNED
 
 Glassmorphism / frosted panels · neon glow · purple or blue gradients · any gradient · soft rounded cards · blurred drop shadows · opacity tricks · system, Inter or Roboto fonts · sparkle or "magic" icons · thin-line icon sets · emoji · esports styling (angular HUD brackets, scanlines, hex grids) · photos and textures · text on the raw 3D scene.
+
+## 12 · TRACK SELECT (S6): MANY CARDS, LOCKED CARDS
+
+Owner decisions, 2026-11-23 (answers to the B11 design request, PR #36).
+
+Card row: all cards share one width and shrink together to fit the row, down to a minimum of 2 × space.s7 (96px); names wrap to two lines, never ellipsis or clip. When cards at the minimum width still don't fit, the row scrolls sideways at that width with a snap point per card, and the next card peeks in at the edge. No scrollbar chrome. RACE stays fixed and never scrolls with the row.
+
+Locked card: keeps the S6 look: dark-dirt fill, ink outline and the normal card shadow, cream name, cream padlock roundel (accessible name "Locked"), best shown as dashes. It is not drawn as a section 10 disabled control. It never hover-lifts or press-sinks.
+
+Locked-card shake: tapping or clicking a locked card, or pressing Enter/Space while it has focus, shakes it horizontally ±space.s1 (4px), 3 swings in motion.durationMs.wipe (250ms) with easing snap, ending at rest. Selection doesn't change. Reduced motion: no shake; the focus ring is the only feedback.

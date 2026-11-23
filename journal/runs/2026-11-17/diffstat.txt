@@ -1,0 +1,11 @@
+43	4	src/sim/bot.ts
+3	3	src/sim/car.ts
+46	30	src/sim/pickups.ts
+2	2	src/sim/types.ts
+10	10	src/sim/world.ts
+55	0	tests/sim/rival-boost.test.ts
+66	0	tests/sim/rival-helpers.ts
+56	0	tests/sim/rival-pickup-block.test.ts
+27	0	tests/sim/rival-pickup-replay.test.ts
+32	0	tests/sim/rival-pickups-finish.test.ts
+56	0	tests/sim/rival-pickups.test.ts

@@ -1,4 +1,4 @@
-// B11 · Pine Ridge (forest-ridge): a registered, sharp, angular 3-lap track with two ramps and dense
+// B11 · Pine Ridge (pine-ridge): a registered, sharp, angular 3-lap track with two ramps and dense
 // cone trees, locked until a Hay Loop finish. Checked through the exported content data and the
 // sim's public layout.
 import { readFileSync } from 'node:fs';
@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { TRACKS, TRACK_LOCKS, getTrack } from '../../src/content/tracks.ts';
 import { trackLayout, validateTrack, type TrackLayout } from '../../src/sim/index.ts';
 
-const ID = 'forest-ridge';
+const ID = 'pine-ridge';
 const layout = (): TrackLayout => trackLayout(getTrack(ID));
 
 /** Distance along the lap at each centreline sample (the centreline is resampled to ~1 unit). */
@@ -55,15 +55,15 @@ const nearest = (centre: readonly [number, number][], x: number, z: number): { i
 const trees = (l: TrackLayout): TrackLayout['props'] => l.props.filter((p) => p.kind === 'cone-tree');
 
 describe('B11 Pine Ridge', () => {
-  it('AC1: forest-ridge is "Pine Ridge", 3 laps, width ≥ 11, valid, registered third, and locked behind Hay Loop', () => {
-    const raw: unknown = JSON.parse(readFileSync('src/content/tracks/forest-ridge.json', 'utf8'));
+  it('AC1: pine-ridge is "Pine Ridge", 3 laps, width ≥ 11, valid, registered fourth (last), and locked behind Hay Loop', () => {
+    const raw: unknown = JSON.parse(readFileSync('src/content/tracks/pine-ridge.json', 'utf8'));
     expect(() => validateTrack(raw)).not.toThrow();
     const track = getTrack(ID);
     expect(track.name).toBe('Pine Ridge');
     expect(track.laps).toBe(3);
     expect(track.width).toBeGreaterThanOrEqual(11);
-    expect(TRACKS.map((t) => t.id)).toEqual(['bends', 'dust-bowl', 'forest-ridge', 'hay-loop']);
-    expect(TRACK_LOCKS).toEqual({ 'forest-ridge': { afterFinishOn: 'hay-loop' } });
+    expect(TRACKS.map((t) => t.id)).toEqual(['bends', 'dust-bowl', 'hay-loop', 'pine-ridge']);
+    expect(TRACK_LOCKS).toEqual({ 'pine-ridge': { afterFinishOn: 'hay-loop' } });
     for (const t of TRACKS) if (t.id !== ID) expect(Object.keys(TRACK_LOCKS)).not.toContain(t.id);
   });
 

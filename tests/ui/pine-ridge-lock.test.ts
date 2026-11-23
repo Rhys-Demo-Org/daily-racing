@@ -34,7 +34,7 @@ describe('B11 locked Pine Ridge card', () => {
   });
 
   it('AC5: a locked card shows no best, even with one stored', () => {
-    localStorage.setItem('racer.bestLap.forest-ridge', '61230');
+    localStorage.setItem('racer.bestLap.pine-ridge', '61230');
     const { root } = setup();
     expect(card(root, PINE).textContent).toContain('BEST –:––.––');
     expect(card(root, PINE).textContent).not.toContain('1:01.23');
@@ -48,17 +48,17 @@ describe('B11 locked Pine Ridge card', () => {
     expect(card(root, PINE).getAttribute('aria-checked')).toBe('false');
   });
 
-  it('AC5: arrows skip it: from Dust Bowl ArrowRight selects Hay Loop and ArrowLeft returns to Dust Bowl', () => {
+  it('AC5: arrows skip it: from Hay Loop ArrowRight wraps to Bramble Bends and ArrowLeft returns to Hay Loop', () => {
     const { root } = setup();
-    // Pine Ridge sits between them, locked.
-    expect(cards(root).map((c) => c.textContent?.includes(PINE))).toEqual([false, false, true, false]);
+    // Pine Ridge is the fourth, last card, locked.
+    expect(cards(root).map((c) => c.textContent?.includes(PINE))).toEqual([false, false, false, true]);
     expect(card(root, PINE).getAttribute('aria-disabled')).toBe('true');
-    card(root, 'Dust Bowl').click();
-    expect(checked(root)).toContain('Dust Bowl');
-    key(card(root, 'Dust Bowl'), 'ArrowRight');
+    card(root, 'Hay Loop').click();
     expect(checked(root)).toContain('Hay Loop');
-    expect(document.activeElement).toBe(card(root, 'Hay Loop'));
-    key(card(root, 'Hay Loop'), 'ArrowLeft');
-    expect(checked(root)).toContain('Dust Bowl');
+    key(card(root, 'Hay Loop'), 'ArrowRight');
+    expect(checked(root)).toContain('Bramble Bends');
+    expect(document.activeElement).toBe(card(root, 'Bramble Bends'));
+    key(card(root, 'Bramble Bends'), 'ArrowLeft');
+    expect(checked(root)).toContain('Hay Loop');
   });
 });

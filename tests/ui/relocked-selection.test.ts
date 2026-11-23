@@ -23,13 +23,13 @@ describe('R2-1 relocked selection', () => {
     card(root, PINE).click();
     expect(checked(root)).toContain(PINE);
     button(root, 'Race').click();
-    expect(game.state().trackId).toBe('forest-ridge');
+    expect(game.state().trackId).toBe('pine-ridge');
     localStorage.removeItem('racer.finished.hay-loop');
     game.showMenu();
     const pine = card(root, PINE);
     expect(pine.getAttribute('aria-disabled')).toBe('true');
     expect(pine.getAttribute('aria-checked')).not.toBe('true');
     button(root, 'Race').click();
-    expect(game.state().trackId).not.toBe('forest-ridge');
+    expect(game.state().trackId).not.toBe('pine-ridge');
   });
 });

@@ -27,7 +27,7 @@ export function getTrack(id: string): TrackData {
 
 /** Tracks that start locked: each unlocks once the player has finished a race on `afterFinishOn`. */
 export const TRACK_LOCKS: Readonly<Record<string, { afterFinishOn: string }>> = {
-  'forest-ridge': { afterFinishOn: 'hay-loop' },
+  'pine-ridge': { afterFinishOn: 'hay-loop' },
 };
 
 /** The localStorage key set once the player has finished a race on a track. */

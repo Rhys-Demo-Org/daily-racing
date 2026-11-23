@@ -39,7 +39,7 @@ describe('B11 unlocking Pine Ridge', () => {
   });
 
   it('AC7: after a Hay Loop finish, NEXT RACE then PAUSE → QUIT TO MENU shows Pine Ridge unlocked, with its best, and RACE starts it', () => {
-    localStorage.setItem('racer.bestLap.forest-ridge', '61230');
+    localStorage.setItem('racer.bestLap.pine-ridge', '61230');
     const { game, root } = setup();
     expect(card(root, PINE).getAttribute('aria-disabled')).toBe('true');
     finishRace(game, 'hay-loop');
@@ -56,7 +56,7 @@ describe('B11 unlocking Pine Ridge', () => {
     pine.click();
     expect(checked(root)).toContain(PINE);
     button(root, 'Race').click();
-    expect(game.state()).toMatchObject({ mode: 'race', trackId: 'forest-ridge' });
+    expect(game.state()).toMatchObject({ mode: 'race', trackId: 'pine-ridge' });
   });
 
   it('AC7: a new game on the same storage shows Pine Ridge unlocked', () => {

@@ -22,16 +22,16 @@ const esc = (): boolean => window.dispatchEvent(new KeyboardEvent('keydown', { c
 describe('B11 menu return after an unlock', () => {
   it('AC7: quitting a Pine Ridge race reached via NEXT RACE, with no menu show since the unlock, leaves Pine Ridge selected', () => {
     const { game, root } = setup();
-    finishRace(game, 'hay-loop');
     finishRace(game, 'dust-bowl');
+    finishRace(game, 'hay-loop');
     button(root, 'Next race').click();
-    expect(game.state()).toMatchObject({ mode: 'race', trackId: 'forest-ridge' });
+    expect(game.state()).toMatchObject({ mode: 'race', trackId: 'pine-ridge' });
     esc();
     expect(game.state().paused).toBe(true);
     button(root, 'Quit to menu').click();
     expect(game.state().mode).toBe('menu');
     expect(checked(root)).toContain(PINE);
     button(root, 'Race').click();
-    expect(game.state()).toMatchObject({ mode: 'race', trackId: 'forest-ridge' });
+    expect(game.state()).toMatchObject({ mode: 'race', trackId: 'pine-ridge' });
   });
 });

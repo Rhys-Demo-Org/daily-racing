@@ -10,7 +10,7 @@ import type { Browser, Page } from '@playwright/test';
 import { build } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { assertNoErrors, context, launch, renderStage, serve } from '../../harness/screens/browser.ts';
-import { TRACKS } from '../../src/content/tracks.ts';
+import { TRACK_LOCKS, TRACKS } from '../../src/content/tracks.ts';
 
 /** The card's transform offset (px, x then y) and box-shadow offset once transitions have run. */
 async function pose(page: Page, name: string): Promise<{ dx: number; dy: number; shadow: number }> {
@@ -28,7 +28,8 @@ describe('R4-1 track card pressed state', () => {
   let server: Server | undefined;
   let browser: Browser | undefined;
   let origin = '';
-  const name = TRACKS[TRACKS.length - 1]?.name ?? '';
+  const open = TRACKS.filter((t) => !(t.id in TRACK_LOCKS)); // a locked card never lifts or sinks
+  const name = open[open.length - 1]?.name ?? '';
 
   beforeAll(async () => {
     dist = mkdtempSync(join(tmpdir(), 'track-card-press-'));

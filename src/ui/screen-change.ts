@@ -16,7 +16,7 @@ const SCREEN_CHANGE_MS = tokens.motion.durationMs.wipe + tokens.motion.durationM
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
 
 /** True when the player asked for reduced motion. No matchMedia means motion is allowed. */
-function reducedMotion(): boolean {
+export function reducedMotion(): boolean {
   return typeof matchMedia === 'function' && matchMedia(REDUCED_MOTION).matches;
 }
 

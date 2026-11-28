@@ -1,0 +1,102 @@
+{
+  "pass": true,
+  "reasons": [],
+  "blind": {
+    "scores": {
+      "specMet": 9,
+      "styleMatch": 9,
+      "notBroken": 8,
+      "testsReal": 9,
+      "noSniffing": 10,
+      "scope": 8,
+      "noDuplication": 10
+    },
+    "overall": 8,
+    "verdict": "pass",
+    "failures": [
+      {
+        "axis": "notBroken",
+        "file": "src/ui/title.css",
+        "claim": "At the 96px minimum (844×390 eight-card stage) the selected Bramble Bends card's BEST line is clipped to 'BEST 0:40.3' by the card's overflow:hidden. The plan audit said to leave BEST styling as it is and record the problem in the design request, so no CSS change is wanted. Make sure the owner-facing design request / PR text says plainly that BEST is clipped at 96px.",
+        "evidence": "screenshots/844x390/stage/track-select--many-cards.png: the first card reads 'BEST 0:40.3' with the last digit cut off at the card edge. The fixture cards' 'BEST -:--' are also cut at the row edge, but that's only the peek. journal/runs/2026-11-28/design-request.md is left out of the diff, so I couldn't check it."
+      },
+      {
+        "axis": "scope",
+        "file": "tests/ui/card-row-safe-inset.test.ts",
+        "claim": "Three test files that aren't in the spec's Expected files were added (card-row-safe-inset.test.ts, checked-card-in-row.test.ts and the helper locked-card.ts), plus scrollIntoView calls in start-screen pick()/show(). They look justified (no card peeking into the safe inset; the checked card shown after returning to the menu), but the PR should explain them.",
+        "evidence": "diff.patch adds tests/ui/card-row-safe-inset.test.ts, tests/ui/checked-card-in-row.test.ts and tests/ui/locked-card.ts. src/ui/start-screen.ts gains card.element.scrollIntoView({block:'nearest',inline:'nearest'}) in pick() and show()."
+      }
+    ],
+    "plantedInstructions": [],
+    "summary": "This PR builds B14. The S6 card row now follows UI_RULES §12: cards shrink to a min-width of 2×s7 (96px; ×1.45 on desktop), then the row scrolls with x mandatory snap, a snap point per card, no scrollbar and the next card peeking in. RACE stays outside the row. Negative-margin padding keeps the shadow and focus ring from being clipped. Locked cards shake on click, tap or Enter/Space (Enter/Space call preventDefault and only act on locked cards) with one Web Animation: translateX 0/4/−4/4/0, 250ms, snap easing, from tokens. It has no fill, cancels any running shake, and doesn't run under reduced motion. It reuses screen-change's reducedMotion, now exported. A new eight-card stage uses mirrored fixture tracks. The screenshots match the S6 mockup and the existing four-card layout, which looks unchanged on phone and desktop. The tests drive real Chromium through roles and the Web Animations API, cover every AC including the name-wrap check the audit asked for, and fail on main. All gates are green. Minor points: at 96px the selected card's BEST time is clipped, a known open point that goes to the owner's design request. There are also a few small unlisted extras: two extra tests and scrollIntoView on pick/show."
+  },
+  "check": {
+    "claims": [
+      {
+        "claim": "R2-1: Before the fix, only pick(id, true) (a click or arrow key) scrolled the card into view; select()/show() went through pick(id, false) and didn't scroll, so the checked card could sit outside a row that scrolls.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch start-screen.ts: scrollIntoView is added inside `if (focus && card.id === id)` in pick(), and show() calls `pick(first.id, false)`, so no scroll happens without focus. The original code (shown as context) only focused with preventScroll."
+      },
+      {
+        "claim": "R2-1 fix: after screen.show(), StartScreen.show() now calls cards.find((c) => c.id === selected)?.element.scrollIntoView({ block: 'nearest', inline: 'nearest' }).",
+        "verdict": "confirmed",
+        "evidence": "diff.patch, start-screen.ts hunk @@ -105: that exact line is added after screen.show(), with a comment that it only works once the overlay is visible."
+      },
+      {
+        "claim": "R2-1 fix is a single line in show().",
+        "verdict": "confirmed",
+        "evidence": "show() gains one code line plus a comment. pick() also gets a scrollIntoView, but that belongs to the feature (click/arrow pick), not to the fix."
+      },
+      {
+        "claim": "Added tests/ui/checked-card-in-row.test.ts: game build, 600×360 touch, Hay Loop finished, startRace pine-ridge then showMenu. It asserts the checked card is Pine Ridge, the row scrolls, the page hasn't scrolled (scrollY 0), and the card sits inside the row.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch lines 285-313: context 600×360 touch, localStorage racer.finished.hay-loop, startRace({track:'pine-ridge'}) then showMenu(), followed by expects on id, scrollW>clientW, pageScrollY 0 and the card bounds inside the row."
+      },
+      {
+        "claim": "The new checked-card test failed before the fix (card right 724 > row right 564.5) and passes after.",
+        "verdict": "unconfirmed",
+        "evidence": "The diff contains no pre-fix run output; there's no record of the failing run."
+      },
+      {
+        "claim": "R4-2: .ui-start__cards' right margin is now 0, i.e. margin: calc(var(--space-s3) * -1) 0 calc(var(--space-s3) * -1) calc(var(--space-s3) * -1); the padding is unchanged and the CSS comment is updated.",
+        "verdict": "confirmed",
+        "evidence": "title.css hunk: the margin line matches exactly, padding is var(--space-s3), and the comment says 'on the right it stops at the content edge so no card peeks into the safe inset'."
+      },
+      {
+        "claim": "The row used to have a -12px margin on every side, before the fix.",
+        "verdict": "unconfirmed",
+        "evidence": "The diff is against main, where .ui-start__cards had no margin at all; the -12px on every side was an intermediate branch state that the final diff doesn't show. That fits the claim that the branch introduced it, but the diff can't show it."
+      },
+      {
+        "claim": "New test tests/ui/card-row-safe-inset.test.ts renders track-select--many-cards at 844×390 touch and 1440×900. It checks that no card is visible past RACE's right edge, and on the phone not past 844−48.",
+        "verdict": "confirmed",
+        "evidence": "diff.patch lines 226-245: the sizes array, expect(visibleRight) <= race+0.5, and the 844-48 check when the width is 844."
+      },
+      {
+        "claim": "The safe-inset test failed before the fix (808 on phone; 1420 vs 1408.5 on desktop) and the screenshots show the peek clipping at x≈796.",
+        "verdict": "unconfirmed",
+        "evidence": "No pre-fix output is included; the screenshot measurement wasn't checked here."
+      },
+      {
+        "claim": "pnpm typecheck is clean and pnpm test passes (159 files, 875 tests).",
+        "verdict": "confirmed",
+        "evidence": "gates.md G1: 'typecheck, build ok; 875/875 tests passed'. The file count isn't shown there."
+      },
+      {
+        "claim": "Both fixes were kept and the gates pass with them.",
+        "verdict": "confirmed",
+        "evidence": "Both changes are in the final diff.patch, and gates.md G1 is pass."
+      },
+      {
+        "claim": "5 findings were dropped because the verifier couldn't reproduce them.",
+        "verdict": "unconfirmed",
+        "evidence": "The dropped findings aren't listed, so this can't be checked against the diff."
+      }
+    ],
+    "newRules": [],
+    "plantedInstructions": [],
+    "summary": "review.md reports two verified findings and their fixes. R2-1: the checked card wasn't scrolled into the row when returning to the menu. R4-2: the card row's negative margin let a peeking card reach into the right safe inset. Both fixes are in diff.patch exactly as described: the scrollIntoView line in StartScreen.show(), and the title.css margin with its right side set to 0. The two new tests (checked-card-in-row, card-row-safe-inset) match what the review says they set up and assert. gates.md backs the 875-test count. What I couldn't confirm: the before-fix failure numbers, the intermediate -12px-on-every-side state (main had no margin at all), the screenshot x≈796 measurement and the five dropped findings. No changes to CLAUDE.md or other agent-loaded files, and no planted instructions found in review.md or the inputs."
+  },
+  "scan": [],
+  "newRules": []
+}

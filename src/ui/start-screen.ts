@@ -1,7 +1,8 @@
 // Start screen (S6): a navy title panel (DAILY AI RACER, the triple stripe, the #1 car) beside a
 // dirt ground with SELECT TRACK, one radio card per track (the selected one mustard) and RACE.
 // Cards are radios, not buttons, so RACE is the screen's first, focused button. A locked card can be
-// focused but never selected: clicks, arrows and select() pass over it.
+// focused but never selected: clicks, arrows and select() pass over it, and a click, Enter or Space
+// shakes it. Cards shrink together to 96px; beyond that the row scrolls and RACE stays put (§12).
 import './components.css';
 import './screens.css';
 import './title.css';
@@ -45,7 +46,11 @@ export function createStartScreen(root: HTMLElement, opts: StartScreenOptions): 
     selected = id;
     for (const card of cards) {
       card.setSelected(card.id === id);
-      if (focus && card.id === id) card.element.focus({ preventScroll: true });
+      if (focus && card.id === id) {
+        card.element.focus({ preventScroll: true });
+        // In a row that scrolls, bring the picked card into it without moving the page.
+        card.element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
     }
   }
 
@@ -105,6 +110,8 @@ export function createStartScreen(root: HTMLElement, opts: StartScreenOptions): 
         if (first) pick(first.id, false);
       }
       screen.show();
+      // Only once the overlay is visible can a row that scrolls bring the selected card into it.
+      cards.find((c) => c.id === selected)?.element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     },
     selected: () => selected,
     select(trackId) {

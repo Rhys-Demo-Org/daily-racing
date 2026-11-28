@@ -89,10 +89,22 @@
   min-width: 0;
   padding: var(--space-s5) var(--safe-right) var(--safe-bottom) var(--space-s5);
 }
-/* Four cards share the phone's row: an 8px gap and 8px plate padding keep every name and BEST line whole. */
+/* Four cards share the phone's row: an 8px gap and 8px plate padding keep every name and BEST line whole.
+   §12: cards shrink together down to 96px, then the row scrolls sideways with a snap point per card,
+   no scrollbar, and the next card peeking in. The row reaches 12px past its slot on the left, top and
+   bottom (padding offset by a negative margin) so the scroll box doesn't clip the shadow, the 2px lift
+   or the 8px focus ring; on the right it stops at the content edge so no card peeks into the safe inset. */
 .ui-start__cards {
   display: flex;
+  flex: none;
   gap: var(--space-s2);
+  margin: calc(var(--space-s3) * -1) 0 calc(var(--space-s3) * -1) calc(var(--space-s3) * -1);
+  padding: var(--space-s3);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--space-s3);
+  scrollbar-width: none;
 }
 .ui-start__race {
   align-self: flex-end;
@@ -107,7 +119,8 @@
   display: flex;
   flex: 0 1 calc(var(--space-s7) * 3);
   flex-direction: column;
-  min-width: 0;
+  min-width: calc(var(--space-s7) * 2);
+  scroll-snap-align: start;
   overflow: hidden;
   border: var(--outline-large) solid var(--color-ink);
   border-radius: var(--radius-rect);
@@ -262,6 +275,7 @@
 }
 .ui-start.is-desktop .ui-track-card {
   flex-basis: calc(var(--space-s7) * 3 * var(--desktop-scale));
+  min-width: calc(var(--space-s7) * 2 * var(--desktop-scale));
   border-width: var(--desktop-outline);
 }
 .ui-start.is-desktop .ui-track-card__plate {

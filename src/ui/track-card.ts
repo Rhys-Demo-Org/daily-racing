@@ -1,11 +1,13 @@
 // Track card (S6, board 02 "track card"): a dirt thumbnail with the track's centreline drawn as a
 // cream road on an ink edge, over a cream name plate (mustard when selected) with the stored best.
 // Cards are radios in the start screen's radiogroup, not buttons, so RACE stays the menu's button.
-// A locked card (S6) is dark dirt with a cream name, a padlock roundel over the outline and no best.
+// A locked card (S6) is dark dirt with a cream name, a padlock roundel over the outline and no best;
+// a tap, click, Enter or Space shakes it instead (UI_RULES §12).
 import { tokens } from '@tokens';
 import { h, s } from './dom.ts';
 import { formatOptionalTime } from './format.ts';
 import { icon } from './icons.ts';
+import { reducedMotion } from './screen-change.ts';
 import type { TrackCardView } from './types.ts';
 
 // Drawing area of the thumbnail, from the space scale; the outline keeps one step clear of its edge.
@@ -38,6 +40,11 @@ function outlinePath(outline: readonly [number, number][]): string {
   return `M${outline.map(([x, z]) => `${r1(x * scale + ox)} ${r1(z * scale + oz)}`).join('L')}Z`;
 }
 
+// The locked-card shake (§12): ±space.s1 sideways, three swings ending at rest, in a wipe with snap easing.
+const SWING = `${tokens.space.s1}px`;
+const SHAKE: Keyframe[] = ['0px', SWING, `-${SWING}`, SWING, '0px'].map((x) => ({ transform: `translateX(${x})` }));
+const SHAKE_TIMING: KeyframeAnimationOptions = { duration: tokens.motion.durationMs.wipe, easing: tokens.motion.easing.snap };
+
 let cardIds = 0;
 
 export function createTrackCard(view: TrackCardView, onPick: () => void): TrackCard {
@@ -57,9 +64,20 @@ export function createTrackCard(view: TrackCardView, onPick: () => void): TrackC
     [art, h('div', 'ui-track-card__plate', [h('span', 'ui-track-card__name', [view.name], { id: nameId }), best])],
     { role: 'radio', 'aria-checked': 'false', 'aria-labelledby': nameId, 'aria-describedby': `${nameId}-best`, tabindex: '-1', 'data-track-id': view.id },
   );
-  element.addEventListener('click', onPick);
   let bestMs: number | null = null;
   let locked = false;
+  let shake: Animation | null = null;
+  /** Restarts the shake (one at a time, no fill); reduced motion leaves only the focus ring. */
+  const shakeLocked = (): void => {
+    shake?.cancel();
+    shake = reducedMotion() ? null : element.animate(SHAKE, SHAKE_TIMING);
+  };
+  element.addEventListener('click', () => (locked ? shakeLocked() : onPick()));
+  element.addEventListener('keydown', (e) => {
+    if (!locked || (e.key !== 'Enter' && e.key !== ' ') || e.altKey || e.ctrlKey || e.metaKey) return;
+    e.preventDefault();
+    shakeLocked();
+  });
   const showBest = (): void => {
     best.textContent = `BEST ${formatOptionalTime(locked ? null : bestMs)}`;
   };

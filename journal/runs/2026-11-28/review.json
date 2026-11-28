@@ -1,0 +1,169 @@
+{
+  "reviewers": {
+    "R1": "ok",
+    "R2": "ok",
+    "R3": "ok",
+    "R4": "ok",
+    "R5": "ok"
+  },
+  "findings": [
+    {
+      "id": "R2-1",
+      "reviewer": "R2",
+      "severity": "major",
+      "file": "src/ui/start-screen.ts",
+      "line": 49,
+      "claim": "The row only scrolls a card into view when a click or arrow key picks it (pick(id, true)). select() and show(), which game.showMenu() uses to restore the selection on every return to the menu, go through pick(id, false) and never scroll. In a row that scrolls, the checked (mustard) card can then sit outside the row's visible area, and RACE still starts it.",
+      "evidence": "start-screen.ts:49-53 holds the only scrollIntoView call in src/, inside `if (focus && card.id === id)`. select() (115-119) ends in `pick(trackId, false)`; show() (105-113) only refresh()es, hands a re-locked selection to `pick(first.id, false)` and runs screen.show(). game.ts:314-315 runs `startScreen.select(menuTrack.id); startScreen.show();` on every return to the menu (QUIT TO MENU, results), and menuTrack follows NEXT RACE (game.ts:121).\nRepro with the four registered tracks: set localStorage racer.finished.hay-loop=1 (Pine Ridge unlocked), use a 600×360 touch viewport (under 720px wide, the four 96px cards need 4×96+3×8 = 408px, more than the row's 2W/3−72 content width, so the row scrolls), then `__racer.startRace({track:'pine-ridge',seed:1}); __racer.showMenu()`. That is the same state as finishing Hay Loop, NEXT RACE, QUIT TO MENU. Result: the Pine Ridge radio has aria-checked=true but row.scrollLeft is 0; the row is 352px wide and the card spans x 324–420 in it, so 28 of its 96px show. In the eight-card stage at 844×390 a checked 7th card would span x 636–732 against a 514px row: fully hidden. Whether the browser keeps or resets scrollLeft while the overlay is hidden, nothing scrolls the checked card back in.\nShould be: after show() the checked card lies inside the row. A happy-dom test can spy on Element.prototype.scrollIntoView, call select('x') then show(): it is never called.",
+      "suggestedFix": "In show(), after screen.show(), scroll the selected card into the row: `cards.find((c) => c.id === selected)?.element.scrollIntoView({ block: 'nearest', inline: 'nearest' });`. It has to come after screen.show(), because scrollIntoView does nothing on the hidden overlay, which is why select() (called before show()) can't do it."
+    },
+    {
+      "id": "R3-1",
+      "reviewer": "R3",
+      "severity": "minor",
+      "file": "tests/ui/locked-card-shake.test.ts",
+      "line": 311,
+      "claim": "All three new browser test files paste the same build-serve-launch beforeAll/afterAll block (about 18 lines each). The existing export `setup()` in tests/ui/hud-motion.ts already does exactly this and is used by eight hud-motion-*.test.ts files.",
+      "evidence": "locked-card-shake.test.ts:312-328, locked-card-rest.test.ts:211-227 and track-select-many-cards.test.ts:557-573 each declare `let dist/server/browser/origin`, then `beforeAll(async () => { dist = mkdtempSync(join(tmpdir(), '…-')); await build({ configFile: 'harness/screens/vite.config.ts', logLevel: 'silent', build: { outDir: dist, emptyOutDir: true } }); ({ origin, server } = await serve(dist)); browser = await launch(); }, 120_000); afterAll(async () => { await browser?.close(); server?.close(); rmSync(dist, …) });`. The same body is in tests/ui/hud-motion.ts:42-65 `export function setup(): { browser(): Browser; origin(): string }`, used as `const env = setup();` in tests/ui/hud-motion-entry.test.ts:7, hud-motion-events.test.ts:7 and others. The only difference is the tmpdir prefix, which is cosmetic. The clone report missed it because that one prefix line breaks the 6-line identical run.",
+      "suggestedFix": "In the three new files (all new on this branch, so they can still be edited), replace the let-declarations and the beforeAll/afterAll blocks with `const env = setup();` imported from './hud-motion.ts'. Use `env.browser()` and `env.origin()` in the tests. This also drops the `if (!browser) throw` guards and the fs/os/path/vite/Server imports."
+    },
+    {
+      "id": "R4-1",
+      "reviewer": "R4",
+      "severity": "minor",
+      "file": "src/ui/title.css",
+      "line": 192,
+      "claim": "At the new 96px card minimum, the BEST line (white-space: nowrap inside a card with overflow: hidden) is clipped, so a stored time loses its last digit. In 'track-select--many-cards' at 844×390 the selected Bramble Bends card reads 'BEST 0:40.3' instead of 'BEST 0:40.37'. That breaks the m:ss.cc time format (UI_RULES §4) for anyone with five or more tracks.",
+      "evidence": "Screenshot /inputs/screenshots/844x390/stage/track-select--many-cards.png: the first card's plate shows 'BEST 0:40.3' cut off at the card's right border. The 1440×900 screenshot of the same stage and the 844×390 start--menu screenshot (cards about 113px wide) both show 'BEST 0:40.37' in full. CSS: `.ui-track-card__best { font-variant-numeric: var(--font-numeric); white-space: nowrap; }` inside `.ui-track-card { ... min-width: calc(var(--space-s7) * 2); ... overflow: hidden; }`. The stage sets a stored best of 40370 ms for TRACKS[0], so it reproduces whenever the stage renders. AC1's test checks only that names aren't clipped, not BEST. The plan audit told the builder to leave BEST styling unchanged and record any overflow in journal/runs/2026-11-28/design-request.md. The journal isn't in this review tree, so I couldn't confirm it was recorded.",
+      "suggestedFix": "Per the plan audit, don't invent a new rule. Make sure journal/runs/2026-11-28/design-request.md records that 'BEST 0:40.37' is clipped to 'BEST 0:40.3' at 96px (with this screenshot), so the owner decides between wrapping, a smaller size or a wider minimum. Mention it in the PR as a known open point."
+    },
+    {
+      "id": "R4-2",
+      "reviewer": "R4",
+      "severity": "minor",
+      "file": "src/ui/title.css",
+      "line": 100,
+      "claim": "The card row's negative margin (-12px on every side) pushes the scroll container's clip edge 12px into the right safe-area inset. The peeking card is drawn up to 36px from the screen edge, inside the 48px / env(safe-area-inset-right) inset that UI_RULES §5 keeps clear. On a notched phone, part of the peeking card can sit under the notch.",
+      "evidence": "title.css: `.ui-start__select { padding: var(--space-s5) var(--safe-right) ... }` and `.ui-start__cards { margin: calc(var(--space-s3) * -1); padding: var(--space-s3); overflow-x: auto; ... }`. The row's border box, and so its clip, runs from x = 844 − 48 + 12 = 808. Screenshot /inputs/screenshots/844x390/stage/track-select--many-cards.png: RACE's right edge (the content edge) is at about x=796, but the peeking QUARRY RUN card is cut at about x=808, past RACE's edge into the inset. At 1440×900 the peeking MILL LANE card is cut at about x=1420, 20px from the edge, inside the 32px desktop margin. The S6 mockup keeps all cards inside the content edge, aligned with RACE.",
+      "suggestedFix": "Keep the clip at the content edge on the right. Use `margin: calc(var(--space-s3) * -1) 0 calc(var(--space-s3) * -1) calc(var(--space-s3) * -1)` (no right margin) or the logical-property equivalent, so the row stops at the safe inset while still giving the shadow, lift and focus ring room on the other sides. The last card's shadow and focus ring stay visible at scroll end because the padding is unchanged."
+    },
+    {
+      "id": "R5-1",
+      "reviewer": "R5",
+      "severity": "major",
+      "file": "src/ui/start-screen.ts",
+      "line": 52,
+      "claim": "The new `scrollIntoView` in `pick()` has no test. It is the only thing that brings an arrow-selected card into view once the row scrolls, and it is supposed to do that without moving the page. Deleting the line, or swapping `block: 'nearest'` for `block: 'start'`, leaves every test passing.",
+      "evidence": "Added at start-screen.ts:52: `card.element.scrollIntoView({ block: 'nearest', inline: 'nearest' });`. No test in tests/ calls scrollIntoView or presses an arrow key in 'track-select--many-cards'. The only tests with ArrowRight are pine-ridge-lock.test.ts, track-select.test.ts and track-select-modifier-keys.test.ts, all four-card setups where nothing scrolls. AC2 sets `row.scrollLeft` directly and never selects a card. Mutation: delete line 52. In the eight-card stage at 844×390, focus Dust Bowl and press ArrowLeft, which wraps to the last fixture card (index 7, off-screen right). The focused, checked card stays outside the row's visible box, and every test still passes.",
+      "suggestedFix": "Add a test in a new file that renders 'track-select--many-cards' at 844×390 (touch) and focuses the checked radio. Press ArrowLeft so the selection wraps to the last card. Assert the new aria-checked radio's box lies within the radiogroup's box (reuse `within` and `rowState` from track-select-many-cards.test.ts), `window.scrollY` is unchanged, and `documentElement.scrollWidth` ≤ 844."
+    },
+    {
+      "id": "R5-2",
+      "reviewer": "R5",
+      "severity": "major",
+      "file": "src/ui/track-card.ts",
+      "line": 76,
+      "claim": "Nothing tests that unlocked cards behave as before, meaning no shake and no swallowed Enter/Space. Dropping the `!locked ||` guard makes Enter/Space shake an unlocked card and call preventDefault on it, and the tests stay green. Making click shake every card survives too.",
+      "evidence": "track-card.ts:75-79: `element.addEventListener('click', () => (locked ? shakeLocked() : onPick()));` and `if (!locked || (e.key !== 'Enter' && e.key !== ' ') || ...) return; e.preventDefault(); shakeLocked();`. Every new test targets only the locked radio: `pine(page)` in locked-card-shake.test.ts and `[aria-disabled=\"true\"]` in locked-card-rest.test.ts. AC7 only hovers Dust Bowl and never clicks it or presses a key on it. Mutation A: change line 76 to `if ((e.key !== 'Enter' && e.key !== ' ') || e.altKey || ...) return;`. Focus Dust Bowl in 'start--menu' and press Enter: `getAnimations().length` is 1 (a shake). No test fails. Mutation B: change line 75 to `() => { shakeLocked(); if (!locked) onPick(); }`. Clicking Dust Bowl now shakes it, and no test fails. The plan audit requires 'Handle Enter/Space only for locked cards. Unlocked cards and arrow keys behave as before.'",
+      "suggestedFix": "In a new test, in 'start--menu' at 1440×900, click an unlocked radio (Dust Bowl). Focus it and press Enter, then Space. After each, assert `el.getAnimations().filter(a => !(a instanceof CSSTransition)).length === 0`. For the keys, also assert the keydown was not default-prevented: dispatch a cancelable KeyboardEvent and check that `dispatchEvent` returns true."
+    },
+    {
+      "id": "R5-3",
+      "reviewer": "R5",
+      "severity": "minor",
+      "file": "src/ui/track-card.ts",
+      "line": 78,
+      "claim": "The spec says Enter/Space on a locked card calls preventDefault, but no test checks that. AC4 compares scrollY and scrollLeft, and neither moves on this layout whether or not the default is prevented, so deleting `e.preventDefault()` survives.",
+      "evidence": "track-card.ts:78: `e.preventDefault();`. AC4 (locked-card-shake.test.ts) compares `[window.scrollY, radiogroup.scrollLeft]` before and after Enter/Space. The 'start--menu' page fits 844×390 and doesn't scroll vertically. The row has `overflow-y: hidden`, and Space's default action scrolls vertically, so the tuple stays the same with or without preventDefault. Mutation: delete line 78. All of AC4 still passes: the shake comes from the handler, focus stays, and the scroll tuple is unchanged.",
+      "suggestedFix": "Add a test that focuses Pine Ridge and dispatches `new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })`, then the same with key 'Enter'. Assert `dispatchEvent` returns false (defaultPrevented), and that a plain ArrowRight on an unlocked card still moves the selection."
+    }
+  ],
+  "rulings": [
+    {
+      "id": "R2-1",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R2-1.test.ts",
+      "trace": "Ran `pnpm vitest run --config vitest.config.ts tests/verify/R2-1.test.ts`. Game page (harness build) at 600×360 touch, localStorage racer.finished.hay-loop=1, __racer.startRace({track:'pine-ridge',seed:1}); __racer.showMenu(). Measured: {id:'pine-ridge', scrollW:432, clientW:260, scrollLeft:0, row:[304,564], card:[628,724]}. Assertion card.right (724) <= row.right+0.5 (564.5) fails. Cause: game.ts showMenu calls startScreen.select(menuTrack.id) then show(); select() calls pick(id,false) (start-screen.ts:118) and show() never scrolls (105-113); the only scrollIntoView is under `if (focus && ...)` at start-screen.ts:49-52.",
+      "reason": "On a sideways phone under 720px wide, the four-card row scrolls. After returning to the menu the checked card sits fully outside the row's visible area, and RACE still starts it."
+    },
+    {
+      "id": "R3-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "grep for `configFile: 'harness/screens/vite.config.ts'` in tests/: 15 files paste the same build/serve/launch beforeAll/afterAll inline (best-lap-e2e, results-fit-phone, keycap-legend-*, desktop-hud*, track-select-fit-phone, track-card-press, countdown-clear-browser, ...). hud-motion.ts setup() is documented as plumbing for the B09 HUD motion tests.",
+      "reason": "The new files follow the repo's dominant convention for browser tests. This is test-code style, not a defect."
+    },
+    {
+      "id": "R4-1",
+      "status": "dropped",
+      "method": "none",
+      "testFile": null,
+      "trace": "Viewed /inputs/screenshots/844x390/stage/track-select--many-cards.png: the Bramble Bends plate reads 'BEST 0:40.3' (clipped). title.css .ui-track-card__best nowrap, card overflow hidden. Plan audit: 'keep the existing BEST styling unchanged ... record that in the design request'. journal/runs/2026-11-28/ is empty in this tree (journal excluded), so I can't check it.",
+      "reason": "The clipping is the behaviour the plan audit requires (no new BEST rule), and the spec already flags it for the owner. The only proposed fix is a journal note that I can't check from this tree, so there is no code defect to fix."
+    },
+    {
+      "id": "R4-2",
+      "status": "verified",
+      "method": "test",
+      "testFile": "tests/verify/R4-2.test.ts",
+      "trace": "Ran `pnpm vitest run --config vitest.config.ts tests/verify/R4-2.test.ts`. 'track-select--many-cards' at 844×390 touch: radiogroup clip right = 808, RACE right = 796, rightmost visible card pixel = min(card.right, clip) = 808. Assertion <= 844-48+0.5 = 796.5 fails (808). Cause: title.css:100 `.ui-start__cards { margin: calc(var(--space-s3) * -1) }` (added on this branch) pushes the scroll box 12px past .ui-start__select's right padding var(--safe-right) = max(48px, env(safe-area-inset-right)) (title.css:90).",
+      "reason": "The peeking card is painted 12px into the right safe-area inset that UI_RULES §5 keeps clear (max(48px, env)), past RACE's right edge. The branch introduced this."
+    },
+    {
+      "id": "R5-1",
+      "status": "dropped",
+      "method": "test",
+      "testFile": null,
+      "trace": "Throwaway Chromium probe (deleted): 'track-select--many-cards' at 844×390, focus the checked radio, press ArrowLeft. The new checked card (last) lies within the radiogroup box, window.scrollY is unchanged, and documentElement.scrollWidth <= 844. Probe passed.",
+      "reason": "Coverage-only finding. The behaviour is correct on this branch, so no test fails because of a problem."
+    },
+    {
+      "id": "R5-2",
+      "status": "dropped",
+      "method": "test",
+      "testFile": null,
+      "trace": "Throwaway Chromium probe (deleted): 'start--menu' at 1440×900, click Dust Bowl, giving 0 non-transition animations. Dispatch a cancelable Enter keydown, then Space: dispatchEvent returned true (not prevented) and 0 animations each time. Probe passed.",
+      "reason": "Coverage-only finding. Unlocked cards behave correctly (no shake, no preventDefault)."
+    },
+    {
+      "id": "R5-3",
+      "status": "dropped",
+      "method": "test",
+      "testFile": null,
+      "trace": "Same probe: a cancelable Enter and a Space keydown dispatched on the locked Pine Ridge radio both returned false from dispatchEvent (defaultPrevented). Probe passed.",
+      "reason": "Coverage-only finding. preventDefault on locked Enter/Space works as the spec requires."
+    }
+  ],
+  "fixes": [
+    {
+      "id": "R2-1",
+      "status": "fixed",
+      "summary": "The bug was real. Before this change, the checked card was only scrolled into the row when a click or arrow key picked it (pick(id, true)). game.showMenu() calls select(id) and then show(), which both went through pick(id, false), and neither scrolled. So in a row that scrolls, the checked (mustard) card could end up outside the visible part of the row. Fix: one line in StartScreen.show() in src/ui/start-screen.ts. After screen.show(), it now calls `cards.find((c) => c.id === selected)?.element.scrollIntoView({ block: 'nearest', inline: 'nearest' })`. It has to run after the overlay is visible because scrolling does nothing while the overlay is hidden. With 'nearest' it does nothing when the card is already in view, and it doesn't scroll the page (the test checks scrollY stays 0). I added the verifier's repro as tests/ui/checked-card-in-row.test.ts: game build, 600×360 touch, Hay Loop finished, startRace pine-ridge then showMenu. It asserts the checked card is Pine Ridge, the row scrolls, the page hasn't scrolled, and the card sits inside the row. It failed before the fix (card right edge 724 > row right edge 564.5) and passes after. pnpm typecheck is clean and pnpm test passes (158 files, 873 tests). I didn't take screenshots: this changes scroll position, not how anything looks, and the tests check it.",
+      "tests": [
+        "tests/ui/checked-card-in-row.test.ts"
+      ],
+      "commit": "d8729f128969ea4c425a6abe9c1c833c796aa77f",
+      "kept": true
+    },
+    {
+      "id": "R4-2",
+      "status": "fixed",
+      "summary": "src/ui/title.css: `.ui-start__cards` used to have a -12px margin on every side. Its right margin is now 0 (`margin: calc(var(--space-s3) * -1) 0 calc(var(--space-s3) * -1) calc(var(--space-s3) * -1)`), so the scroll box's clip edge stops at the content edge, in line with RACE, and no longer reaches into the right safe inset (§5: max(48px, env)). The padding is unchanged, so the last card's shadow and focus ring still have room at the end of the scroll. The left, top and bottom still extend 12px for the shadow, the lift and the focus ring. I updated the CSS comment to match. New test tests/ui/card-row-safe-inset.test.ts renders 'track-select--many-cards' in Chromium at 844×390 (touch) and 1440×900. It checks that no card is visible past RACE's right edge, and on the phone not past 844−48. Before the fix it failed at both sizes (808 on the phone, 1420 vs 1408.5 on desktop). After the fix it passes. pnpm typecheck passes and pnpm test passes (159 files, 875 tests). In the screenshots the eight-card peek now clips at x≈796, aligned with RACE, and the four-card start--menu still fits with shadows visible.",
+      "tests": [
+        "tests/ui/card-row-safe-inset.test.ts"
+      ],
+      "commit": "0881a470ca1649e0a1a7b2170ee420cc3225dbd7",
+      "kept": true
+    }
+  ],
+  "notes": [],
+  "checked": {
+    "R1": 9,
+    "R2": 12,
+    "R3": 10,
+    "R4": 9,
+    "R5": 8
+  }
+}

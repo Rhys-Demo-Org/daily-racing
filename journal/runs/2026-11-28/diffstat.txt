@@ -1,0 +1,11 @@
+1	1	src/ui/screen-change.ts
+37	0	src/ui/stages/track-select.stage.ts
+9	2	src/ui/start-screen.ts
+16	2	src/ui/title.css
+20	2	src/ui/track-card.ts
+51	0	tests/ui/card-row-safe-inset.test.ts
+62	0	tests/ui/checked-card-in-row.test.ts
+75	0	tests/ui/locked-card-rest.test.ts
+156	0	tests/ui/locked-card-shake.test.ts
+78	0	tests/ui/locked-card.ts
+145	0	tests/ui/track-select-many-cards.test.ts
